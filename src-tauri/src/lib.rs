@@ -47,6 +47,8 @@ mod commands {
             model: None,
             format: None,
             autoplay: Some(true),
+            max_chunk_chars: None,
+            max_parallel_requests: None,
         });
 
         let speech = speak_text(SpeakTextOptions {
@@ -55,6 +57,8 @@ mod commands {
             model: base_speak.model,
             format: base_speak.format,
             autoplay: base_speak.autoplay,
+            max_chunk_chars: base_speak.max_chunk_chars,
+            max_parallel_requests: base_speak.max_parallel_requests,
         })?;
 
         Ok(CaptureAndSpeakResult {

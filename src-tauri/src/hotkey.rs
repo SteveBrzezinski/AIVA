@@ -16,6 +16,8 @@ pub struct HotkeyStatusPayload {
     pub message: String,
     pub last_captured_text: Option<String>,
     pub last_audio_path: Option<String>,
+    pub last_audio_output_directory: Option<String>,
+    pub last_audio_chunk_count: Option<usize>,
 }
 
 #[derive(Default)]
@@ -25,6 +27,8 @@ struct HotkeySnapshot {
     message: String,
     last_captured_text: Option<String>,
     last_audio_path: Option<String>,
+    last_audio_output_directory: Option<String>,
+    last_audio_chunk_count: Option<usize>,
 }
 
 pub struct HotkeyState {
@@ -43,6 +47,8 @@ impl Default for HotkeyState {
                 ),
                 last_captured_text: None,
                 last_audio_path: None,
+                last_audio_output_directory: None,
+                last_audio_chunk_count: None,
             }),
             is_running: AtomicBool::new(false),
         }
@@ -64,6 +70,8 @@ impl HotkeyState {
             message: snapshot.message.clone(),
             last_captured_text: snapshot.last_captured_text.clone(),
             last_audio_path: snapshot.last_audio_path.clone(),
+            last_audio_output_directory: snapshot.last_audio_output_directory.clone(),
+            last_audio_chunk_count: snapshot.last_audio_chunk_count,
         }
     }
 
@@ -190,7 +198,7 @@ mod windows_impl {
         state.update(app, |snapshot| {
             snapshot.state = "working";
             snapshot.message =
-                "Hotkey received. Copying the current selection, generating speech, and playing it back …"
+                "Hotkey received. Copying the current selection and starting the chunked OpenAI TTS pipeline …"
                     .to_string();
         });
 
@@ -207,6 +215,8 @@ mod windows_impl {
                     model: None,
                     format: Some("mp3".to_string()),
                     autoplay: Some(true),
+                    max_chunk_chars: None,
+                    max_parallel_requests: Some(3),
                 }),
             );
 
@@ -214,14 +224,25 @@ mod windows_impl {
             match result {
                 Ok(result) => state.update(&app_handle, |snapshot| {
                     snapshot.state = "success";
-                    snapshot.message = result.note.unwrap_or_else(|| {
-                        format!(
-                            "Hotkey run finished. Captured {} characters and played the generated audio.",
-                            result.captured_text.chars().count()
-                        )
-                    });
+                    let chunk_label = if result.speech.chunk_count == 1 {
+                        "1 audio chunk".to_string()
+                    } else {
+                        format!("{} audio chunks", result.speech.chunk_count)
+                    };
+                    let summary = format!(
+                        "Hotkey run finished. Captured {} characters, generated {}, and started playback as soon as chunk 1 was ready.",
+                        result.captured_text.chars().count(),
+                        chunk_label
+                    );
+                    snapshot.message = match result.note {
+                        Some(note) if !note.trim().is_empty() => format!("{summary} {note}"),
+                        _ => summary,
+                    };
                     snapshot.last_captured_text = Some(result.captured_text);
                     snapshot.last_audio_path = Some(result.speech.file_path);
+                    snapshot.last_audio_output_directory =
+                        Some(result.speech.output_directory);
+                    snapshot.last_audio_chunk_count = Some(result.speech.chunk_count);
                 }),
                 Err(error) => state.update(&app_handle, |snapshot| {
                     snapshot.state = "error";

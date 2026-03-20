@@ -14,8 +14,11 @@ Windows-first MVP desktop app based on:
 - die Tauri-App löst den bestehenden Rust-Capture-and-Speak-Flow aus
 - der markierte Text wird per `Ctrl+C` übernommen
 - der vorherige Text-Clipboard wird nach Möglichkeit wiederhergestellt
-- der Text geht an OpenAI TTS
-- das Audio wird lokal temporär gespeichert und direkt abgespielt
+- der Text geht an eine chunked OpenAI-TTS-Pipeline
+- längere Texte werden satzweise in mehrere Chunks aufgeteilt
+- bis zu 3 TTS-Requests werden parallel vorbereitet
+- die Wiedergabe bleibt in Reihenfolge und startet, sobald der erste Chunk fertig ist
+- das Audio wird lokal temporär als Chunk-Dateien gespeichert und direkt abgespielt
 
 Der alte Button bleibt nur als **lokaler Test-Trigger** in der App, falls du den Flow aus dem Fenster selbst prüfen willst.
 
@@ -62,14 +65,16 @@ npm run tauri:build
 1. App starten und im Hintergrund offen lassen.
 2. In einer anderen Windows-App Text markieren.
 3. **Ctrl+Shift+Space** drücken.
-4. Die App kopiert den markierten Text, erzeugt Sprache und spielt sie direkt ab.
+4. Die App kopiert den markierten Text, teilt längere Passagen satzweise auf, erzeugt die Audio-Chunks per OpenAI und startet die Wiedergabe ab dem ersten fertigen Chunk.
 5. Optional: Im App-Fenster auf **Optional: local button test** klicken, wenn du lokal testen willst.
 
 ## Wichtige MVP-Grenzen
 
 - Windows-first: der globale Hotkey ist nur für die Windows-Tauri-App implementiert
 - die Auswahlübernahme hängt davon ab, dass die Ziel-App `Ctrl+C` normal akzeptiert
-- Audioausgabe nutzt den vorhandenen Rust/OpenAI-TTS-Weg und deine lokale `.env`
+- Audioausgabe nutzt weiterhin OpenAI TTS und deine lokale `.env`; Translation und Offline-/Local-TTS sind noch nicht eingebaut
+- längere Texte landen aktuell in mehreren temporären Audio-Dateien innerhalb eines Chunk-Ordners
+- zwischen einzelnen Chunks kann es durch das aktuelle Datei-für-Datei-Playback noch kleine Übergangslücken geben
 - der Hotkey ist fest eingebaut; es gibt noch keine UI zum Umbelegen
 - während ein Lauf aktiv ist, werden zusätzliche Hotkey-Presses ignoriert
 

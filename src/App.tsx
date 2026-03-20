@@ -21,9 +21,13 @@ export default function App() {
   const [appStatus, setAppStatus] = useState('Lade Status …');
   const [hotkeyStatus, setHotkeyStatus] = useState<HotkeyStatus>(fallbackHotkeyStatus);
   const [uiState, setUiState] = useState<UiState>('idle');
-  const [message, setMessage] = useState('Bereit. Für den echten Flow bleibt der Fokus in deiner Windows-App.');
+  const [message, setMessage] = useState(
+    'Bereit. Längere Texte werden satzweise gechunked; die Wiedergabe startet mit dem ersten fertigen Audio-Chunk.',
+  );
   const [capturedPreview, setCapturedPreview] = useState('');
   const [lastAudioPath, setLastAudioPath] = useState('');
+  const [lastAudioOutputDirectory, setLastAudioOutputDirectory] = useState('');
+  const [lastAudioChunkCount, setLastAudioChunkCount] = useState(0);
 
   useEffect(() => {
     void getAppStatus()
@@ -39,6 +43,8 @@ export default function App() {
         setMessage(status.message);
         setCapturedPreview(status.lastCapturedText ?? '');
         setLastAudioPath(status.lastAudioPath ?? '');
+        setLastAudioOutputDirectory(status.lastAudioOutputDirectory ?? '');
+        setLastAudioChunkCount(status.lastAudioChunkCount ?? 0);
       })
       .catch((error: unknown) => {
         const text = error instanceof Error ? error.message : String(error);
@@ -55,6 +61,8 @@ export default function App() {
       setMessage(status.message);
       setCapturedPreview(status.lastCapturedText ?? '');
       setLastAudioPath(status.lastAudioPath ?? '');
+      setLastAudioOutputDirectory(status.lastAudioOutputDirectory ?? '');
+      setLastAudioChunkCount(status.lastAudioChunkCount ?? 0);
 
       if (status.state === 'working') {
         setUiState('working');
@@ -81,7 +89,7 @@ export default function App() {
       { label: 'Desktop shell', value: 'Tauri + React + Vite bereit' },
       { label: 'Global hotkey', value: `${hotkeyStatus.accelerator} · ${hotkeyStatus.registered ? 'aktiv' : 'nicht aktiv'}` },
       { label: 'Selection capture', value: 'Windows Clipboard MVP aktiv' },
-      { label: 'Speech output', value: 'OpenAI TTS + direkte Wiedergabe' },
+      { label: 'Speech output', value: 'OpenAI TTS + satzweises Chunking + direkte Wiedergabe' },
       { label: 'Current status', value: appStatus },
     ],
     [appStatus, hotkeyStatus.accelerator, hotkeyStatus.registered],
@@ -100,7 +108,7 @@ export default function App() {
       'Voice Overlay Assistant im Hintergrund geöffnet lassen.',
       'Text in einer beliebigen Windows-App markieren.',
       `Direkt dort ${hotkeyStatus.accelerator} drücken – Fokus bleibt in der anderen App.`,
-      'Die App sendet Ctrl+C im Hintergrund, liest den markierten Text, erzeugt Audio und spielt es sofort ab.',
+      'Die App sendet Ctrl+C im Hintergrund, teilt längere Texte satzweise auf und startet die Wiedergabe, sobald der erste Chunk bereit ist.',
     ];
   }, [hotkeyStatus.accelerator, hotkeyStatus.platform]);
 
@@ -117,6 +125,7 @@ export default function App() {
         {
           autoplay: true,
           format: 'mp3',
+          maxParallelRequests: 3,
           voice: 'alloy',
         },
       );
@@ -124,10 +133,9 @@ export default function App() {
       setUiState('success');
       setCapturedPreview(result.capturedText);
       setLastAudioPath(result.speech.filePath);
-      setMessage(
-        result.note ??
-          `Lokaler Test erfolgreich. ${result.capturedText.length} Zeichen wurden übernommen und abgespielt.`,
-      );
+      setLastAudioOutputDirectory(result.speech.outputDirectory);
+      setLastAudioChunkCount(result.speech.chunkCount);
+      setMessage(buildSuccessMessage(result.capturedText.length, result.speech.chunkCount, result.note));
     } catch (error: unknown) {
       const text = error instanceof Error ? error.message : String(error);
       setUiState('error');
@@ -150,7 +158,8 @@ export default function App() {
         <h1>Voice Overlay Assistant</h1>
         <p className="hero-copy">
           Windows-first MVP: Text in einer anderen App markieren, <strong>{hotkeyStatus.accelerator}</strong>{' '}
-          drücken und den bestehenden Capture-and-Speak-Flow ohne Fokuswechsel auslösen.
+          drücken und den bestehenden Capture-and-Speak-Flow ohne Fokuswechsel auslösen. Lange Texte
+          werden dabei satzweise gechunked und ab dem ersten fertigen Chunk abgespielt.
         </p>
 
         <div className="actions">
@@ -162,7 +171,9 @@ export default function App() {
           >
             {uiState === 'working' ? 'Working …' : 'Optional: local button test'}
           </button>
-          <span className="button-note">Windows-only MVP · nutzt deine vorhandene .env · Hotkey ist der primäre Flow</span>
+          <span className="button-note">
+            Windows-only MVP · nutzt deine vorhandene .env · Hotkey ist der primäre Flow
+          </span>
         </div>
       </section>
 
@@ -188,10 +199,10 @@ export default function App() {
           </div>
         ) : null}
 
-        {lastAudioPath ? (
+        {getAudioOutputValue(lastAudioPath, lastAudioOutputDirectory, lastAudioChunkCount) ? (
           <div className="result-block">
-            <span className="info-label">Audio-Datei</span>
-            <code>{lastAudioPath}</code>
+            <span className="info-label">{getAudioOutputLabel(lastAudioChunkCount)}</span>
+            <code>{getAudioOutputValue(lastAudioPath, lastAudioOutputDirectory, lastAudioChunkCount)}</code>
           </div>
         ) : null}
       </section>
@@ -209,3 +220,17 @@ export default function App() {
 }
 
 type UnlistenCleanup = () => void;
+
+function buildSuccessMessage(characterCount: number, chunkCount: number, note?: string | null): string {
+  const chunkLabel = chunkCount === 1 ? '1 Audio-Chunk' : `${chunkCount} Audio-Chunks`;
+  const summary = `Lokaler Test erfolgreich. ${characterCount} Zeichen wurden übernommen, in ${chunkLabel} aufgeteilt und ab dem ersten fertigen Chunk abgespielt.`;
+  return note ? `${summary} ${note}` : summary;
+}
+
+function getAudioOutputLabel(chunkCount: number): string {
+  return chunkCount > 1 ? 'Audio-Ausgabe (Chunk-Ordner)' : 'Audio-Datei';
+}
+
+function getAudioOutputValue(filePath: string, outputDirectory: string, chunkCount: number): string {
+  return chunkCount > 1 ? outputDirectory || filePath : filePath;
+}

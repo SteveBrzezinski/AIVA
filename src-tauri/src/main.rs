@@ -4,7 +4,7 @@ use voice_overlay_assistant::hotkey;
 
 #[tauri::command]
 fn app_status() -> &'static str {
-    "Voice Overlay Assistant MVP is ready: the Windows global hotkey can capture selected text, generate speech, and play it back."
+    "Voice Overlay Assistant MVP is ready: the Windows global hotkey can capture selected text, generate chunked OpenAI speech, and start playback from the first ready chunk."
 }
 
 fn main() {

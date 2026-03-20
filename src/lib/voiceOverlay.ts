@@ -9,6 +9,8 @@ export type CaptureOptions = {
 export type SpeakOptions = {
   autoplay?: boolean;
   format?: 'wav' | 'mp3';
+  maxChunkChars?: number;
+  maxParallelRequests?: number;
   model?: string;
   voice?: string;
 };
@@ -20,9 +22,11 @@ export type CaptureAndSpeakResult = {
   speech: {
     autoplay: boolean;
     bytesWritten: number;
+    chunkCount: number;
     filePath: string;
     format: string;
     model: string;
+    outputDirectory: string;
     voice: string;
   };
 };
@@ -35,6 +39,8 @@ export type HotkeyStatus = {
   message: string;
   lastCapturedText?: string | null;
   lastAudioPath?: string | null;
+  lastAudioOutputDirectory?: string | null;
+  lastAudioChunkCount?: number | null;
 };
 
 const HOTKEY_STATUS_EVENT = 'hotkey-status';
@@ -65,6 +71,8 @@ export async function captureAndSpeak(
     speakOptions: {
       autoplay: speakOptions.autoplay ?? true,
       format: speakOptions.format ?? 'mp3',
+      maxChunkChars: speakOptions.maxChunkChars,
+      maxParallelRequests: speakOptions.maxParallelRequests,
       model: speakOptions.model,
       voice: speakOptions.voice ?? 'alloy',
     },
