@@ -1,48 +1,64 @@
-# Voice Overlay Assistant – V1 MVP
+# Voice Overlay Assistant – MVP+
 
-Windows-first MVP desktop app based on:
-- Tauri 2
-- React
-- Vite
-- TypeScript
+Windows-first Tauri app for two selection-based flows:
+- **Ctrl+Shift+Space** → capture marked text and speak it
+- **Ctrl+Shift+T** → capture marked text and translate it
 
-## Was V1 jetzt kann
+## Was jetzt drin ist
 
-- du markierst Text in einer beliebigen Windows-App
-- **du bleibst dort im Fokus**
-- du drückst den globalen Hotkey **Ctrl+Shift+Space**
-- die Tauri-App löst den bestehenden Rust-Capture-and-Speak-Flow aus
-- der markierte Text wird per `Ctrl+C` übernommen
-- der vorherige Text-Clipboard wird nach Möglichkeit wiederhergestellt
-- der Text geht an OpenAI TTS
-- das Audio wird lokal temporär gespeichert und direkt abgespielt
+- globaler Speak-Hotkey: `Ctrl+Shift+Space`
+- globaler Translate-Hotkey: `Ctrl+Shift+T`
+- Selection Capture per Hintergrund-`Ctrl+C`
+- Clipboard-Restore nach Möglichkeit
+- OpenAI TTS mit satzweisem Chunking
+- Standard-Audioformat jetzt **WAV**
+- konfigurierbarer **Startpuffer nur für den ersten Chunk** (Default: `180 ms`), damit der Audio-Start weniger abgeschnitten wirkt
+- Translation-MVP mit UI-Output und konfigurierbarer Zielsprache
+- Settings in der UI für:
+  - Audioformat (`WAV` / `MP3`)
+  - erster Chunk Startpuffer
+  - Zielsprache für Übersetzung
 
-Der alte Button bleibt nur als **lokaler Test-Trigger** in der App, falls du den Flow aus dem Fenster selbst prüfen willst.
+## Bedienung
 
-## Hotkey
+1. App starten und im Hintergrund offen lassen.
+2. In einer anderen Windows-App Text markieren.
+3. Einen Hotkey drücken:
+   - `Ctrl+Shift+Space` → Vorlesen
+   - `Ctrl+Shift+T` → Übersetzen
+4. Translation-Ergebnisse erscheinen aktuell in der UI. Das ist absichtlich die MVP-Basis für späteres Vorlesen, Einfügen oder Copy-Back.
 
-**Default hotkey:** `Ctrl+Shift+Space`
+## Audio / WAV-Änderung
 
-Warum dieser Shortcut:
-- auf Windows leicht merkbar
-- nicht so kollisionsfreudig wie einfache Einzelkombinationen
-- für den MVP gut genug, ohne gleich ein Einstellungs-UI zu bauen
+Der Default wurde auf **WAV** umgestellt, weil das besser zum aktuellen Windows-Playback-Pfad passt:
+- WAV kann direkt über `System.Media.SoundPlayer` abgespielt werden
+- für den ersten Chunk wird bei WAV optional kurze Anfangsstille eingefügt
+- MP3 bleibt als Fallback/Option in den Settings erhalten
 
-Wenn der Hotkey nicht registriert werden kann, zeigt die UI das an. Dann nutzt wahrscheinlich schon eine andere App genau diese Kombination.
+Praktische Einschätzung:
+- Für den aktuellen OS-Playback-MVP ist WAV hier sinnvoller als MP3.
+- Falls später weiter an Latenz und nahtlosen Übergängen gearbeitet wird, ist ein **eingebetteter eigener Player** wahrscheinlich langfristig robuster als Datei-für-Datei-Playback über OS-Skripte.
 
-## Voraussetzungen
+## Translation-MVP
 
-- Windows
-- Node.js / npm
-- Rust toolchain
-- Tauri 2 prerequisites
-- `OPENAI_API_KEY` in `.env`
+Aktuell bewusst schlicht:
+- markierten Text capturen
+- an OpenAI zur Übersetzung schicken
+- Ergebnis in der App anzeigen
 
-Beispiel:
+Das ist architektonisch schon so angelegt, dass später leicht erweitert werden kann auf:
+- Übersetzung direkt vorlesen
+- Übersetzung automatisch einfügen
+- Copy-to-clipboard / paste-back Flow
 
-```env
-OPENAI_API_KEY=your_key_here
-```
+## Realtime / Streaming-Einschätzung
+
+**OpenAI streaming / realtime** kann später ein sinnvoller Beschleunigungspfad sein, vor allem wenn:
+- kleinere Zwischenresultate früher in der UI erscheinen sollen
+- TTS noch schneller starten soll
+- Übersetzung + Vorlesen stärker dialogartig werden
+
+Für dieses MVP war die kleinere und robustere Änderung sinnvoller: bestehende request/response-Pipeline behalten, aber Startverhalten und Hotkeys verbessern.
 
 ## Entwicklung
 
@@ -51,31 +67,11 @@ npm install
 npm run tauri:dev
 ```
 
-## Build
+## Checks
 
 ```bash
-npm run tauri:build
+npm run build
+npm run tsc -- --noEmit
 ```
 
-## Bedienung
-
-1. App starten und im Hintergrund offen lassen.
-2. In einer anderen Windows-App Text markieren.
-3. **Ctrl+Shift+Space** drücken.
-4. Die App kopiert den markierten Text, erzeugt Sprache und spielt sie direkt ab.
-5. Optional: Im App-Fenster auf **Optional: local button test** klicken, wenn du lokal testen willst.
-
-## Wichtige MVP-Grenzen
-
-- Windows-first: der globale Hotkey ist nur für die Windows-Tauri-App implementiert
-- die Auswahlübernahme hängt davon ab, dass die Ziel-App `Ctrl+C` normal akzeptiert
-- Audioausgabe nutzt den vorhandenen Rust/OpenAI-TTS-Weg und deine lokale `.env`
-- der Hotkey ist fest eingebaut; es gibt noch keine UI zum Umbelegen
-- während ein Lauf aktiv ist, werden zusätzliche Hotkey-Presses ignoriert
-
-## Validierung, die sinnvoll ist
-
-- `npm run build` für Frontend/TypeScript
-- Rust/Tauri Compile-Check auf einem Windows-Setup
-
-In WSL oder auf Nicht-Windows-Systemen lässt sich die echte globale Hotkey-Funktion nicht vollständig praxisnah ausprobieren.
+> Rust/Tauri-Windows-Teile lassen sich am sinnvollsten auf einem echten Windows-Setup validieren.
