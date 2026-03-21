@@ -1,3 +1,4 @@
+use crate::settings::AppSettings;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -14,7 +15,7 @@ use std::{
 
 const DEFAULT_MODEL: &str = "gpt-4o-mini-tts";
 const DEFAULT_VOICE: &str = "alloy";
-const DEFAULT_FORMAT: &str = "mp3";
+const DEFAULT_FORMAT: &str = "wav";
 const DEFAULT_MAX_CHUNK_CHARS: usize = 280;
 const DEFAULT_MAX_PARALLEL_REQUESTS: usize = 3;
 const MAX_PARALLEL_REQUESTS_LIMIT: usize = 4;
@@ -31,6 +32,7 @@ pub struct SpeakTextOptions {
     pub autoplay: Option<bool>,
     pub max_chunk_chars: Option<usize>,
     pub max_parallel_requests: Option<usize>,
+    pub first_chunk_leading_silence_ms: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -62,6 +64,7 @@ struct ResolvedSpeakOptions {
     autoplay: bool,
     max_chunk_chars: usize,
     max_parallel_requests: usize,
+    first_chunk_leading_silence_ms: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -135,6 +138,8 @@ impl SpeechProvider for OpenAiSpeechProvider {
         let bytes = response
             .bytes()
             .map_err(|err| format!("Failed to read audio response: {err}"))?;
+
+        let bytes = maybe_prepend_leading_silence(bytes.to_vec(), options, chunk.index)?;
 
         fs::write(&chunk.file_path, &bytes)
             .map_err(|err| format!("Failed to write audio file: {err}"))?;
@@ -301,6 +306,56 @@ where
 
         Ok(())
     }
+}
+
+
+fn maybe_prepend_leading_silence(
+    bytes: Vec<u8>,
+    options: &ResolvedSpeakOptions,
+    chunk_index: usize,
+) -> Result<Vec<u8>, String> {
+    if chunk_index != 0 || options.first_chunk_leading_silence_ms == 0 || options.format != "wav" {
+        return Ok(bytes);
+    }
+
+    prepend_wav_silence(bytes, options.first_chunk_leading_silence_ms)
+}
+
+fn prepend_wav_silence(bytes: Vec<u8>, silence_ms: u32) -> Result<Vec<u8>, String> {
+    if bytes.len() < 44 || &bytes[0..4] != b"RIFF" || &bytes[8..12] != b"WAVE" {
+        return Err("Expected a PCM WAV file for silence padding, but received an unsupported WAV payload.".to_string());
+    }
+
+    let channels = u16::from_le_bytes([bytes[22], bytes[23]]) as usize;
+    let sample_rate = u32::from_le_bytes([bytes[24], bytes[25], bytes[26], bytes[27]]) as usize;
+    let bits_per_sample = u16::from_le_bytes([bytes[34], bytes[35]]) as usize;
+    let bytes_per_sample = channels * (bits_per_sample / 8);
+
+    if bytes_per_sample == 0 {
+        return Err("Invalid WAV header: zero bytes per sample.".to_string());
+    }
+
+    let silence_bytes = sample_rate
+        .saturating_mul(silence_ms as usize)
+        .saturating_div(1000)
+        .saturating_mul(bytes_per_sample);
+
+    if silence_bytes == 0 {
+        return Ok(bytes);
+    }
+
+    let data_start = 44usize;
+    let original_data_len = bytes.len().saturating_sub(data_start);
+    let mut output = bytes[..data_start].to_vec();
+    output.extend(std::iter::repeat(0u8).take(silence_bytes));
+    output.extend_from_slice(&bytes[data_start..]);
+
+    let new_data_len = (original_data_len + silence_bytes) as u32;
+    let new_riff_len = (output.len() - 8) as u32;
+    output[4..8].copy_from_slice(&new_riff_len.to_le_bytes());
+    output[40..44].copy_from_slice(&new_data_len.to_le_bytes());
+
+    Ok(output)
 }
 
 #[derive(Clone)]
@@ -642,7 +697,7 @@ $player.PlaySync()
     }
 }
 
-pub fn speak_text(options: SpeakTextOptions) -> Result<SpeakTextResult, String> {
+pub fn speak_text(options: SpeakTextOptions, settings: &AppSettings) -> Result<SpeakTextResult, String> {
     load_env_file_if_present();
 
     let text = options.text.unwrap_or_default().trim().to_string();
@@ -656,10 +711,13 @@ pub fn speak_text(options: SpeakTextOptions) -> Result<SpeakTextResult, String> 
     let resolved = ResolvedSpeakOptions {
         voice: options.voice.unwrap_or_else(|| DEFAULT_VOICE.to_string()),
         model: options.model.unwrap_or_else(|| DEFAULT_MODEL.to_string()),
-        format: resolve_format(options.format)?,
+        format: resolve_format(options.format.or_else(|| Some(settings.tts_format.clone())))?,
         autoplay: options.autoplay.unwrap_or(true),
         max_chunk_chars: resolve_max_chunk_chars(options.max_chunk_chars),
         max_parallel_requests: resolve_parallel_requests(options.max_parallel_requests),
+        first_chunk_leading_silence_ms: options
+            .first_chunk_leading_silence_ms
+            .unwrap_or(settings.first_chunk_leading_silence_ms),
     };
 
     let provider = OpenAiSpeechProvider::new(api_key);

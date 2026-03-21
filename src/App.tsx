@@ -1,10 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   captureAndSpeak,
+  captureAndTranslate,
   getAppStatus,
   getHotkeyStatus,
+  getLanguageOptions,
+  getSettings,
   onHotkeyStatus,
+  updateSettings,
+  type AppSettings,
   type HotkeyStatus,
+  type LanguageOption,
 } from './lib/voiceOverlay';
 
 type UiState = 'idle' | 'working' | 'success' | 'error';
@@ -12,130 +18,103 @@ type UiState = 'idle' | 'working' | 'success' | 'error';
 const fallbackHotkeyStatus: HotkeyStatus = {
   registered: false,
   accelerator: 'Ctrl+Shift+Space',
+  translateAccelerator: 'Ctrl+Shift+T',
   platform: 'unsupported',
   state: 'registering',
-  message: 'Prüfe globalen Hotkey-Status …',
+  message: 'Prüfe globale Hotkeys …',
+};
+
+const fallbackSettings: AppSettings = {
+  ttsFormat: 'wav',
+  firstChunkLeadingSilenceMs: 180,
+  translationTargetLanguage: 'de',
 };
 
 export default function App() {
   const [appStatus, setAppStatus] = useState('Lade Status …');
   const [hotkeyStatus, setHotkeyStatus] = useState<HotkeyStatus>(fallbackHotkeyStatus);
+  const [settings, setSettings] = useState<AppSettings>(fallbackSettings);
+  const [languageOptions, setLanguageOptions] = useState<LanguageOption[]>([]);
   const [uiState, setUiState] = useState<UiState>('idle');
-  const [message, setMessage] = useState(
-    'Bereit. Längere Texte werden satzweise gechunked; die Wiedergabe startet mit dem ersten fertigen Audio-Chunk.',
-  );
+  const [message, setMessage] = useState('Bereit.');
   const [capturedPreview, setCapturedPreview] = useState('');
+  const [translatedPreview, setTranslatedPreview] = useState('');
   const [lastAudioPath, setLastAudioPath] = useState('');
   const [lastAudioOutputDirectory, setLastAudioOutputDirectory] = useState('');
   const [lastAudioChunkCount, setLastAudioChunkCount] = useState(0);
 
   useEffect(() => {
-    void getAppStatus()
-      .then((status) => setAppStatus(status))
+    void Promise.all([getAppStatus(), getHotkeyStatus(), getSettings(), getLanguageOptions()])
+      .then(([status, hotkey, appSettings, languages]) => {
+        setAppStatus(status);
+        setHotkeyStatus(hotkey);
+        setSettings(appSettings);
+        setLanguageOptions(languages);
+        setMessage(hotkey.message);
+        setCapturedPreview(hotkey.lastCapturedText ?? '');
+        setTranslatedPreview(hotkey.lastTranslationText ?? '');
+        setLastAudioPath(hotkey.lastAudioPath ?? '');
+        setLastAudioOutputDirectory(hotkey.lastAudioOutputDirectory ?? '');
+        setLastAudioChunkCount(hotkey.lastAudioChunkCount ?? 0);
+      })
       .catch((error: unknown) => {
         const text = error instanceof Error ? error.message : String(error);
         setAppStatus(`Status konnte nicht geladen werden: ${text}`);
       });
 
-    void getHotkeyStatus()
-      .then((status) => {
-        setHotkeyStatus(status);
-        setMessage(status.message);
-        setCapturedPreview(status.lastCapturedText ?? '');
-        setLastAudioPath(status.lastAudioPath ?? '');
-        setLastAudioOutputDirectory(status.lastAudioOutputDirectory ?? '');
-        setLastAudioChunkCount(status.lastAudioChunkCount ?? 0);
-      })
-      .catch((error: unknown) => {
-        const text = error instanceof Error ? error.message : String(error);
-        setHotkeyStatus({
-          ...fallbackHotkeyStatus,
-          state: 'error',
-          message: `Hotkey-Status konnte nicht geladen werden: ${text}`,
-        });
-      });
-
-    let unlisten: UnlistenCleanup | undefined;
+    let unlisten: (() => void | Promise<void>) | undefined;
     void onHotkeyStatus((status) => {
       setHotkeyStatus(status);
       setMessage(status.message);
       setCapturedPreview(status.lastCapturedText ?? '');
+      setTranslatedPreview(status.lastTranslationText ?? '');
       setLastAudioPath(status.lastAudioPath ?? '');
       setLastAudioOutputDirectory(status.lastAudioOutputDirectory ?? '');
       setLastAudioChunkCount(status.lastAudioChunkCount ?? 0);
-
-      if (status.state === 'working') {
-        setUiState('working');
-      } else if (status.state === 'success') {
-        setUiState('success');
-      } else if (status.state === 'error') {
-        setUiState('error');
-      } else {
-        setUiState('idle');
-      }
-    })
-      .then((cleanup) => {
-        unlisten = cleanup;
-      })
-      .catch(() => undefined);
+      setUiState(status.state === 'working' ? 'working' : status.state === 'error' ? 'error' : status.state === 'success' ? 'success' : 'idle');
+    }).then((cleanup) => {
+      unlisten = cleanup;
+    });
 
     return () => {
       void unlisten?.();
     };
   }, []);
 
-  const readinessItems = useMemo(
-    () => [
-      { label: 'Desktop shell', value: 'Tauri + React + Vite bereit' },
-      { label: 'Global hotkey', value: `${hotkeyStatus.accelerator} · ${hotkeyStatus.registered ? 'aktiv' : 'nicht aktiv'}` },
-      { label: 'Selection capture', value: 'Windows Clipboard MVP aktiv' },
-      { label: 'Speech output', value: 'OpenAI TTS + satzweises Chunking + direkte Wiedergabe' },
-      { label: 'Current status', value: appStatus },
-    ],
-    [appStatus, hotkeyStatus.accelerator, hotkeyStatus.registered],
-  );
-
-  const primaryInstructions = useMemo(() => {
-    if (hotkeyStatus.platform !== 'windows') {
-      return [
-        'Die globale Hotkey-Version ist für die Windows-Tauri-App gedacht.',
-        'Im aktuellen Umfeld ist nur der lokale Button-Test sinnvoll.',
-        'Für den echten MVP-Flow die App als Windows-Desktop-App starten.',
-      ];
+  const saveSettings = async (next: AppSettings) => {
+    setSettings(next);
+    try {
+      const saved = await updateSettings(next);
+      setSettings(saved);
+      setMessage('Settings gespeichert. Neue Hotkey-Läufe nutzen die aktualisierten Werte.');
+    } catch (error: unknown) {
+      const text = error instanceof Error ? error.message : String(error);
+      setUiState('error');
+      setMessage(`Settings konnten nicht gespeichert werden: ${text}`);
     }
-
-    return [
-      'Voice Overlay Assistant im Hintergrund geöffnet lassen.',
-      'Text in einer beliebigen Windows-App markieren.',
-      `Direkt dort ${hotkeyStatus.accelerator} drücken – Fokus bleibt in der anderen App.`,
-      'Die App sendet Ctrl+C im Hintergrund, teilt längere Texte satzweise auf und startet die Wiedergabe, sobald der erste Chunk bereit ist.',
-    ];
-  }, [hotkeyStatus.accelerator, hotkeyStatus.platform]);
+  };
 
   const runReadSelectedText = async (): Promise<void> => {
     setUiState('working');
-    setMessage('Lokaler Testlauf: versuche markierten Text zu lesen und als Audio wiederzugeben …');
-
+    setMessage('Lokaler Testlauf: markierten Text lesen …');
     try {
       const result = await captureAndSpeak(
-        {
-          copyDelayMs: 140,
-          restoreClipboard: true,
-        },
+        { copyDelayMs: 140, restoreClipboard: true },
         {
           autoplay: true,
-          format: 'mp3',
+          format: settings.ttsFormat,
           maxParallelRequests: 3,
           voice: 'alloy',
+          firstChunkLeadingSilenceMs: settings.firstChunkLeadingSilenceMs,
         },
       );
-
       setUiState('success');
       setCapturedPreview(result.capturedText);
+      setTranslatedPreview('');
       setLastAudioPath(result.speech.filePath);
       setLastAudioOutputDirectory(result.speech.outputDirectory);
       setLastAudioChunkCount(result.speech.chunkCount);
-      setMessage(buildSuccessMessage(result.capturedText.length, result.speech.chunkCount, result.note));
+      setMessage(`Audio erzeugt: ${result.speech.chunkCount} Chunk(s), Format ${result.speech.format.toUpperCase()}, Startpuffer ${settings.firstChunkLeadingSilenceMs} ms.`);
     } catch (error: unknown) {
       const text = error instanceof Error ? error.message : String(error);
       setUiState('error');
@@ -143,37 +122,55 @@ export default function App() {
     }
   };
 
-  const heroBadge = hotkeyStatus.registered
-    ? `Global hotkey aktiv: ${hotkeyStatus.accelerator}`
-    : `Global hotkey: ${hotkeyStatus.accelerator}`;
+  const runTranslateSelectedText = async (): Promise<void> => {
+    setUiState('working');
+    setMessage(`Lokaler Testlauf: markierten Text nach ${settings.translationTargetLanguage} übersetzen …`);
+    try {
+      const result = await captureAndTranslate(
+        { copyDelayMs: 140, restoreClipboard: true },
+        { targetLanguage: settings.translationTargetLanguage },
+      );
+      setUiState('success');
+      setCapturedPreview(result.capturedText);
+      setTranslatedPreview(result.translation.text);
+      setMessage(`Übersetzung fertig (${result.translation.targetLanguage}). Text-Ausgabe ist in der UI sichtbar.`);
+    } catch (error: unknown) {
+      const text = error instanceof Error ? error.message : String(error);
+      setUiState('error');
+      setMessage(text);
+    }
+  };
+
+  const readinessItems = useMemo(
+    () => [
+      { label: 'Global speak hotkey', value: `${hotkeyStatus.accelerator} · ${hotkeyStatus.registered ? 'aktiv' : 'nicht aktiv'}` },
+      { label: 'Global translate hotkey', value: `${hotkeyStatus.translateAccelerator} · ${hotkeyStatus.registered ? 'aktiv' : 'nicht aktiv'}` },
+      { label: 'Speech defaults', value: `${settings.ttsFormat.toUpperCase()} · ${settings.firstChunkLeadingSilenceMs} ms Startpuffer` },
+      { label: 'Translation target', value: settings.translationTargetLanguage },
+      { label: 'Current status', value: appStatus },
+    ],
+    [appStatus, hotkeyStatus.accelerator, hotkeyStatus.registered, hotkeyStatus.translateAccelerator, settings],
+  );
 
   return (
     <main className="app-shell">
       <section className="hero-card">
         <div className="status-row">
           <span className="status-dot" aria-hidden="true" />
-          <span className="status-text">{heroBadge}</span>
+          <span className="status-text">{hotkeyStatus.registered ? 'Globale Hotkeys aktiv' : 'Globale Hotkeys werden geprüft'}</span>
         </div>
-
         <h1>Voice Overlay Assistant</h1>
         <p className="hero-copy">
-          Windows-first MVP: Text in einer anderen App markieren, <strong>{hotkeyStatus.accelerator}</strong>{' '}
-          drücken und den bestehenden Capture-and-Speak-Flow ohne Fokuswechsel auslösen. Lange Texte
-          werden dabei satzweise gechunked und ab dem ersten fertigen Chunk abgespielt.
+          Zwei Flows mit bestehender Struktur: <strong>{hotkeyStatus.accelerator}</strong> liest markierten Text vor,
+          <strong> {hotkeyStatus.translateAccelerator}</strong> capturt markierten Text und zeigt die Übersetzung in der UI.
         </p>
-
         <div className="actions">
-          <button
-            type="button"
-            className="primary-button"
-            disabled={uiState === 'working'}
-            onClick={() => void runReadSelectedText()}
-          >
-            {uiState === 'working' ? 'Working …' : 'Optional: local button test'}
+          <button type="button" className="primary-button" disabled={uiState === 'working'} onClick={() => void runReadSelectedText()}>
+            {uiState === 'working' ? 'Working …' : 'Local speech test'}
           </button>
-          <span className="button-note">
-            Windows-only MVP · nutzt deine vorhandene .env · Hotkey ist der primäre Flow
-          </span>
+          <button type="button" className="secondary-button" disabled={uiState === 'working'} onClick={() => void runTranslateSelectedText()}>
+            Local translation test
+          </button>
         </div>
       </section>
 
@@ -186,51 +183,50 @@ export default function App() {
         ))}
       </section>
 
+      <section className="settings-card">
+        <h2>Settings</h2>
+        <div className="settings-grid">
+          <label>
+            <span className="info-label">Audio format</span>
+            <select value={settings.ttsFormat} onChange={(event) => void saveSettings({ ...settings, ttsFormat: event.target.value as AppSettings['ttsFormat'] })}>
+              <option value="wav">WAV (Default)</option>
+              <option value="mp3">MP3</option>
+            </select>
+          </label>
+          <label>
+            <span className="info-label">Erster Chunk: Startpuffer</span>
+            <select value={String(settings.firstChunkLeadingSilenceMs)} onChange={(event) => void saveSettings({ ...settings, firstChunkLeadingSilenceMs: Number(event.target.value) })}>
+              {[0, 120, 180, 250, 320].map((value) => <option key={value} value={value}>{value} ms</option>)}
+            </select>
+          </label>
+          <label>
+            <span className="info-label">Translation target language</span>
+            <select value={settings.translationTargetLanguage} onChange={(event) => void saveSettings({ ...settings, translationTargetLanguage: event.target.value })}>
+              {languageOptions.map((option) => <option key={option.code} value={option.code}>{option.label}</option>)}
+            </select>
+          </label>
+        </div>
+      </section>
+
       <section className={`result-card result-card--${uiState}`}>
         <div>
           <span className="info-label">Letzter Lauf / Hotkey-Status</span>
           <strong>{message}</strong>
         </div>
-
-        {capturedPreview ? (
-          <div className="result-block">
-            <span className="info-label">Erfasster Text</span>
-            <p>{capturedPreview}</p>
-          </div>
-        ) : null}
-
-        {getAudioOutputValue(lastAudioPath, lastAudioOutputDirectory, lastAudioChunkCount) ? (
-          <div className="result-block">
-            <span className="info-label">{getAudioOutputLabel(lastAudioChunkCount)}</span>
-            <code>{getAudioOutputValue(lastAudioPath, lastAudioOutputDirectory, lastAudioChunkCount)}</code>
-          </div>
-        ) : null}
+        {capturedPreview ? <div className="result-block"><span className="info-label">Erfasster Text</span><p>{capturedPreview}</p></div> : null}
+        {translatedPreview ? <div className="result-block"><span className="info-label">Übersetzung</span><p>{translatedPreview}</p></div> : null}
+        {lastAudioPath ? <div className="result-block"><span className="info-label">Audio output</span><code>{lastAudioChunkCount > 1 ? lastAudioOutputDirectory : lastAudioPath}</code></div> : null}
       </section>
 
       <section className="instructions-card">
-        <span className="info-label">So nutzt du den Hotkey-MVP</span>
+        <span className="info-label">MVP-Nutzung</span>
         <ol>
-          {primaryInstructions.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
+          <li>App im Hintergrund offen lassen.</li>
+          <li>Text in einer anderen Windows-App markieren.</li>
+          <li><strong>{hotkeyStatus.accelerator}</strong> für Vorlesen oder <strong>{hotkeyStatus.translateAccelerator}</strong> für Übersetzung drücken.</li>
+          <li>Die Übersetzung erscheint aktuell in der UI; das ist absichtlich die saubere MVP-Basis für späteres Vorlesen oder Einfügen.</li>
         </ol>
       </section>
     </main>
   );
-}
-
-type UnlistenCleanup = () => void;
-
-function buildSuccessMessage(characterCount: number, chunkCount: number, note?: string | null): string {
-  const chunkLabel = chunkCount === 1 ? '1 Audio-Chunk' : `${chunkCount} Audio-Chunks`;
-  const summary = `Lokaler Test erfolgreich. ${characterCount} Zeichen wurden übernommen, in ${chunkLabel} aufgeteilt und ab dem ersten fertigen Chunk abgespielt.`;
-  return note ? `${summary} ${note}` : summary;
-}
-
-function getAudioOutputLabel(chunkCount: number): string {
-  return chunkCount > 1 ? 'Audio-Ausgabe (Chunk-Ordner)' : 'Audio-Datei';
-}
-
-function getAudioOutputValue(filePath: string, outputDirectory: string, chunkCount: number): string {
-  return chunkCount > 1 ? outputDirectory || filePath : filePath;
 }

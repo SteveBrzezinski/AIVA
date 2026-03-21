@@ -1,15 +1,16 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use voice_overlay_assistant::hotkey;
+use voice_overlay_assistant::{hotkey, settings};
 
 #[tauri::command]
 fn app_status() -> &'static str {
-    "Voice Overlay Assistant MVP is ready: the Windows global hotkey can capture selected text, generate chunked OpenAI speech, and start playback from the first ready chunk."
+    "Voice Overlay Assistant MVP is ready: global hotkeys can capture selected text, then either speak it with chunked OpenAI TTS or translate it into the configured target language."
 }
 
 fn main() {
     tauri::Builder::default()
         .manage(hotkey::HotkeyState::default())
+        .manage(settings::SettingsState::default())
         .setup(|app| {
             hotkey::init_hotkey(&app.handle());
             Ok(())
@@ -19,7 +20,12 @@ fn main() {
             hotkey::get_hotkey_status,
             voice_overlay_assistant::capture_selected_text_command,
             voice_overlay_assistant::speak_text_command,
-            voice_overlay_assistant::capture_and_speak_command
+            voice_overlay_assistant::translate_text_command,
+            voice_overlay_assistant::capture_and_speak_command,
+            voice_overlay_assistant::capture_and_translate_command,
+            voice_overlay_assistant::get_settings,
+            voice_overlay_assistant::update_settings,
+            voice_overlay_assistant::get_language_options
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
