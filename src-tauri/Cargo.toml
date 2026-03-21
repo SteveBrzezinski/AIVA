@@ -5,6 +5,10 @@ description = "Windows-first desktop shell for a voice overlay assistant"
 authors = ["Steve"]
 edition = "2021"
 
+[lib]
+name = "voice_overlay_assistant"
+path = "src/lib.rs"
+
 [build-dependencies]
 tauri-build = { version = "2.0.0", features = [] }
 
