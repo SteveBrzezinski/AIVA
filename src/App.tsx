@@ -1,20 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-
- type RunHistoryEntry = {
-  id: string;
-  recordedAtMs: number;
-  state: string;
-  message: string;
-  mode: string;
-  requestedMode: string;
-  sessionStrategy: string;
-  captureDurationMs: number | null;
-  captureToTtsStartMs: number | null;
-  ttsToFirstAudioMs: number | null;
-  firstAudioToPlaybackMs: number | null;
-  hotkeyToFirstAudioMs: number | null;
-  hotkeyToFirstPlaybackMs: number | null;
-};
+import { listen } from '@tauri-apps/api/event';
 import {
   captureAndSpeak,
   captureAndTranslate,
@@ -30,7 +15,24 @@ import {
   type LanguageOption,
 } from './lib/voiceOverlay';
 
+type RunHistoryEntry = {
+  id: string;
+  recordedAtMs: number;
+  state: string;
+  message: string;
+  mode: string;
+  requestedMode: string;
+  sessionStrategy: string;
+  captureDurationMs: number | null;
+  captureToTtsStartMs: number | null;
+  ttsToFirstAudioMs: number | null;
+  firstAudioToPlaybackMs: number | null;
+  hotkeyToFirstAudioMs: number | null;
+  hotkeyToFirstPlaybackMs: number | null;
+};
+
 type UiState = 'idle' | 'working' | 'success' | 'error';
+type ActiveView = 'dashboard' | 'settings';
 
 const fallbackHotkeyStatus: HotkeyStatus = {
   registered: false,
@@ -53,32 +55,17 @@ const fallbackSettings: AppSettings = {
   openaiApiKey: '',
 };
 
-function formatTimestamp(value?: number | null): string {
-  if (!value) {
-    return 'Not recorded';
-  }
-
-  return new Date(value).toLocaleTimeString();
-}
-
 function buildRunHistoryEntry(status: HotkeyStatus): RunHistoryEntry | null {
-  if (!['success', 'error', 'idle'].includes(status.state)) {
-    return null;
-  }
-
-  if (!status.lastAction || status.lastAction !== 'speak') {
-    return null;
-  }
-
+  if (!['success', 'error', 'idle'].includes(status.state)) return null;
+  if (!status.lastAction || status.lastAction !== 'speak') return null;
   if (
     !status.hotkeyToFirstPlaybackMs &&
     !status.hotkeyToFirstAudioMs &&
     !status.captureDurationMs &&
     !status.ttsToFirstAudioMs &&
     !status.message
-  ) {
+  )
     return null;
-  }
 
   return {
     id: `${status.sessionId ?? 'no-session'}-${status.message}`,
@@ -98,6 +85,7 @@ function buildRunHistoryEntry(status: HotkeyStatus): RunHistoryEntry | null {
 }
 
 export default function App() {
+  // ── Core state ────────────────────────────────────────────────────────────
   const [appStatus, setAppStatus] = useState('Loading status...');
   const [hotkeyStatus, setHotkeyStatus] = useState<HotkeyStatus>(fallbackHotkeyStatus);
   const [settings, setSettings] = useState<AppSettings>(fallbackSettings);
@@ -107,31 +95,16 @@ export default function App() {
   const [message, setMessage] = useState('Ready.');
   const [capturedPreview, setCapturedPreview] = useState('');
   const [translatedPreview, setTranslatedPreview] = useState('');
-  const [lastAudioPath, setLastAudioPath] = useState('');
-  const [lastAudioOutputDirectory, setLastAudioOutputDirectory] = useState('');
-  const [lastAudioChunkCount, setLastAudioChunkCount] = useState(0);
-  const [lastTtsMode, setLastTtsMode] = useState('');
-  const [lastRequestedTtsMode, setLastRequestedTtsMode] = useState('');
-  const [lastSessionStrategy, setLastSessionStrategy] = useState('');
-  const [lastSessionId, setLastSessionId] = useState('');
-  const [lastSessionFallbackReason, setLastSessionFallbackReason] = useState('');
-  const [hotkeyStartedAtMs, setHotkeyStartedAtMs] = useState<number | null>(null);
-  const [captureStartedAtMs, setCaptureStartedAtMs] = useState<number | null>(null);
-  const [captureFinishedAtMs, setCaptureFinishedAtMs] = useState<number | null>(null);
-  const [ttsStartedAtMs, setTtsStartedAtMs] = useState<number | null>(null);
-  const [firstAudioReceivedAtMs, setFirstAudioReceivedAtMs] = useState<number | null>(null);
-  const [firstAudioPlaybackStartedAtMs, setFirstAudioPlaybackStartedAtMs] = useState<number | null>(null);
   const [startLatencyMs, setStartLatencyMs] = useState<number | null>(null);
-  const [hotkeyToFirstAudioMs, setHotkeyToFirstAudioMs] = useState<number | null>(null);
-  const [hotkeyToFirstPlaybackMs, setHotkeyToFirstPlaybackMs] = useState<number | null>(null);
-  const [captureDurationMs, setCaptureDurationMs] = useState<number | null>(null);
-  const [captureToTtsStartMs, setCaptureToTtsStartMs] = useState<number | null>(null);
-  const [ttsToFirstAudioMs, setTtsToFirstAudioMs] = useState<number | null>(null);
-  const [firstAudioToPlaybackMs, setFirstAudioToPlaybackMs] = useState<number | null>(null);
   const [runHistory, setRunHistory] = useState<RunHistoryEntry[]>([]);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [showResetDialog, setShowResetDialog] = useState(false);
 
+  // ── V2 UI state ───────────────────────────────────────────────────────────
+  const [activeView, setActiveView] = useState<ActiveView>('dashboard');
+  const [contextItems, setContextItems] = useState<string[]>([]);
+
+  // ── Init ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     void Promise.all([getAppStatus(), getHotkeyStatus(), getSettings(), getLanguageOptions()])
       .then(([status, hotkey, appSettings, languages]) => {
@@ -143,27 +116,7 @@ export default function App() {
         setMessage(hotkey.message);
         setCapturedPreview(hotkey.lastCapturedText ?? '');
         setTranslatedPreview(hotkey.lastTranslationText ?? '');
-        setLastAudioPath(hotkey.lastAudioPath ?? '');
-        setLastAudioOutputDirectory(hotkey.lastAudioOutputDirectory ?? '');
-        setLastAudioChunkCount(hotkey.lastAudioChunkCount ?? 0);
-        setLastTtsMode(hotkey.activeTtsMode ?? '');
-        setLastRequestedTtsMode(hotkey.requestedTtsMode ?? '');
-        setLastSessionStrategy(hotkey.sessionStrategy ?? '');
-        setLastSessionId(hotkey.sessionId ?? '');
-        setLastSessionFallbackReason(hotkey.sessionFallbackReason ?? '');
-        setHotkeyStartedAtMs(hotkey.hotkeyStartedAtMs ?? null);
-        setCaptureStartedAtMs(hotkey.captureStartedAtMs ?? null);
-        setCaptureFinishedAtMs(hotkey.captureFinishedAtMs ?? null);
-        setTtsStartedAtMs(hotkey.ttsStartedAtMs ?? null);
-        setFirstAudioReceivedAtMs(hotkey.firstAudioReceivedAtMs ?? null);
-        setFirstAudioPlaybackStartedAtMs(hotkey.firstAudioPlaybackStartedAtMs ?? null);
         setStartLatencyMs(hotkey.startLatencyMs ?? null);
-        setHotkeyToFirstAudioMs(hotkey.hotkeyToFirstAudioMs ?? null);
-        setHotkeyToFirstPlaybackMs(hotkey.hotkeyToFirstPlaybackMs ?? null);
-        setCaptureDurationMs(hotkey.captureDurationMs ?? null);
-        setCaptureToTtsStartMs(hotkey.captureToTtsStartMs ?? null);
-        setTtsToFirstAudioMs(hotkey.ttsToFirstAudioMs ?? null);
-        setFirstAudioToPlaybackMs(hotkey.firstAudioToPlaybackMs ?? null);
       })
       .catch((error: unknown) => {
         const text = error instanceof Error ? error.message : String(error);
@@ -176,35 +129,21 @@ export default function App() {
       setMessage(status.message);
       setCapturedPreview(status.lastCapturedText ?? '');
       setTranslatedPreview(status.lastTranslationText ?? '');
-      setLastAudioPath(status.lastAudioPath ?? '');
-      setLastAudioOutputDirectory(status.lastAudioOutputDirectory ?? '');
-      setLastAudioChunkCount(status.lastAudioChunkCount ?? 0);
-      setLastTtsMode(status.activeTtsMode ?? '');
-      setLastRequestedTtsMode(status.requestedTtsMode ?? '');
-      setLastSessionStrategy(status.sessionStrategy ?? '');
-      setLastSessionId(status.sessionId ?? '');
-      setLastSessionFallbackReason(status.sessionFallbackReason ?? '');
-      setHotkeyStartedAtMs(status.hotkeyStartedAtMs ?? null);
-      setCaptureStartedAtMs(status.captureStartedAtMs ?? null);
-      setCaptureFinishedAtMs(status.captureFinishedAtMs ?? null);
-      setTtsStartedAtMs(status.ttsStartedAtMs ?? null);
-      setFirstAudioReceivedAtMs(status.firstAudioReceivedAtMs ?? null);
-      setFirstAudioPlaybackStartedAtMs(status.firstAudioPlaybackStartedAtMs ?? null);
       setStartLatencyMs(status.startLatencyMs ?? null);
-      setHotkeyToFirstAudioMs(status.hotkeyToFirstAudioMs ?? null);
-      setHotkeyToFirstPlaybackMs(status.hotkeyToFirstPlaybackMs ?? null);
-      setCaptureDurationMs(status.captureDurationMs ?? null);
-      setCaptureToTtsStartMs(status.captureToTtsStartMs ?? null);
-      setTtsToFirstAudioMs(status.ttsToFirstAudioMs ?? null);
-      setFirstAudioToPlaybackMs(status.firstAudioToPlaybackMs ?? null);
-      setUiState(status.state === 'working' ? 'working' : status.state === 'error' ? 'error' : status.state === 'success' ? 'success' : 'idle');
+      setUiState(
+        status.state === 'working'
+          ? 'working'
+          : status.state === 'error'
+            ? 'error'
+            : status.state === 'success'
+              ? 'success'
+              : 'idle',
+      );
 
       const historyEntry = buildRunHistoryEntry(status);
       if (historyEntry) {
         setRunHistory((current) => {
-          if (current.some((entry) => entry.id === historyEntry.id)) {
-            return current;
-          }
+          if (current.some((e) => e.id === historyEntry.id)) return current;
           return [historyEntry, ...current].slice(0, 8);
         });
       }
@@ -212,20 +151,62 @@ export default function App() {
       unlisten = cleanup;
     });
 
-    return () => {
-      void unlisten?.();
-    };
+    return () => { void unlisten?.(); };
   }, []);
 
+  // Listen for overlay action results (Vorlesen/Übersetzen from global action bar)
+  useEffect(() => {
+    type OverlayActionPayload = {
+      action: 'speak' | 'translate';
+      state: 'success' | 'error';
+      message: string;
+      capturedText?: string;
+      translatedText?: string;
+      startLatencyMs?: number | null;
+      ttsMode?: string;
+    };
+    const unlisten = listen<OverlayActionPayload>('overlay-action', (event) => {
+      const p = event.payload;
+      setUiState(p.state === 'success' ? 'success' : 'error');
+      setMessage(p.message);
+      if (p.capturedText) setCapturedPreview(p.capturedText);
+      if (p.translatedText) setTranslatedPreview(p.translatedText);
+      else if (p.action === 'speak') setTranslatedPreview('');
+      if (p.startLatencyMs != null) setStartLatencyMs(p.startLatencyMs);
+      if (p.state === 'success') {
+        const entry = {
+          id: `overlay-${p.action}-${Date.now()}`,
+          recordedAtMs: Date.now(),
+          state: p.state,
+          message: p.message,
+          mode: p.ttsMode ?? '',
+          requestedMode: p.ttsMode ?? '',
+          sessionStrategy: 'overlay',
+          captureDurationMs: null,
+          captureToTtsStartMs: null,
+          ttsToFirstAudioMs: null,
+          firstAudioToPlaybackMs: null,
+          hotkeyToFirstAudioMs: null,
+          hotkeyToFirstPlaybackMs: p.startLatencyMs ?? null,
+        };
+        setRunHistory((current) => [entry, ...current].slice(0, 8));
+      }
+    });
+    return () => { void unlisten.then((fn) => fn()); };
+  }, []);
+
+  // ── Derived ───────────────────────────────────────────────────────────────
   const hasUnsavedChanges = useMemo(
     () => JSON.stringify(settings) !== JSON.stringify(savedSettings),
     [savedSettings, settings],
   );
-  const showLiveSpeedWarning = ['live', 'realtime'].includes(settings.ttsMode) && Math.abs(settings.playbackSpeed - 1) >= 0.01;
+  const showLiveSpeedWarning =
+    ['live', 'realtime'].includes(settings.ttsMode) && Math.abs(settings.playbackSpeed - 1) >= 0.01;
 
+  // ── Actions ───────────────────────────────────────────────────────────────
   const persistSettings = async (
     next: AppSettings,
-    successMessage = 'Settings saved. Future hotkey runs use the updated values.',
+    successMessage = 'Settings saved.',
   ): Promise<AppSettings> => {
     setIsSavingSettings(true);
     try {
@@ -248,21 +229,18 @@ export default function App() {
     if (hasUnsavedChanges) {
       return persistSettings(settings, 'Settings saved. Running with the updated values.');
     }
-
     return savedSettings;
   };
 
   const runReadSelectedText = async (): Promise<void> => {
     let activeSettings = savedSettings;
-
     try {
       activeSettings = await ensureSavedSettings();
     } catch {
       return;
     }
-
     setUiState('working');
-    setMessage('Local test run: reading selected text...');
+    setMessage('Reading selected text...');
     try {
       const result = await captureAndSpeak(
         { copyDelayMs: 100, restoreClipboard: true },
@@ -278,19 +256,9 @@ export default function App() {
       setUiState('success');
       setCapturedPreview(result.capturedText);
       setTranslatedPreview('');
-      setLastAudioPath(result.speech.filePath);
-      setLastAudioOutputDirectory(result.speech.outputDirectory);
-      setLastAudioChunkCount(result.speech.chunkCount);
-      setLastTtsMode(result.speech.mode);
-      setLastRequestedTtsMode(result.speech.requestedMode);
-      setLastSessionStrategy(result.speech.sessionStrategy);
-      setLastSessionId(result.speech.sessionId);
-      setLastSessionFallbackReason(result.speech.fallbackReason ?? '');
-      setFirstAudioReceivedAtMs(result.speech.firstAudioReceivedAtMs ?? null);
-      setFirstAudioPlaybackStartedAtMs(result.speech.firstAudioPlaybackStartedAtMs ?? null);
       setStartLatencyMs(result.speech.startLatencyMs ?? null);
       setMessage(
-        `Audio ready: ${result.speech.mode} mode, ${result.speech.chunkCount} chunk(s), ${result.speech.format.toUpperCase()} output${result.speech.startLatencyMs ? `, first audible audio after ${result.speech.startLatencyMs} ms` : ''}.`,
+        `Playing in ${result.speech.mode} mode${result.speech.startLatencyMs ? ` · first audio after ${result.speech.startLatencyMs} ms` : ''}.`,
       );
     } catch (error: unknown) {
       const text = error instanceof Error ? error.message : String(error);
@@ -301,15 +269,13 @@ export default function App() {
 
   const runTranslateSelectedText = async (): Promise<void> => {
     let activeSettings = savedSettings;
-
     try {
       activeSettings = await ensureSavedSettings();
     } catch {
       return;
     }
-
     setUiState('working');
-    setMessage(`Local test run: translating selected text to ${activeSettings.translationTargetLanguage}...`);
+    setMessage(`Translating to ${activeSettings.translationTargetLanguage}...`);
     try {
       const result = await captureAndTranslate(
         { copyDelayMs: 100, restoreClipboard: true },
@@ -318,19 +284,9 @@ export default function App() {
       setUiState('success');
       setCapturedPreview(result.capturedText);
       setTranslatedPreview(result.translation.text);
-      setLastAudioPath(result.speech.filePath);
-      setLastAudioOutputDirectory(result.speech.outputDirectory);
-      setLastAudioChunkCount(result.speech.chunkCount);
-      setLastTtsMode(result.speech.mode);
-      setLastRequestedTtsMode(result.speech.requestedMode);
-      setLastSessionStrategy(result.speech.sessionStrategy);
-      setLastSessionId(result.speech.sessionId);
-      setLastSessionFallbackReason(result.speech.fallbackReason ?? '');
-      setFirstAudioReceivedAtMs(result.speech.firstAudioReceivedAtMs ?? null);
-      setFirstAudioPlaybackStartedAtMs(result.speech.firstAudioPlaybackStartedAtMs ?? null);
       setStartLatencyMs(result.speech.startLatencyMs ?? null);
       setMessage(
-        `Translation completed (${result.translation.targetLanguage}) in ${result.speech.mode} mode${result.speech.startLatencyMs ? `, first audible audio after ${result.speech.startLatencyMs} ms` : ''}.`,
+        `Translated to ${result.translation.targetLanguage}${result.speech.startLatencyMs ? ` · first audio after ${result.speech.startLatencyMs} ms` : ''}.`,
       );
     } catch (error: unknown) {
       const text = error instanceof Error ? error.message : String(error);
@@ -356,281 +312,410 @@ export default function App() {
     }
   };
 
-  const readinessItems = useMemo(
-    () => [
-      { label: 'Global speak hotkey', value: `${hotkeyStatus.accelerator} · ${hotkeyStatus.registered ? 'active' : 'inactive'}` },
-      { label: 'Global translate hotkey', value: `${hotkeyStatus.translateAccelerator} · ${hotkeyStatus.registered ? 'active' : 'inactive'}` },
-      { label: 'Speech mode', value: settings.ttsMode },
-      { label: 'Speech defaults', value: `${settings.ttsFormat.toUpperCase()} · ${settings.firstChunkLeadingSilenceMs} ms lead-in · ${settings.playbackSpeed.toFixed(1)}x` },
-      { label: 'Translation target', value: settings.translationTargetLanguage },
-      { label: 'Current status', value: appStatus },
-    ],
-    [appStatus, hotkeyStatus.accelerator, hotkeyStatus.registered, hotkeyStatus.translateAccelerator, settings],
-  );
-
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
-      <main className="app-shell">
-        <section className="hero-card">
-          <div className="status-row">
-            <span className="status-dot" aria-hidden="true" />
-            <span className="status-text">{hotkeyStatus.registered ? 'Global hotkeys active' : 'Checking global hotkeys'}</span>
+      <div className="app-v2">
+        {/* ── Top bar ──────────────────────────────────────────────────── */}
+        <header className="v2-topbar">
+          <div className="v2-topbar-brand">
+            <span className={`v2-status-dot v2-status-dot--${uiState}`} />
+            <span className="v2-topbar-name">Voice Overlay</span>
           </div>
-          <h1>Voice Overlay Assistant</h1>
-          <p className="hero-copy">
-            Two existing flows share one stable base: <strong>{hotkeyStatus.accelerator}</strong> reads selected text aloud,
-            <strong> {hotkeyStatus.translateAccelerator}</strong> captures selected text, translates it, and keeps the result visible in the UI.
-          </p>
-          <div className="actions">
+          <div className="v2-topbar-hotkeys">
+            <kbd>{hotkeyStatus.accelerator}</kbd>
+            <span>Vorlesen</span>
+            <kbd>{hotkeyStatus.translateAccelerator}</kbd>
+            <span>Übersetzen</span>
+          </div>
+          <div className="v2-topbar-nav">
             <button
               type="button"
-              className="primary-button"
-              disabled={uiState === 'working' || isSavingSettings}
-              onClick={() => void runReadSelectedText()}
+              className={`v2-tab-btn${activeView === 'dashboard' ? ' v2-tab-btn--active' : ''}`}
+              onClick={() => setActiveView('dashboard')}
             >
-              {uiState === 'working' ? 'Working...' : 'Local speech test'}
+              Status
             </button>
             <button
               type="button"
-              className="secondary-button"
-              disabled={uiState === 'working' || isSavingSettings}
-              onClick={() => void runTranslateSelectedText()}
+              className={`v2-tab-btn${activeView === 'settings' ? ' v2-tab-btn--active' : ''}`}
+              onClick={() => setActiveView('settings')}
             >
-              Local translation test
+              Einstellungen
             </button>
           </div>
-        </section>
+        </header>
 
-        <section className="panel-grid" aria-label="Project status">
-          {readinessItems.map((item) => (
-            <article className="info-card" key={item.label}>
-              <span className="info-label">{item.label}</span>
-              <strong>{item.value}</strong>
-            </article>
-          ))}
-        </section>
+        {/* ── Dashboard ────────────────────────────────────────────────── */}
+        {activeView === 'dashboard' && (
+          <main className="v2-dashboard">
+            {/* Status card */}
+            <div className={`v2-card v2-status-card v2-status-card--${uiState}`}>
+              <div className="v2-status-row">
+                <span className={`v2-status-dot v2-status-dot--${uiState} v2-status-dot--lg`} />
+                <span className="v2-status-message">{message}</span>
+                {startLatencyMs !== null && (
+                  <span className="v2-latency-badge">{startLatencyMs} ms</span>
+                )}
+              </div>
 
-        <section className="settings-card">
-          <div className="settings-header">
-            <div>
-              <h2>Settings</h2>
-              <p className="settings-helper">
-                Save applies changes to future hotkey runs and stores them in the local config file.
+              {capturedPreview && (
+                <div className="v2-preview-block">
+                  <span className="v2-label">Erfasster Text</span>
+                  <p className="v2-preview-text">{capturedPreview}</p>
+                </div>
+              )}
+
+              {translatedPreview && (
+                <div className="v2-preview-block">
+                  <span className="v2-label">Übersetzung</span>
+                  <p className="v2-preview-text v2-preview-text--translated">{translatedPreview}</p>
+                </div>
+              )}
+
+              {contextItems.length > 0 && (
+                <div className="v2-preview-block">
+                  <div className="v2-context-header">
+                    <span className="v2-label">Kontext ({contextItems.length})</span>
+                    <button
+                      type="button"
+                      className="v2-ghost-btn"
+                      onClick={() => setContextItems([])}
+                    >
+                      Leeren
+                    </button>
+                  </div>
+                  {contextItems.map((item, i) => (
+                    <p key={i} className="v2-preview-text v2-preview-text--context">
+                      {item}
+                    </p>
+                  ))}
+                </div>
+              )}
+
+              <div className="v2-quick-actions">
+                <button
+                  type="button"
+                  className="v2-action-btn v2-action-btn--primary"
+                  disabled={uiState === 'working' || isSavingSettings}
+                  onClick={() => void runReadSelectedText()}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polygon points="5 3 19 12 5 21 5 3" />
+                  </svg>
+                  {uiState === 'working' ? 'Läuft...' : 'Markierung vorlesen'}
+                </button>
+                <button
+                  type="button"
+                  className="v2-action-btn"
+                  disabled={uiState === 'working' || isSavingSettings}
+                  onClick={() => void runTranslateSelectedText()}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="2" y1="12" x2="22" y2="12" />
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                  </svg>
+                  Markierung übersetzen
+                </button>
+              </div>
+            </div>
+
+            {/* Info grid */}
+            <div className="v2-info-grid">
+              <div className="v2-card v2-info-tile">
+                <span className="v2-label">Hotkeys</span>
+                <strong className={hotkeyStatus.registered ? 'v2-value--green' : 'v2-value--amber'}>
+                  {hotkeyStatus.registered ? 'Aktiv' : 'Inaktiv'}
+                </strong>
+              </div>
+              <div className="v2-card v2-info-tile">
+                <span className="v2-label">Speech-Modus</span>
+                <strong>{settings.ttsMode}</strong>
+              </div>
+              <div className="v2-card v2-info-tile">
+                <span className="v2-label">Zielsprache</span>
+                <strong>{settings.translationTargetLanguage.toUpperCase()}</strong>
+              </div>
+              <div className="v2-card v2-info-tile">
+                <span className="v2-label">Geschwindigkeit</span>
+                <strong>{settings.playbackSpeed.toFixed(1)}x</strong>
+              </div>
+            </div>
+
+            {/* Run history */}
+            {runHistory.length > 0 && (
+              <div className="v2-card v2-history-card">
+                <div className="v2-history-header">
+                  <span className="v2-label">Letzte Runs</span>
+                  <button type="button" className="v2-ghost-btn" onClick={() => setRunHistory([])}>
+                    Verlauf leeren
+                  </button>
+                </div>
+                <div className="v2-history-list">
+                  {runHistory.map((entry) => (
+                    <div key={entry.id} className={`v2-history-entry v2-history-entry--${entry.state}`}>
+                      <div className="v2-history-entry-top">
+                        <span className="v2-history-mode">{entry.mode || 'unknown'}</span>
+                        <span className="v2-history-time">
+                          {new Date(entry.recordedAtMs).toLocaleTimeString()}
+                        </span>
+                        {entry.hotkeyToFirstPlaybackMs !== null && (
+                          <span className="v2-latency-badge">
+                            {entry.hotkeyToFirstPlaybackMs} ms
+                          </span>
+                        )}
+                      </div>
+                      <p className="v2-history-msg">{entry.message}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Usage hint */}
+            <div className="v2-card v2-hint-card">
+              <span className="v2-label">Verwendung</span>
+              <p className="v2-hint-text">
+                Text in einer beliebigen App markieren, dann{' '}
+                <kbd>{hotkeyStatus.accelerator}</kbd> zum Vorlesen oder{' '}
+                <kbd>{hotkeyStatus.translateAccelerator}</kbd> zum Übersetzen drücken.
+                Alternativ erscheint eine Action Bar direkt über der Markierung.
               </p>
             </div>
-            <div className="settings-actions">
-              <button
-                type="button"
-                className="secondary-button"
-                disabled={!hasUnsavedChanges || isSavingSettings || uiState === 'working'}
-                onClick={() => void persistSettings(settings)}
-              >
-                {isSavingSettings ? 'Saving...' : 'Save settings'}
-              </button>
-              <button
-                type="button"
-                className="danger-button"
-                disabled={isSavingSettings || uiState === 'working'}
-                onClick={() => setShowResetDialog(true)}
-              >
-                Reset to defaults
-              </button>
-            </div>
-          </div>
+          </main>
+        )}
 
-          <div className="settings-grid">
-            <label className="settings-field">
-              <span className="info-label">Speech mode</span>
-              <select value={settings.ttsMode} onChange={(event) => setSettings({ ...settings, ttsMode: event.target.value as AppSettings['ttsMode'] })}>
-                <option value="classic">Classic / stable</option>
-                <option value="live">Live / session-ready streaming</option>
-                <option value="realtime">Realtime / experimental</option>
-              </select>
-              <span className="field-note">Classic keeps the chunked file pipeline. Live uses the newer session-oriented streaming path. Realtime uses the OpenAI Realtime WebSocket audio path directly and now exposes its own startup errors by default.</span>
-            </label>
-
-            <label className="settings-field settings-field--wide">
-              <span className="info-label">Realtime debug fallback</span>
-              <label className="checkbox-row">
-                <input
-                  type="checkbox"
-                  checked={settings.realtimeAllowLiveFallback}
-                  onChange={(event) => setSettings({ ...settings, realtimeAllowLiveFallback: event.target.checked })}
-                />
-                <span>Allow temporary fallback from realtime to live on startup failure</span>
-              </label>
-              <span className="field-note">Default is off so real Realtime connect/session.update/response.create/audio errors stay visible. Turn this on only if you explicitly want the old rescue path while debugging.</span>
-            </label>
-
-            <label className="settings-field">
-              <span className="info-label">Audio format</span>
-              <select value={settings.ttsFormat} onChange={(event) => setSettings({ ...settings, ttsFormat: event.target.value as AppSettings['ttsFormat'] })}>
-                <option value="wav">WAV (Default)</option>
-                <option value="mp3">MP3</option>
-              </select>
-              <span className="field-note">This applies to the classic pipeline. Live and realtime stream PCM internally and store the finished file as WAV.</span>
-            </label>
-
-            <label className="settings-field">
-              <span className="info-label">First chunk lead-in</span>
-              <select value={String(settings.firstChunkLeadingSilenceMs)} onChange={(event) => setSettings({ ...settings, firstChunkLeadingSilenceMs: Number(event.target.value) })}>
-                {[0, 120, 180, 250, 320].map((value) => <option key={value} value={value}>{value} ms</option>)}
-              </select>
-            </label>
-
-            <label className="settings-field">
-              <span className="info-label">Translation target language</span>
-              <select value={settings.translationTargetLanguage} onChange={(event) => setSettings({ ...settings, translationTargetLanguage: event.target.value })}>
-                {languageOptions.map((option) => <option key={option.code} value={option.code}>{option.label}</option>)}
-              </select>
-            </label>
-
-            <label className="settings-field settings-field--wide">
-              <span className="info-label">Speech playback speed</span>
-              <div className="slider-row">
-                <input
-                  type="range"
-                  min="0.5"
-                  max="2"
-                  step="0.1"
-                  value={settings.playbackSpeed}
-                  onChange={(event) => setSettings({ ...settings, playbackSpeed: Number(event.target.value) })}
-                />
-                <output>{settings.playbackSpeed.toFixed(1)}x</output>
-              </div>
-              <span className="field-note">0.5x is slower, 1.0x is default, 2.0x is faster. Classic uses the pitch-friendlier time-stretch path; live keeps the fastest direct stream at 1.0x and uses a more buffered naturalized path for non-default speed.</span>
-            </label>
-
-            {showLiveSpeedWarning ? (
-              <div className="settings-warning settings-field--wide" role="status" aria-live="polite">
-                <strong>Streaming speed adjustment adds buffering</strong>
-                <p>Non-default playback speed in live or realtime mode may require additional buffering and processing to keep the voice more natural.</p>
-                <p>This can increase startup latency and local processing overhead. The current implementation does not add extra API requests.</p>
-              </div>
-            ) : null}
-
-            {settings.ttsMode === 'realtime' ? (
-              <div className="settings-warning settings-field--wide" role="status" aria-live="polite">
-                <strong>Realtime mode is experimental</strong>
-                <p>The app tries OpenAI Realtime audio over WebSocket and starts playback as soon as audio deltas arrive.</p>
-                <p>Fallback to live is disabled by default so connect/session.update/response.create/first-audio failures remain visible while debugging. You can re-enable it above if needed.</p>
-              </div>
-            ) : null}
-
-            <label className="settings-field settings-field--wide">
-              <span className="info-label">OpenAI API key</span>
-              <input
-                type="password"
-                autoComplete="off"
-                placeholder="sk-..."
-                value={settings.openaiApiKey}
-                onChange={(event) => setSettings({ ...settings, openaiApiKey: event.target.value })}
-              />
-              <span className="field-note">When set here, it overrides `OPENAI_API_KEY` from `.env`. Leave it empty to keep using `.env`.</span>
-            </label>
-          </div>
-        </section>
-
-        <section className={`result-card result-card--${uiState}`}>
-          <div>
-            <span className="info-label">Latest run / hotkey status</span>
-            <strong>{message}</strong>
-          </div>
-          {capturedPreview ? <div className="result-block"><span className="info-label">Captured text</span><p>{capturedPreview}</p></div> : null}
-          {translatedPreview ? <div className="result-block"><span className="info-label">Translation</span><p>{translatedPreview}</p></div> : null}
-          {lastTtsMode ? <div className="result-block"><span className="info-label">Resolved TTS mode</span><strong>{lastTtsMode}</strong></div> : null}
-          {lastRequestedTtsMode ? <div className="result-block"><span className="info-label">Requested TTS mode</span><strong>{lastRequestedTtsMode}</strong></div> : null}
-          {lastSessionStrategy ? <div className="result-block"><span className="info-label">Session strategy</span><p>{lastSessionStrategy}</p><code>{lastSessionId}</code></div> : null}
-          {lastSessionFallbackReason ? <div className="result-block"><span className="info-label">Session fallback</span><p>{lastSessionFallbackReason}</p></div> : null}
-          {startLatencyMs !== null ? <div className="result-block"><span className="info-label">Visible start latency</span><strong>{startLatencyMs} ms</strong></div> : null}
-          {(hotkeyToFirstPlaybackMs !== null || hotkeyToFirstAudioMs !== null) ? (
-            <div className="result-block">
-              <span className="info-label">End-to-end latency</span>
-              {hotkeyToFirstAudioMs !== null ? <p>Hotkey → first audio received: {hotkeyToFirstAudioMs} ms</p> : null}
-              {hotkeyToFirstPlaybackMs !== null ? <p>Hotkey → first audible playback: {hotkeyToFirstPlaybackMs} ms</p> : null}
-            </div>
-          ) : null}
-          {(captureDurationMs !== null || captureToTtsStartMs !== null || ttsToFirstAudioMs !== null || firstAudioToPlaybackMs !== null) ? (
-            <div className="result-block">
-              <span className="info-label">Latency breakdown</span>
-              {captureDurationMs !== null ? <p>Capture duration: {captureDurationMs} ms</p> : null}
-              {captureToTtsStartMs !== null ? <p>Capture → TTS start: {captureToTtsStartMs} ms</p> : null}
-              {ttsToFirstAudioMs !== null ? <p>TTS start → first audio: {ttsToFirstAudioMs} ms</p> : null}
-              {firstAudioToPlaybackMs !== null ? <p>First audio → audible playback: {firstAudioToPlaybackMs} ms</p> : null}
-            </div>
-          ) : null}
-          {(hotkeyStartedAtMs || captureStartedAtMs || captureFinishedAtMs || ttsStartedAtMs || firstAudioReceivedAtMs || firstAudioPlaybackStartedAtMs) ? (
-            <div className="result-block">
-              <span className="info-label">Audio start timeline</span>
-              {hotkeyStartedAtMs ? <p>Hotkey received: {formatTimestamp(hotkeyStartedAtMs)}</p> : null}
-              {captureStartedAtMs ? <p>Capture started: {formatTimestamp(captureStartedAtMs)}</p> : null}
-              {captureFinishedAtMs ? <p>Capture finished: {formatTimestamp(captureFinishedAtMs)}</p> : null}
-              {ttsStartedAtMs ? <p>TTS pipeline started: {formatTimestamp(ttsStartedAtMs)}</p> : null}
-              {firstAudioReceivedAtMs ? <p>First audio received: {formatTimestamp(firstAudioReceivedAtMs)}</p> : null}
-              {firstAudioPlaybackStartedAtMs ? <p>First audible playback: {formatTimestamp(firstAudioPlaybackStartedAtMs)}</p> : null}
-            </div>
-          ) : null}
-          {lastAudioPath ? <div className="result-block"><span className="info-label">Audio output</span><code>{lastAudioChunkCount > 1 ? lastAudioOutputDirectory : lastAudioPath}</code></div> : null}
-        </section>
-
-        {runHistory.length ? (
-          <section className="instructions-card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
-              <span className="info-label">Recent run history</span>
-              <button type="button" className="secondary-button" onClick={() => setRunHistory([])}>
-                Clear history
-              </button>
-            </div>
-            <div className="result-block">
-              {runHistory.map((entry) => (
-                <div key={entry.id} style={{ padding: '0.75rem 0', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                  <p><strong>{entry.mode || 'unknown'}</strong>{entry.requestedMode ? ` · requested ${entry.requestedMode}` : ''}{entry.sessionStrategy ? ` · ${entry.sessionStrategy}` : ''}</p>
-                  <p>{new Date(entry.recordedAtMs).toLocaleTimeString()} · {entry.message}</p>
-                  <p>
-                    hotkey→audio {entry.hotkeyToFirstPlaybackMs ?? '—'} ms · capture {entry.captureDurationMs ?? '—'} ms · capture→tts {entry.captureToTtsStartMs ?? '—'} ms · tts→audio {entry.ttsToFirstAudioMs ?? '—'} ms · audio→playback {entry.firstAudioToPlaybackMs ?? '—'} ms
+        {/* ── Settings ─────────────────────────────────────────────────── */}
+        {activeView === 'settings' && (
+          <main className="v2-settings-main">
+            <div className="v2-card v2-settings-card">
+              <div className="v2-settings-header">
+                <div>
+                  <h2 className="v2-settings-title">Einstellungen</h2>
+                  <p className="v2-label">
+                    Änderungen werden in der lokalen Konfiguration gespeichert.
                   </p>
                 </div>
-              ))}
+                <div className="v2-settings-actions">
+                  <button
+                    type="button"
+                    className="v2-action-btn v2-action-btn--primary"
+                    disabled={!hasUnsavedChanges || isSavingSettings || uiState === 'working'}
+                    onClick={() => void persistSettings(settings)}
+                  >
+                    {isSavingSettings ? 'Speichert...' : 'Speichern'}
+                  </button>
+                  <button
+                    type="button"
+                    className="v2-action-btn v2-action-btn--danger"
+                    disabled={isSavingSettings || uiState === 'working'}
+                    onClick={() => setShowResetDialog(true)}
+                  >
+                    Zurücksetzen
+                  </button>
+                </div>
+              </div>
+
+              <div className="v2-settings-grid">
+                <label className="v2-field">
+                  <span className="v2-label">Speech-Modus</span>
+                  <select
+                    value={settings.ttsMode}
+                    onChange={(e) =>
+                      setSettings({ ...settings, ttsMode: e.target.value as AppSettings['ttsMode'] })
+                    }
+                  >
+                    <option value="classic">Classic – stabil, dateibasiert</option>
+                    <option value="live">Live – Low-Latency Streaming</option>
+                    <option value="realtime">Realtime – experimentell (WebSocket)</option>
+                  </select>
+                  <span className="v2-field-note">
+                    Classic ist der robusteste Modus. Live streamt direkt als PCM. Realtime nutzt den
+                    OpenAI Realtime WebSocket.
+                  </span>
+                </label>
+
+                <label className="v2-field v2-field--wide">
+                  <span className="v2-label">Realtime Debug-Fallback</span>
+                  <label className="v2-checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={settings.realtimeAllowLiveFallback}
+                      onChange={(e) =>
+                        setSettings({ ...settings, realtimeAllowLiveFallback: e.target.checked })
+                      }
+                    />
+                    <span>Bei Realtime-Fehler auf Live-Modus zurückfallen</span>
+                  </label>
+                  <span className="v2-field-note">
+                    Standard: aus. Damit bleiben echte Realtime-Fehler sichtbar. Nur für Debugging einschalten.
+                  </span>
+                </label>
+
+                <label className="v2-field">
+                  <span className="v2-label">Audioformat</span>
+                  <select
+                    value={settings.ttsFormat}
+                    onChange={(e) =>
+                      setSettings({ ...settings, ttsFormat: e.target.value as AppSettings['ttsFormat'] })
+                    }
+                  >
+                    <option value="wav">WAV (Standard)</option>
+                    <option value="mp3">MP3</option>
+                  </select>
+                  <span className="v2-field-note">
+                    Gilt nur für Classic. Live und Realtime speichern intern als WAV.
+                  </span>
+                </label>
+
+                <label className="v2-field">
+                  <span className="v2-label">Erster-Chunk-Puffer</span>
+                  <select
+                    value={String(settings.firstChunkLeadingSilenceMs)}
+                    onChange={(e) =>
+                      setSettings({ ...settings, firstChunkLeadingSilenceMs: Number(e.target.value) })
+                    }
+                  >
+                    {[0, 120, 180, 250, 320].map((v) => (
+                      <option key={v} value={v}>
+                        {v} ms
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="v2-field">
+                  <span className="v2-label">Zielsprache (Übersetzung)</span>
+                  <select
+                    value={settings.translationTargetLanguage}
+                    onChange={(e) =>
+                      setSettings({ ...settings, translationTargetLanguage: e.target.value })
+                    }
+                  >
+                    {languageOptions.map((opt) => (
+                      <option key={opt.code} value={opt.code}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="v2-field v2-field--wide">
+                  <span className="v2-label">Wiedergabegeschwindigkeit</span>
+                  <div className="v2-slider-row">
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="2"
+                      step="0.1"
+                      value={settings.playbackSpeed}
+                      onChange={(e) =>
+                        setSettings({ ...settings, playbackSpeed: Number(e.target.value) })
+                      }
+                    />
+                    <output>{settings.playbackSpeed.toFixed(1)}x</output>
+                  </div>
+                  <span className="v2-field-note">
+                    0.5x = langsamer · 1.0x = Standard · 2.0x = schneller
+                  </span>
+                </label>
+
+                {showLiveSpeedWarning && (
+                  <div className="v2-warning v2-field--wide">
+                    <strong>Streaming + Geschwindigkeitsanpassung</strong>
+                    <p>
+                      Nicht-Standard-Geschwindigkeit im Live/Realtime-Modus erfordert zusätzliches Buffering
+                      und erhöht die Startlatenz.
+                    </p>
+                  </div>
+                )}
+
+                {settings.ttsMode === 'realtime' && (
+                  <div className="v2-warning v2-field--wide">
+                    <strong>Realtime-Modus ist experimentell</strong>
+                    <p>
+                      Die App verbindet sich per WebSocket mit der OpenAI Realtime API. Fehler bei
+                      connect/session/response bleiben sichtbar sofern kein Fallback aktiviert ist.
+                    </p>
+                  </div>
+                )}
+
+                <label className="v2-field v2-field--wide">
+                  <span className="v2-label">OpenAI API Key</span>
+                  <input
+                    type="password"
+                    autoComplete="off"
+                    placeholder="sk-..."
+                    value={settings.openaiApiKey}
+                    onChange={(e) => setSettings({ ...settings, openaiApiKey: e.target.value })}
+                  />
+                  <span className="v2-field-note">
+                    Überschreibt <code>OPENAI_API_KEY</code> aus <code>.env</code>. Leer lassen um{' '}
+                    <code>.env</code> zu verwenden.
+                  </span>
+                </label>
+              </div>
             </div>
-          </section>
-        ) : null}
 
-        <section className="instructions-card">
-          <span className="info-label">Usage</span>
-          <ol>
-            <li>Keep the app running in the background.</li>
-            <li>Select text in another Windows app.</li>
-            <li><strong>{hotkeyStatus.accelerator}</strong> reads it aloud, while <strong>{hotkeyStatus.translateAccelerator}</strong> translates it and speaks the translation.</li>
-            <li>The translated text stays visible in the UI for the current MVP.</li>
-          </ol>
-        </section>
-      </main>
+            {/* App info */}
+            <div className="v2-card v2-info-tile v2-app-info">
+              <span className="v2-label">App-Status</span>
+              <p className="v2-hint-text">{appStatus}</p>
+            </div>
+          </main>
+        )}
+      </div>
 
-      {showResetDialog ? (
-        <div className="modal-backdrop" role="presentation" onClick={() => setShowResetDialog(false)}>
+      {/* ── Reset dialog ─────────────────────────────────────────────────── */}
+      {showResetDialog && (
+        <div
+          className="v2-modal-backdrop"
+          role="presentation"
+          onClick={() => setShowResetDialog(false)}
+        >
           <section
-            className="modal-card"
+            className="v2-modal"
             role="dialog"
             aria-modal="true"
-            aria-labelledby="reset-settings-title"
-            onClick={(event) => event.stopPropagation()}
+            aria-labelledby="reset-dialog-title"
+            onClick={(e) => e.stopPropagation()}
           >
-            <button type="button" className="modal-close" aria-label="Close reset dialog" onClick={() => setShowResetDialog(false)}>
-              x
+            <button
+              type="button"
+              className="v2-modal-close"
+              aria-label="Dialog schließen"
+              onClick={() => setShowResetDialog(false)}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
             </button>
-            <h2 id="reset-settings-title">Reset all settings?</h2>
-            <p>This restores every setting to its default value, including playback speed, translation language, and the stored API key.</p>
-            <div className="modal-actions">
-              <button type="button" className="secondary-button" onClick={() => setShowResetDialog(false)}>
-                No
+            <h2 id="reset-dialog-title">Alle Einstellungen zurücksetzen?</h2>
+            <p>
+              Setzt alle Einstellungen auf die Standardwerte zurück – inklusive Geschwindigkeit,
+              Zielsprache und gespeichertem API Key.
+            </p>
+            <div className="v2-modal-actions">
+              <button
+                type="button"
+                className="v2-action-btn"
+                onClick={() => setShowResetDialog(false)}
+              >
+                Abbrechen
               </button>
-              <button type="button" className="danger-button" onClick={() => void resetAllSettings()}>
-                Yes, reset everything
+              <button
+                type="button"
+                className="v2-action-btn v2-action-btn--danger"
+                onClick={() => void resetAllSettings()}
+              >
+                Ja, zurücksetzen
               </button>
             </div>
           </section>
         </div>
-      ) : null}
+      )}
     </>
   );
 }

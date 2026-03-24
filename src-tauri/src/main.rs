@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use voice_overlay_assistant::{hotkey, run_controller, settings};
+use voice_overlay_assistant::{hotkey, overlay, run_controller, settings};
 
 #[tauri::command]
 fn app_status() -> &'static str {
@@ -17,6 +17,7 @@ fn main() {
         .manage(settings_state)
         .setup(|app| {
             hotkey::init_hotkey(&app.handle());
+            overlay::setup(&app.handle());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -32,7 +33,12 @@ fn main() {
             voice_overlay_assistant::reset_settings,
             voice_overlay_assistant::get_language_options,
             voice_overlay_assistant::pause_resume_current_run,
-            voice_overlay_assistant::cancel_current_run
+            voice_overlay_assistant::cancel_current_run,
+            voice_overlay_assistant::set_action_bar_rect,
+            voice_overlay_assistant::clear_action_bar_rect,
+            voice_overlay_assistant::show_main_window,
+            voice_overlay_assistant::poll_selection,
+            voice_overlay_assistant::get_captured_text,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

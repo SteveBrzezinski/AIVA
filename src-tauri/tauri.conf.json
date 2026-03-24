@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Voice Overlay Assistant",
+        "title": "Voice Overlay Assistant – Settings",
         "width": 1100,
         "height": 720,
         "resizable": true,
@@ -21,6 +21,23 @@
         "decorations": true,
         "visible": true,
         "center": true
+      },
+      {
+        "label": "overlay",
+        "title": "Voice Overlay",
+        "url": "/",
+        "width": 1920,
+        "height": 1080,
+        "x": 0,
+        "y": 0,
+        "resizable": false,
+        "fullscreen": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "shadow": false,
+        "visible": false
       }
     ],
     "security": {

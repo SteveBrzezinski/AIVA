@@ -201,6 +201,44 @@ export async function captureAndTranslate(
   });
 }
 
+export type SpeakTextResult = CaptureAndSpeakResult['speech'];
+export type TranslateTextResult = CaptureAndTranslateResult['translation'];
+
+/** Speak pre-provided text directly (no Ctrl+C capture). */
+export async function speakText(
+  text: string,
+  options: SpeakOptions = {},
+): Promise<SpeakTextResult> {
+  return invoke<SpeakTextResult>('speak_text_command', {
+    options: {
+      text,
+      autoplay: options.autoplay ?? true,
+      format: options.format,
+      mode: options.mode,
+      maxChunkChars: options.maxChunkChars,
+      maxParallelRequests: options.maxParallelRequests,
+      model: options.model,
+      voice: options.voice ?? 'alloy',
+      firstChunkLeadingSilenceMs: options.firstChunkLeadingSilenceMs,
+    },
+  });
+}
+
+/** Translate pre-provided text directly (no Ctrl+C capture). */
+export async function translateText(
+  text: string,
+  options: TranslateOptions = {},
+): Promise<TranslateTextResult> {
+  return invoke<TranslateTextResult>('translate_text_command', {
+    options: {
+      text,
+      model: options.model,
+      sourceLanguage: options.sourceLanguage,
+      targetLanguage: options.targetLanguage,
+    },
+  });
+}
+
 export async function pauseResumeCurrentRun(): Promise<string> {
   return invoke<string>('pause_resume_current_run');
 }
