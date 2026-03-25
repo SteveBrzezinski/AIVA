@@ -325,8 +325,8 @@ mod windows_impl {
         Foundation::HWND,
         UI::{
             Input::KeyboardAndMouse::{
-                RegisterHotKey, UnregisterHotKey, MOD_CONTROL, MOD_NOREPEAT, MOD_SHIFT, VK_P,
-                VK_SPACE, VK_T, VK_X,
+                RegisterHotKey, UnregisterHotKey, MOD_CONTROL, MOD_NOREPEAT, MOD_SHIFT, VK_A,
+                VK_O, VK_P, VK_SPACE, VK_T, VK_X,
             },
             WindowsAndMessaging::{GetMessageW, MSG, WM_HOTKEY},
         },
@@ -336,6 +336,8 @@ mod windows_impl {
     const TRANSLATE_HOTKEY_ID: i32 = 0x564f54;
     const PAUSE_RESUME_HOTKEY_ID: i32 = 0x564f50;
     const CANCEL_HOTKEY_ID: i32 = 0x564f58;
+    const ORB_TOGGLE_HOTKEY_ID: i32 = 0x564f4f;
+    const ACTION_BAR_HOTKEY_ID: i32 = 0x564f61;
 
     pub fn init_hotkeys(app: &AppHandle) {
         let app_handle = app.clone();
@@ -354,6 +356,8 @@ mod windows_impl {
                 (TRANSLATE_HOTKEY_ID, VK_T.0 as u32, DEFAULT_TRANSLATE_HOTKEY),
                 (PAUSE_RESUME_HOTKEY_ID, VK_P.0 as u32, DEFAULT_PAUSE_RESUME_HOTKEY),
                 (CANCEL_HOTKEY_ID, VK_X.0 as u32, DEFAULT_CANCEL_HOTKEY),
+                (ORB_TOGGLE_HOTKEY_ID, VK_O.0 as u32, "Ctrl+Shift+O"),
+                (ACTION_BAR_HOTKEY_ID, VK_A.0 as u32, "Ctrl+Shift+A"),
             ] {
                 if let Err(error) = RegisterHotKey(HWND(std::ptr::null_mut()), id, modifiers, key) {
                     let state = app_handle.state::<HotkeyState>();
@@ -388,13 +392,14 @@ mod windows_impl {
                         TRANSLATE_HOTKEY_ID => trigger_capture_and_translate(&app_handle),
                         PAUSE_RESUME_HOTKEY_ID => trigger_pause_resume(&app_handle),
                         CANCEL_HOTKEY_ID => trigger_cancel(&app_handle),
+                        ORB_TOGGLE_HOTKEY_ID => { let _ = app_handle.emit("toggle-orb", ()); }
                         _ => {}
                     }
                     thread::sleep(Duration::from_millis(50));
                 }
             }
 
-            for id in [SPEAK_HOTKEY_ID, TRANSLATE_HOTKEY_ID, PAUSE_RESUME_HOTKEY_ID, CANCEL_HOTKEY_ID] {
+            for id in [SPEAK_HOTKEY_ID, TRANSLATE_HOTKEY_ID, PAUSE_RESUME_HOTKEY_ID, CANCEL_HOTKEY_ID, ORB_TOGGLE_HOTKEY_ID] {
                 let _ = UnregisterHotKey(HWND(std::ptr::null_mut()), id);
             }
         });

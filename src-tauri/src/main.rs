@@ -39,6 +39,7 @@ fn main() {
             voice_overlay_assistant::show_main_window,
             voice_overlay_assistant::poll_selection,
             voice_overlay_assistant::get_captured_text,
+            voice_overlay_assistant::set_orb_visible,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

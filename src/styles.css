@@ -697,77 +697,113 @@ kbd {
 /* ─── Orb Widget ──────────────────────────────────────────────────────────── */
 .orb-wrapper {
   position: fixed;
-  bottom: 28px;
+  bottom: 80px;
   right: 28px;
   z-index: 50;
-  display: flex;
-  align-items: center;
-  gap: 12px;
 }
 
-/* Navigation bar – slides in from right on hover */
-.orb-nav {
+/* ─── Edge Nav (left-edge slide-out) ─────────────────────────────────────── */
+.edge-nav {
+  position: fixed;
+  left: 0;
+  top: 40%;
+  transform: translateY(-50%);
+  z-index: 51;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+/* Narrow visible strip – the trigger */
+.edge-nav-trigger {
+  width: 10px;
+  height: 72px;
   display: flex;
   align-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.edge-nav-trigger-indicator {
+  width: 4px;
+  height: 56px;
+  border-radius: 0 4px 4px 0;
+  background: linear-gradient(180deg,
+    rgba(79, 140, 255, 0.0) 0%,
+    rgba(124, 92, 255, 0.75) 40%,
+    rgba(61, 216, 200, 0.75) 60%,
+    rgba(79, 140, 255, 0.0) 100%
+  );
+  transition: width 180ms ease, opacity 180ms ease;
+  opacity: 0.6;
+}
+
+.edge-nav:hover .edge-nav-trigger-indicator {
+  width: 5px;
+  opacity: 1;
+}
+
+/* Panel with buttons – hidden by default, slides in from left */
+.edge-nav-panel {
+  display: flex;
+  flex-direction: column;
   gap: 4px;
-  padding: 6px 8px;
+  padding: 8px 6px;
   background: rgba(8, 13, 26, 0.92);
   border: 1px solid var(--c-border-hover);
-  border-radius: 999px;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(79, 140, 255, 0.08);
+  border-left: none;
+  border-radius: 0 14px 14px 0;
+  box-shadow: 6px 0 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(79, 140, 255, 0.06);
   backdrop-filter: blur(18px);
-  /* hidden state */
+  /* hidden: shifted fully off-screen left */
+  transform: translateX(calc(-100% - 10px)) translateY(-50%);
   opacity: 0;
-  transform: translateX(12px) scale(0.95);
   pointer-events: none;
-  transition: opacity 200ms ease, transform 200ms ease;
+  transition: transform 220ms cubic-bezier(0.34, 1.3, 0.64, 1), opacity 180ms ease;
+  position: absolute;
+  left: 10px;
+  top: 50%;
 }
 
-.orb-nav--open {
+.edge-nav--open .edge-nav-panel {
+  transform: translateX(0) translateY(-50%);
   opacity: 1;
-  transform: translateX(0) scale(1);
   pointer-events: auto;
 }
 
-.orb-nav-btn {
+.edge-nav-btn {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 3px;
-  padding: 8px 11px;
+  gap: 8px;
+  padding: 9px 14px 9px 10px;
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: 10px;
   background: transparent;
   color: var(--c-text-2);
   cursor: pointer;
   transition: color 150ms, background 150ms, border-color 150ms;
   white-space: nowrap;
+  min-width: 130px;
 }
 
-.orb-nav-btn:hover {
+.edge-nav-btn:hover {
   color: var(--c-text);
   background: rgba(79, 140, 255, 0.14);
-  border-color: rgba(79, 140, 255, 0.25);
+  border-color: rgba(79, 140, 255, 0.22);
 }
 
-.orb-nav-btn--active {
-  color: #a8c4ff;
-  background: rgba(79, 140, 255, 0.18);
-  border-color: rgba(79, 140, 255, 0.35);
-}
-
-.orb-nav-icon {
+.edge-nav-icon {
   width: 18px;
   height: 18px;
   display: block;
   flex-shrink: 0;
 }
 
-.orb-nav-label {
-  font-size: 0.65rem;
+.edge-nav-label {
+  font-size: 0.8rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  line-height: 1;
+  letter-spacing: 0.02em;
 }
 
 /* The Orb itself */
@@ -955,8 +991,13 @@ kbd {
   pointer-events: none; /* Rust handles click-through; we just need to paint */
 }
 
-/* The orb-wrapper is always interactive (Rust turns off ignore_cursor_events near it) */
+/* The orb-wrapper is interactive when visible */
 .overlay-root .orb-wrapper {
+  pointer-events: auto;
+}
+
+/* Edge nav is always interactive (left-edge strip) */
+.overlay-root .edge-nav {
   pointer-events: auto;
 }
 
@@ -1008,11 +1049,16 @@ kbd {
   }
 
   .orb-wrapper {
-    bottom: 18px;
+    bottom: 60px;
     right: 18px;
   }
 
-  .orb-nav-label {
+  .edge-nav-label {
     display: none;
+  }
+
+  .edge-nav-btn {
+    min-width: auto;
+    padding: 9px 10px;
   }
 }

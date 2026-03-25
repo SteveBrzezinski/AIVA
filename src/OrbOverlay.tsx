@@ -15,6 +15,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { emit, listen } from '@tauri-apps/api/event';
 import { useEffect, useRef, useState } from 'react';
+import { EdgeNav } from './components/EdgeNav';
 import { OrbWidget, type OrbState } from './components/OrbWidget';
 import {
   getSettings,
@@ -36,7 +37,6 @@ type ActionBarPos = {
 
 type GlobalActionBarProps = {
   pos: ActionBarPos;
-  isMuted: boolean;
   isWorking: boolean;
   hasContext: boolean;
   onRead: () => void;
@@ -49,7 +49,6 @@ type GlobalActionBarProps = {
 
 function GlobalActionBar({
   pos,
-  isMuted,
   isWorking,
   hasContext,
   onRead,
@@ -145,22 +144,6 @@ function GlobalActionBar({
         </svg>
         Fragen
       </button>
-
-      {!isMuted && (
-        <>
-          <div className="action-bar-sep" />
-          <button type="button" className="action-bar-btn"
-            onClick={act(onAskQuestion)} title="Frage sprechen">
-            <svg className="action-bar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-              <line x1="12" y1="19" x2="12" y2="23" />
-              <line x1="8" y1="23" x2="16" y2="23" />
-            </svg>
-            Sprechen
-          </button>
-        </>
-      )}
     </div>
   );
 }
@@ -169,7 +152,7 @@ function GlobalActionBar({
 
 export function OrbOverlay() {
   const [uiState, setUiState] = useState<UiState>('idle');
-  const [isMuted, setIsMuted] = useState(false);
+  const [orbVisible, setOrbVisible] = useState(false);
   const [contextCount, setContextCount] = useState(0);
   const [actionBarPos, setActionBarPos] = useState<ActionBarPos | null>(null);
   const [errorToast, setErrorToast] = useState<string | null>(null);
@@ -197,6 +180,19 @@ export function OrbOverlay() {
     document.body.style.background = 'transparent';
     const root = document.getElementById('root');
     if (root) root.style.background = 'transparent';
+  }, []);
+
+  // Sync orb visibility to Rust so proximity_loop knows the orb zone state
+  useEffect(() => {
+    void invoke('set_orb_visible', { visible: orbVisible });
+  }, [orbVisible]);
+
+  // Toggle orb on Ctrl+Shift+O hotkey (emitted from Rust)
+  useEffect(() => {
+    const unlisten = listen('toggle-orb', () => {
+      setOrbVisible((v) => !v);
+    });
+    return () => { void unlisten.then((fn) => fn()); };
   }, []);
 
   // Listen for hotkey status changes (orb state)
@@ -333,7 +329,6 @@ export function OrbOverlay() {
       {actionBarPos && (
         <GlobalActionBar
           pos={actionBarPos}
-          isMuted={isMuted}
           isWorking={uiState === 'working'}
           hasContext={contextCount > 0}
           onRead={() => void runRead()}
@@ -351,15 +346,12 @@ export function OrbOverlay() {
         </div>
       )}
 
-      <OrbWidget
-        isMuted={isMuted}
-        orbState={orbState}
-        settingsOpen={false}
-        onMuteToggle={() => setIsMuted((m) => !m)}
+      <EdgeNav
+        onSettingsOpen={() => void invoke('show_main_window')}
         onChatOpen={() => { /* Chat – V2 folgt */ }}
-        onVoiceActivate={() => { /* Voice – V2 folgt */ }}
-        onSettingsToggle={() => void invoke('show_main_window')}
       />
+
+      <OrbWidget orbState={orbState} isVisible={orbVisible} />
     </div>
   );
 }

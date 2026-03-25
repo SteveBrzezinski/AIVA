@@ -166,4 +166,4 @@ mod commands {
 }
 
 pub use commands::{cancel_current_run, capture_and_speak_command, capture_and_translate_command, capture_selected_text_command, get_language_options, get_settings, pause_resume_current_run, reset_settings, speak_text_command, translate_text_command, update_settings};
-pub use overlay::{clear_action_bar_rect, get_captured_text, poll_selection, set_action_bar_rect, show_main_window};
+pub use overlay::{clear_action_bar_rect, get_captured_text, poll_selection, set_action_bar_rect, set_orb_visible, show_main_window};
