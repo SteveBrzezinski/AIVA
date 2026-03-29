@@ -7,6 +7,7 @@ type CueWord = 'hey' | 'bye';
 export const DEFAULT_ASSISTANT_WAKE_THRESHOLD = 68;
 export const DEFAULT_ASSISTANT_CLOSE_THRESHOLD = 64;
 export const DEFAULT_ASSISTANT_CUE_COOLDOWN_MS = 1200;
+export const ASSISTANT_UTTERANCE_SILENCE_MS = 2000;
 export const ASSISTANT_MATCH_THRESHOLD_MIN = 45;
 export const ASSISTANT_MATCH_THRESHOLD_MAX = 95;
 export const ASSISTANT_CUE_COOLDOWN_MS_MAX = 5000;
@@ -33,6 +34,12 @@ export type AssistantStateSnapshot = {
   closePhrase: string;
 };
 
+export type AssistantUtteranceSnapshot = {
+  transcript: string;
+  capturedAtMs: number;
+  silenceDurationMs: number;
+};
+
 export type LiveSttConfig = {
   language: string;
   assistantName: string;
@@ -49,6 +56,7 @@ export type LiveSttCallbacks = {
   onStatus: (message: string) => void;
   onProviderSnapshot: (snapshot: ProviderSnapshot) => void;
   onAssistantStateChange: (snapshot: AssistantStateSnapshot) => void;
+  onAssistantUtterance?: (snapshot: AssistantUtteranceSnapshot) => void;
 };
 
 type SpeechRecognitionCtor = new () => {
@@ -99,7 +107,10 @@ export class LiveSttController {
   private speechRecognition: InstanceType<SpeechRecognitionCtor> | null = null;
   private running = false;
   private assistantActive = false;
+  private assistantInputSuppressed = false;
   private cueCooldownUntilMs = 0;
+  private utteranceSegments = new Map<number, string>();
+  private utteranceSilenceTimerId: number | null = null;
 
   async start(config: LiveSttConfig, callbacks: LiveSttCallbacks): Promise<void> {
     if (this.running) {
@@ -120,6 +131,8 @@ export class LiveSttController {
     this.callbacks = callbacks;
     this.running = true;
     this.assistantActive = Boolean(this.config.activateImmediately);
+    this.assistantInputSuppressed = false;
+    this.clearActiveUtteranceState();
 
     if (this.assistantActive) {
       this.applyCueCooldown();
@@ -138,7 +151,9 @@ export class LiveSttController {
   async stop(): Promise<void> {
     this.running = false;
     this.assistantActive = false;
+    this.assistantInputSuppressed = false;
     this.cueCooldownUntilMs = 0;
+    this.clearActiveUtteranceState();
 
     if (this.speechRecognition) {
       try {
@@ -156,6 +171,7 @@ export class LiveSttController {
       return;
     }
 
+    this.clearActiveUtteranceState();
     this.assistantActive = true;
     this.applyCueCooldown();
     this.reportAssistantState(true, `Assistant active. Say "${this.currentClosePhrase()}" to deactivate.`, source);
@@ -167,10 +183,18 @@ export class LiveSttController {
       return;
     }
 
+    this.clearActiveUtteranceState();
     this.assistantActive = false;
     this.applyCueCooldown();
     this.reportAssistantState(false, `Assistant inactive. Listening for "${this.currentWakePhrase()}".`, source);
     this.restartRecognitionForCurrentMode();
+  }
+
+  setAssistantInputSuppressed(suppressed: boolean): void {
+    this.assistantInputSuppressed = suppressed;
+    if (suppressed) {
+      this.clearActiveUtteranceState();
+    }
   }
 
   private startWebSpeechRecognition(): void {
@@ -233,9 +257,15 @@ export class LiveSttController {
     let transcript = '';
     let isFinal = false;
     const startIndex = event.resultIndex ?? 0;
+    const changedSegments: Array<{ index: number; transcript: string }> = [];
     for (let index = startIndex; index < event.results.length; index += 1) {
       const result = event.results[index];
-      transcript += result[0]?.transcript ?? '';
+      const segmentTranscript = result[0]?.transcript ?? '';
+      transcript += segmentTranscript;
+      const trimmedSegment = segmentTranscript.trim();
+      if (trimmedSegment) {
+        changedSegments.push({ index, transcript: trimmedSegment });
+      }
       if (result.isFinal) {
         isFinal = true;
       }
@@ -260,6 +290,7 @@ export class LiveSttController {
       });
 
       if (wakeEvaluation.matched) {
+        this.clearActiveUtteranceState();
         this.assistantActive = true;
         this.applyCueCooldown();
         this.reportAssistantState(
@@ -284,6 +315,18 @@ export class LiveSttController {
       return;
     }
 
+    if (this.assistantInputSuppressed) {
+      this.callbacks?.onProviderSnapshot({
+        provider: 'webview2',
+        transcript: trimmed,
+        latencyMs: 0,
+        ok: true,
+        detail: 'assistant-active | suppressed',
+        updatedAtMs: Date.now(),
+      });
+      return;
+    }
+
     const closeEvaluation = evaluateCuePhrase({
       transcript: trimmed,
       kind: 'close',
@@ -297,6 +340,7 @@ export class LiveSttController {
     });
 
     if (closeEvaluation.matched) {
+      this.clearActiveUtteranceState();
       this.assistantActive = false;
       this.applyCueCooldown();
       this.reportAssistantState(
@@ -310,9 +354,15 @@ export class LiveSttController {
       return;
     }
 
+    this.updateActiveUtterance(changedSegments);
+    const utteranceTranscript = this.currentUtteranceTranscript() || trimmed;
+    if (utteranceTranscript) {
+      this.scheduleUtteranceEmission();
+    }
+
     this.callbacks?.onProviderSnapshot({
       provider: 'webview2',
-      transcript: trimmed,
+      transcript: utteranceTranscript,
       latencyMs: 0,
       ok: true,
       detail: buildCueSnapshotDetail('assistant-active', closeEvaluation, isFinal),
@@ -361,6 +411,56 @@ export class LiveSttController {
 
   private applyCueCooldown(): void {
     this.cueCooldownUntilMs = Date.now() + this.currentCueCooldownMs();
+  }
+
+  private updateActiveUtterance(segments: Array<{ index: number; transcript: string }>): void {
+    for (const segment of segments) {
+      this.utteranceSegments.set(segment.index, segment.transcript);
+    }
+  }
+
+  private currentUtteranceTranscript(): string {
+    return [...this.utteranceSegments.entries()]
+      .sort(([left], [right]) => left - right)
+      .map(([, transcript]) => transcript)
+      .join(' ')
+      .trim();
+  }
+
+  private scheduleUtteranceEmission(): void {
+    if (this.utteranceSilenceTimerId !== null) {
+      window.clearTimeout(this.utteranceSilenceTimerId);
+    }
+
+    this.utteranceSilenceTimerId = window.setTimeout(() => {
+      this.utteranceSilenceTimerId = null;
+
+      if (!this.running || !this.assistantActive || this.assistantInputSuppressed) {
+        return;
+      }
+
+      const transcript = this.currentUtteranceTranscript();
+      this.clearActiveUtteranceState();
+
+      if (!transcript) {
+        return;
+      }
+
+      this.callbacks?.onAssistantUtterance?.({
+        transcript,
+        capturedAtMs: Date.now(),
+        silenceDurationMs: ASSISTANT_UTTERANCE_SILENCE_MS,
+      });
+    }, ASSISTANT_UTTERANCE_SILENCE_MS);
+  }
+
+  private clearActiveUtteranceState(): void {
+    if (this.utteranceSilenceTimerId !== null) {
+      window.clearTimeout(this.utteranceSilenceTimerId);
+      this.utteranceSilenceTimerId = null;
+    }
+
+    this.utteranceSegments.clear();
   }
 
   private cooldownRemainingMs(): number {

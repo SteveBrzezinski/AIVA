@@ -31,6 +31,9 @@ export type AppSettings = {
   translationTargetLanguage: string;
   playbackSpeed: number;
   openaiApiKey: string;
+  openclawEndpointUrl: string;
+  openclawAgentId: string;
+  openclawSessionId: string;
   sttLanguage: string;
   assistantName: string;
   assistantWakeSamples: string[];
@@ -95,6 +98,39 @@ export type CaptureAndTranslateResult = {
     sourceLanguage?: string | null;
     model: string;
   };
+  speech: {
+    autoplay: boolean;
+    bytesWritten: number;
+    chunkCount: number;
+    filePath: string;
+    format: string;
+    model: string;
+    mode: string;
+    requestedMode: string;
+    sessionId: string;
+    sessionStrategy: string;
+    fallbackReason?: string | null;
+    supportsPersistentSession: boolean;
+    outputDirectory: string;
+    transportFormat: string;
+    voice: string;
+    firstAudioReceivedAtMs?: number | null;
+    firstAudioPlaybackStartedAtMs?: number | null;
+    startLatencyMs?: number | null;
+  };
+};
+
+export type OpenClawBridgeResult = {
+  text: string;
+  endpointUrl: string;
+  agentId?: string | null;
+  requestedSessionId?: string | null;
+  responseSessionId?: string | null;
+};
+
+export type OpenClawVoiceTurnResult = {
+  transcript: string;
+  openclaw: OpenClawBridgeResult;
   speech: {
     autoplay: boolean;
     bytesWritten: number;
@@ -259,4 +295,18 @@ export async function pauseResumeCurrentRun(): Promise<string> {
 
 export async function cancelCurrentRun(): Promise<string> {
   return invoke<string>('cancel_current_run');
+}
+
+export async function runOpenClawVoiceTurn(options: {
+  transcript: string;
+  agentId?: string;
+  sessionId?: string;
+}): Promise<OpenClawVoiceTurnResult> {
+  return invoke<OpenClawVoiceTurnResult>('run_openclaw_voice_turn_command', {
+    options: {
+      transcript: options.transcript,
+      agentId: options.agentId,
+      sessionId: options.sessionId,
+    },
+  });
 }

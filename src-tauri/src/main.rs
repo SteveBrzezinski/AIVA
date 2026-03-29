@@ -32,6 +32,7 @@ fn main() {
             voice_overlay_assistant::reset_settings,
             voice_overlay_assistant::get_language_options,
             voice_overlay_assistant::append_stt_debug_log_command,
+            voice_overlay_assistant::run_openclaw_voice_turn_command,
             voice_overlay_assistant::pause_resume_current_run,
             voice_overlay_assistant::cancel_current_run
         ])

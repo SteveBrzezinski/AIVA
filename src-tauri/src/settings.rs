@@ -26,6 +26,9 @@ pub struct AppSettings {
     pub translation_target_language: String,
     pub playback_speed: f32,
     pub openai_api_key: String,
+    pub openclaw_endpoint_url: String,
+    pub openclaw_agent_id: String,
+    pub openclaw_session_id: String,
     pub stt_language: String,
     pub assistant_name: String,
     pub assistant_wake_samples: Vec<String>,
@@ -47,6 +50,9 @@ impl Default for AppSettings {
             translation_target_language: "en".to_string(),
             playback_speed: DEFAULT_PLAYBACK_SPEED,
             openai_api_key: String::new(),
+            openclaw_endpoint_url: String::new(),
+            openclaw_agent_id: String::new(),
+            openclaw_session_id: String::new(),
             stt_language: "de".to_string(),
             assistant_name: "AIVA".to_string(),
             assistant_wake_samples: Vec::new(),
@@ -159,6 +165,9 @@ pub fn sanitize_settings(mut settings: AppSettings) -> AppSettings {
 
     settings.playback_speed = sanitize_playback_speed(settings.playback_speed);
     settings.openai_api_key = settings.openai_api_key.trim().to_string();
+    settings.openclaw_endpoint_url = settings.openclaw_endpoint_url.trim().to_string();
+    settings.openclaw_agent_id = settings.openclaw_agent_id.trim().to_string();
+    settings.openclaw_session_id = settings.openclaw_session_id.trim().to_string();
     settings.stt_language = if settings.stt_language.trim().is_empty() {
         "de".to_string()
     } else {

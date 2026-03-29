@@ -1,6 +1,7 @@
 use crate::{
     run_controller::{is_cancelled_error, CancelResult, PauseResumeResult, RunController},
     settings::{DEFAULT_SPEAK_HOTKEY, DEFAULT_TRANSLATE_HOTKEY},
+    tts::TtsProgress,
 };
 use serde::Serialize;
 use std::{
@@ -319,6 +320,160 @@ pub fn set_error(
     });
 }
 
+pub fn set_voice_run_success(
+    app: &AppHandle,
+    message: String,
+    captured_text: String,
+    speech: &crate::tts::SpeakTextResult,
+) {
+    let state = app.state::<HotkeyState>();
+    state.update(app, |snapshot| {
+        snapshot.state = "success";
+        snapshot.last_action = Some("assistant_voice".to_string());
+        snapshot.message = message.clone();
+        snapshot.last_captured_text = Some(captured_text.clone());
+        snapshot.last_audio_path = Some(speech.file_path.clone());
+        snapshot.last_audio_output_directory = Some(speech.output_directory.clone());
+        snapshot.last_audio_chunk_count = Some(speech.chunk_count);
+        snapshot.active_tts_mode = Some(speech.mode.clone());
+        snapshot.requested_tts_mode = Some(speech.requested_mode.clone());
+        snapshot.session_strategy = Some(speech.session_strategy.clone());
+        snapshot.session_id = Some(speech.session_id.clone());
+        snapshot.session_fallback_reason = speech.fallback_reason.clone();
+        snapshot.first_audio_received_at_ms = speech.first_audio_received_at_ms;
+        snapshot.first_audio_playback_started_at_ms = speech.first_audio_playback_started_at_ms;
+        snapshot.start_latency_ms = speech.start_latency_ms;
+        recompute_timing_metrics(snapshot);
+    });
+}
+
+pub fn apply_tts_progress(app: &AppHandle, action: &str, progress: TtsProgress) {
+    match progress {
+        TtsProgress::PipelineStarted { mode, chunk_count, format, started_at_ms, .. } => {
+            let state = app.state::<HotkeyState>();
+            state.update(app, |snapshot| {
+                snapshot.state = "working";
+                snapshot.last_action = Some(action.to_string());
+                snapshot.message = format!(
+                    "TTS pipeline started in {mode} mode. Planned {chunk_count} chunk(s) as {}.",
+                    format.to_uppercase()
+                );
+                snapshot.active_tts_mode = Some(mode);
+                snapshot.tts_started_at_ms = Some(started_at_ms);
+                snapshot.first_audio_received_at_ms = None;
+                snapshot.first_audio_playback_started_at_ms = None;
+                snapshot.start_latency_ms = None;
+                recompute_timing_metrics(snapshot);
+            });
+        }
+        TtsProgress::RealtimeConnecting { mode, model, voice, session_id } => {
+            let state = app.state::<HotkeyState>();
+            state.update(app, |snapshot| {
+                snapshot.state = "working";
+                snapshot.last_action = Some(action.to_string());
+                snapshot.message = format!(
+                    "Connecting realtime websocket session {session_id} with model {model} and voice {voice}."
+                );
+                snapshot.active_tts_mode = Some(mode);
+                snapshot.session_id = Some(session_id);
+            });
+        }
+        TtsProgress::RealtimeConnected { mode, model, voice, session_id } => {
+            let state = app.state::<HotkeyState>();
+            state.update(app, |snapshot| {
+                snapshot.state = "working";
+                snapshot.last_action = Some(action.to_string());
+                snapshot.message = format!(
+                    "Realtime connect ok for session {session_id}. Streaming with model {model} and voice {voice}."
+                );
+                snapshot.active_tts_mode = Some(mode);
+                snapshot.session_id = Some(session_id);
+            });
+        }
+        TtsProgress::RealtimeSessionUpdateSucceeded { mode, session_id } => {
+            let state = app.state::<HotkeyState>();
+            state.update(app, |snapshot| {
+                snapshot.state = "working";
+                snapshot.last_action = Some(action.to_string());
+                snapshot.message = format!("Realtime session.update ok for session {session_id}.");
+                snapshot.active_tts_mode = Some(mode);
+                snapshot.session_id = Some(session_id);
+            });
+        }
+        TtsProgress::RealtimeResponseCreateSucceeded { mode, session_id } => {
+            let state = app.state::<HotkeyState>();
+            state.update(app, |snapshot| {
+                snapshot.state = "working";
+                snapshot.last_action = Some(action.to_string());
+                snapshot.message = format!("Realtime response.create ok for session {session_id}. Waiting for first audio delta …");
+                snapshot.active_tts_mode = Some(mode);
+                snapshot.session_id = Some(session_id);
+            });
+        }
+        TtsProgress::RealtimeNoAudioReceived { mode, session_id, detail } => {
+            let state = app.state::<HotkeyState>();
+            state.update(app, |snapshot| {
+                snapshot.state = "working";
+                snapshot.last_action = Some(action.to_string());
+                snapshot.message = format!("Realtime first audio delta missing for session {session_id}: {detail}");
+                snapshot.active_tts_mode = Some(mode);
+                snapshot.session_id = Some(session_id);
+            });
+        }
+        TtsProgress::FallbackToLive { reason } => {
+            let state = app.state::<HotkeyState>();
+            state.update(app, |snapshot| {
+                snapshot.state = "working";
+                snapshot.last_action = Some(action.to_string());
+                snapshot.message = reason.clone();
+                snapshot.active_tts_mode = Some("live".to_string());
+                snapshot.session_fallback_reason = Some(reason);
+            });
+        }
+        TtsProgress::FirstAudioReceived { mode, at_ms, latency_ms, bytes_received } => {
+            let state = app.state::<HotkeyState>();
+            state.update(app, |snapshot| {
+                snapshot.state = "working";
+                snapshot.last_action = Some(action.to_string());
+                snapshot.message = format!(
+                    "First audio arrived in {latency_ms} ms ({bytes_received} bytes, mode {mode})."
+                );
+                snapshot.active_tts_mode = Some(mode);
+                snapshot.first_audio_received_at_ms = Some(at_ms);
+                recompute_timing_metrics(snapshot);
+            });
+        }
+        TtsProgress::FirstAudioPlaybackStarted { mode, at_ms, latency_ms } => {
+            let state = app.state::<HotkeyState>();
+            state.update(app, |snapshot| {
+                snapshot.state = "working";
+                snapshot.last_action = Some(action.to_string());
+                snapshot.message =
+                    format!("Audible playback started after {latency_ms} ms in {mode} mode.");
+                snapshot.active_tts_mode = Some(mode);
+                snapshot.first_audio_playback_started_at_ms = Some(at_ms);
+                snapshot.start_latency_ms = Some(latency_ms);
+                recompute_timing_metrics(snapshot);
+            });
+        }
+        TtsProgress::ChunkRequestStarted { index, total, text_chars } => {
+            update_working(app, action, format!("Preparing chunk {}/{} … ({} chars)", index + 1, total, text_chars));
+        }
+        TtsProgress::ChunkRequestFinished { index, total, elapsed_ms, .. } => {
+            update_working(app, action, format!("Chunk {}/{} ready after {} ms.", index + 1, total, elapsed_ms));
+        }
+        TtsProgress::ChunkFileWritten { index, total, .. } => {
+            update_working(app, action, format!("Chunk {}/{} written. Waiting for ordered playback …", index + 1, total));
+        }
+        TtsProgress::ChunkPlaybackStarted { index, total, .. } => {
+            update_working(app, action, format!("Playing chunk {}/{} …", index + 1, total));
+        }
+        TtsProgress::ChunkPlaybackFinished { index, total, elapsed_ms } => {
+            update_working(app, action, format!("Finished chunk {}/{} playback ({} ms).", index + 1, total, elapsed_ms));
+        }
+    }
+}
+
 #[cfg(not(target_os = "windows"))]
 pub fn init_hotkey(app: &AppHandle) {
     let state = app.state::<HotkeyState>();
@@ -460,15 +615,6 @@ mod windows_impl {
         }
     }
 
-    fn update_working(app: &AppHandle, action: &str, message: String) {
-        let state = app.state::<HotkeyState>();
-        state.update(app, |snapshot| {
-            snapshot.state = "working";
-            snapshot.last_action = Some(action.to_string());
-            snapshot.message = message;
-        });
-    }
-
     fn trigger_pause_resume(app: &AppHandle) {
         let controller = app.state::<RunController>();
         let result = controller.pause_resume();
@@ -607,7 +753,7 @@ mod windows_impl {
 
             let settings = app_handle.state::<SettingsState>().get();
             let progress_app = app_handle.clone();
-            let progress = Arc::new(move |progress: TtsProgress| update_progress(&progress_app, "speak", progress));
+            let progress = Arc::new(move |progress: TtsProgress| super::apply_tts_progress(&progress_app, "speak", progress));
             let result = speak_text_with_progress_and_control(
                 SpeakTextOptions {
                     text: Some(capture.text.clone()),
@@ -766,7 +912,7 @@ mod windows_impl {
             };
 
             let progress_app = app_handle.clone();
-            let progress = Arc::new(move |progress: TtsProgress| update_progress(&progress_app, "translate", progress));
+            let progress = Arc::new(move |progress: TtsProgress| super::apply_tts_progress(&progress_app, "translate", progress));
             let speech = speak_text_with_progress_and_control(
                 SpeakTextOptions {
                     text: Some(translation.text.clone()),
@@ -834,133 +980,6 @@ mod windows_impl {
                 }),
             }
         });
-    }
-
-    fn update_progress(app: &AppHandle, action: &str, progress: TtsProgress) {
-        match progress {
-            TtsProgress::PipelineStarted { mode, chunk_count, format, started_at_ms, .. } => {
-                let state = app.state::<HotkeyState>();
-                state.update(app, |snapshot| {
-                    snapshot.state = "working";
-                    snapshot.last_action = Some(action.to_string());
-                    snapshot.message = format!(
-                        "TTS pipeline started in {mode} mode. Planned {chunk_count} chunk(s) as {}.",
-                        format.to_uppercase()
-                    );
-                    snapshot.active_tts_mode = Some(mode);
-                    snapshot.tts_started_at_ms = Some(started_at_ms);
-                    snapshot.first_audio_received_at_ms = None;
-                    snapshot.first_audio_playback_started_at_ms = None;
-                    snapshot.start_latency_ms = None;
-                    recompute_timing_metrics(snapshot);
-                });
-            }
-            TtsProgress::RealtimeConnecting { mode, model, voice, session_id } => {
-                let state = app.state::<HotkeyState>();
-                state.update(app, |snapshot| {
-                    snapshot.state = "working";
-                    snapshot.last_action = Some(action.to_string());
-                    snapshot.message = format!(
-                        "Connecting realtime websocket session {session_id} with model {model} and voice {voice}."
-                    );
-                    snapshot.active_tts_mode = Some(mode);
-                    snapshot.session_id = Some(session_id);
-                });
-            }
-            TtsProgress::RealtimeConnected { mode, model, voice, session_id } => {
-                let state = app.state::<HotkeyState>();
-                state.update(app, |snapshot| {
-                    snapshot.state = "working";
-                    snapshot.last_action = Some(action.to_string());
-                    snapshot.message = format!(
-                        "Realtime connect ok for session {session_id}. Streaming with model {model} and voice {voice}."
-                    );
-                    snapshot.active_tts_mode = Some(mode);
-                    snapshot.session_id = Some(session_id);
-                });
-            }
-            TtsProgress::RealtimeSessionUpdateSucceeded { mode, session_id } => {
-                let state = app.state::<HotkeyState>();
-                state.update(app, |snapshot| {
-                    snapshot.state = "working";
-                    snapshot.last_action = Some(action.to_string());
-                    snapshot.message = format!("Realtime session.update ok for session {session_id}.");
-                    snapshot.active_tts_mode = Some(mode);
-                    snapshot.session_id = Some(session_id);
-                });
-            }
-            TtsProgress::RealtimeResponseCreateSucceeded { mode, session_id } => {
-                let state = app.state::<HotkeyState>();
-                state.update(app, |snapshot| {
-                    snapshot.state = "working";
-                    snapshot.last_action = Some(action.to_string());
-                    snapshot.message = format!("Realtime response.create ok for session {session_id}. Waiting for first audio delta …");
-                    snapshot.active_tts_mode = Some(mode);
-                    snapshot.session_id = Some(session_id);
-                });
-            }
-            TtsProgress::RealtimeNoAudioReceived { mode, session_id, detail } => {
-                let state = app.state::<HotkeyState>();
-                state.update(app, |snapshot| {
-                    snapshot.state = "working";
-                    snapshot.last_action = Some(action.to_string());
-                    snapshot.message = format!("Realtime first audio delta missing for session {session_id}: {detail}");
-                    snapshot.active_tts_mode = Some(mode);
-                    snapshot.session_id = Some(session_id);
-                });
-            }
-            TtsProgress::FallbackToLive { reason } => {
-                let state = app.state::<HotkeyState>();
-                state.update(app, |snapshot| {
-                    snapshot.state = "working";
-                    snapshot.last_action = Some(action.to_string());
-                    snapshot.message = reason.clone();
-                    snapshot.active_tts_mode = Some("live".to_string());
-                    snapshot.session_fallback_reason = Some(reason);
-                });
-            }
-            TtsProgress::FirstAudioReceived { mode, at_ms, latency_ms, bytes_received } => {
-                let state = app.state::<HotkeyState>();
-                state.update(app, |snapshot| {
-                    snapshot.state = "working";
-                    snapshot.last_action = Some(action.to_string());
-                    snapshot.message = format!(
-                        "First audio arrived in {latency_ms} ms ({bytes_received} bytes, mode {mode})."
-                    );
-                    snapshot.active_tts_mode = Some(mode);
-                    snapshot.first_audio_received_at_ms = Some(at_ms);
-                    recompute_timing_metrics(snapshot);
-                });
-            }
-            TtsProgress::FirstAudioPlaybackStarted { mode, at_ms, latency_ms } => {
-                let state = app.state::<HotkeyState>();
-                state.update(app, |snapshot| {
-                    snapshot.state = "working";
-                    snapshot.last_action = Some(action.to_string());
-                    snapshot.message =
-                        format!("Audible playback started after {latency_ms} ms in {mode} mode.");
-                    snapshot.active_tts_mode = Some(mode);
-                    snapshot.first_audio_playback_started_at_ms = Some(at_ms);
-                    snapshot.start_latency_ms = Some(latency_ms);
-                    recompute_timing_metrics(snapshot);
-                });
-            }
-            TtsProgress::ChunkRequestStarted { index, total, text_chars } => {
-                update_working(app, action, format!("Preparing chunk {}/{} … ({} chars)", index + 1, total, text_chars));
-            }
-            TtsProgress::ChunkRequestFinished { index, total, elapsed_ms, .. } => {
-                update_working(app, action, format!("Chunk {}/{} ready after {} ms.", index + 1, total, elapsed_ms));
-            }
-            TtsProgress::ChunkFileWritten { index, total, .. } => {
-                update_working(app, action, format!("Chunk {}/{} written. Waiting for ordered playback …", index + 1, total));
-            }
-            TtsProgress::ChunkPlaybackStarted { index, total, .. } => {
-                update_working(app, action, format!("Playing chunk {}/{} …", index + 1, total));
-            }
-            TtsProgress::ChunkPlaybackFinished { index, total, elapsed_ms } => {
-                update_working(app, action, format!("Finished chunk {}/{} playback ({} ms).", index + 1, total, elapsed_ms));
-            }
-        }
     }
 
     fn format_chunk_suffix(index: Option<usize>, total: Option<usize>) -> String {
