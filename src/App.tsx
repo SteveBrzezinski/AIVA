@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
  type RunHistoryEntry = {
   id: string;
@@ -16,6 +16,7 @@ import { useEffect, useMemo, useState } from 'react';
   hotkeyToFirstPlaybackMs: number | null;
 };
 import {
+  appendSttDebugLog,
   captureAndSpeak,
   captureAndTranslate,
   getAppStatus,
@@ -28,9 +29,12 @@ import {
   type AppSettings,
   type HotkeyStatus,
   type LanguageOption,
+  type SttDebugEntry,
 } from './lib/voiceOverlay';
+import { LiveSttController, type ProviderSnapshot, type SttProviderId } from './lib/liveStt';
 
 type UiState = 'idle' | 'working' | 'success' | 'error';
+type ProviderSnapshotMap = Partial<Record<SttProviderId, ProviderSnapshot>>;
 
 const fallbackHotkeyStatus: HotkeyStatus = {
   registered: false,
@@ -51,6 +55,9 @@ const fallbackSettings: AppSettings = {
   translationTargetLanguage: 'en',
   playbackSpeed: 1,
   openaiApiKey: '',
+  sttProvider: 'webview2',
+  sttCompareAll: true,
+  sttLanguage: 'de',
 };
 
 function formatTimestamp(value?: number | null): string {
@@ -115,6 +122,9 @@ export default function App() {
   const [lastSessionStrategy, setLastSessionStrategy] = useState('');
   const [lastSessionId, setLastSessionId] = useState('');
   const [lastSessionFallbackReason, setLastSessionFallbackReason] = useState('');
+  const [lastSttProvider, setLastSttProvider] = useState('');
+  const [lastSttDebugLogPath, setLastSttDebugLogPath] = useState('');
+  const [lastSttActiveTranscript, setLastSttActiveTranscript] = useState('');
   const [hotkeyStartedAtMs, setHotkeyStartedAtMs] = useState<number | null>(null);
   const [captureStartedAtMs, setCaptureStartedAtMs] = useState<number | null>(null);
   const [captureFinishedAtMs, setCaptureFinishedAtMs] = useState<number | null>(null);
@@ -131,6 +141,13 @@ export default function App() {
   const [runHistory, setRunHistory] = useState<RunHistoryEntry[]>([]);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [showResetDialog, setShowResetDialog] = useState(false);
+  const [isLiveTranscribing, setIsLiveTranscribing] = useState(false);
+  const [liveTranscriptionStatus, setLiveTranscriptionStatus] = useState('Live transcription is stopped.');
+  const [liveTranscript, setLiveTranscript] = useState('');
+  const [sttProviderSnapshots, setSttProviderSnapshots] = useState<ProviderSnapshotMap>({});
+  const [liveTranscriptionSessionId, setLiveTranscriptionSessionId] = useState('');
+  const liveSttControllerRef = useRef<LiveSttController | null>(null);
+  const sttDebugWriteTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     void Promise.all([getAppStatus(), getHotkeyStatus(), getSettings(), getLanguageOptions()])
@@ -151,6 +168,9 @@ export default function App() {
         setLastSessionStrategy(hotkey.sessionStrategy ?? '');
         setLastSessionId(hotkey.sessionId ?? '');
         setLastSessionFallbackReason(hotkey.sessionFallbackReason ?? '');
+        setLastSttProvider(hotkey.lastSttProvider ?? '');
+        setLastSttDebugLogPath(hotkey.lastSttDebugLogPath ?? '');
+        setLastSttActiveTranscript(hotkey.lastSttActiveTranscript ?? '');
         setHotkeyStartedAtMs(hotkey.hotkeyStartedAtMs ?? null);
         setCaptureStartedAtMs(hotkey.captureStartedAtMs ?? null);
         setCaptureFinishedAtMs(hotkey.captureFinishedAtMs ?? null);
@@ -184,6 +204,9 @@ export default function App() {
       setLastSessionStrategy(status.sessionStrategy ?? '');
       setLastSessionId(status.sessionId ?? '');
       setLastSessionFallbackReason(status.sessionFallbackReason ?? '');
+      setLastSttProvider(status.lastSttProvider ?? '');
+      setLastSttDebugLogPath(status.lastSttDebugLogPath ?? '');
+      setLastSttActiveTranscript(status.lastSttActiveTranscript ?? '');
       setHotkeyStartedAtMs(status.hotkeyStartedAtMs ?? null);
       setCaptureStartedAtMs(status.captureStartedAtMs ?? null);
       setCaptureFinishedAtMs(status.captureFinishedAtMs ?? null);
@@ -216,6 +239,62 @@ export default function App() {
       void unlisten?.();
     };
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (sttDebugWriteTimerRef.current !== null) {
+        window.clearTimeout(sttDebugWriteTimerRef.current);
+      }
+      if (liveSttControllerRef.current) {
+        void liveSttControllerRef.current.stop();
+        liveSttControllerRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isLiveTranscribing || !liveTranscriptionSessionId) {
+      return;
+    }
+
+    const entries: SttDebugEntry[] = Object.values(sttProviderSnapshots)
+      .filter((snapshot): snapshot is ProviderSnapshot => Boolean(snapshot))
+      .map((snapshot) => ({
+        provider: snapshot.provider,
+        transcript: snapshot.transcript,
+        latencyMs: snapshot.latencyMs,
+        ok: snapshot.ok,
+        detail: snapshot.detail ?? null,
+      }));
+
+    if (!entries.length) {
+      return;
+    }
+
+    if (sttDebugWriteTimerRef.current !== null) {
+      window.clearTimeout(sttDebugWriteTimerRef.current);
+    }
+
+    sttDebugWriteTimerRef.current = window.setTimeout(() => {
+      void appendSttDebugLog({
+        sessionId: liveTranscriptionSessionId,
+        selectedProvider: settings.sttProvider,
+        activeTranscript: liveTranscript,
+        entries,
+      })
+        .then((result) => setLastSttDebugLogPath(result.debugLogPath))
+        .catch((error: unknown) => {
+          const text = error instanceof Error ? error.message : String(error);
+          setLiveTranscriptionStatus(`Failed to write STT debug log: ${text}`);
+        });
+    }, 600);
+
+    return () => {
+      if (sttDebugWriteTimerRef.current !== null) {
+        window.clearTimeout(sttDebugWriteTimerRef.current);
+      }
+    };
+  }, [isLiveTranscribing, liveTranscript, liveTranscriptionSessionId, settings.sttProvider, sttProviderSnapshots]);
 
   const hasUnsavedChanges = useMemo(
     () => JSON.stringify(settings) !== JSON.stringify(savedSettings),
@@ -339,6 +418,68 @@ export default function App() {
     }
   };
 
+  const startLiveTranscription = async (): Promise<void> => {
+    let activeSettings = savedSettings;
+
+    try {
+      activeSettings = await ensureSavedSettings();
+    } catch {
+      return;
+    }
+
+    if (liveSttControllerRef.current) {
+      await liveSttControllerRef.current.stop();
+    }
+
+    const controller = new LiveSttController();
+    liveSttControllerRef.current = controller;
+    const sessionId = `stt-live-${Date.now()}`;
+    setLiveTranscriptionSessionId(sessionId);
+    setSttProviderSnapshots({});
+    setLiveTranscript('');
+    setLastSttDebugLogPath('');
+    setLastSttProvider(activeSettings.sttProvider);
+    setLastSttActiveTranscript('');
+    setIsLiveTranscribing(true);
+
+    try {
+      await controller.start(
+        {
+          provider: activeSettings.sttProvider,
+          compareAll: activeSettings.sttCompareAll,
+          language: activeSettings.sttLanguage,
+        },
+        {
+          onStatus: (status) => {
+            setLiveTranscriptionStatus(status);
+          },
+          onProviderSnapshot: (snapshot) => {
+            setSttProviderSnapshots((current) => ({ ...current, [snapshot.provider]: snapshot }));
+            if (snapshot.provider === activeSettings.sttProvider && snapshot.transcript) {
+              setLiveTranscript(snapshot.transcript);
+              setLastSttProvider(snapshot.provider);
+              setLastSttActiveTranscript(snapshot.transcript);
+            }
+          },
+        },
+      );
+      setLiveTranscriptionStatus('Live transcription is running.');
+    } catch (error: unknown) {
+      const text = error instanceof Error ? error.message : String(error);
+      setIsLiveTranscribing(false);
+      setLiveTranscriptionStatus(`Failed to start live transcription: ${text}`);
+    }
+  };
+
+  const stopLiveTranscription = async (): Promise<void> => {
+    if (liveSttControllerRef.current) {
+      await liveSttControllerRef.current.stop();
+      liveSttControllerRef.current = null;
+    }
+    setIsLiveTranscribing(false);
+    setLiveTranscriptionStatus('Live transcription is stopped.');
+  };
+
   const resetAllSettings = async (): Promise<void> => {
     setShowResetDialog(false);
     setIsSavingSettings(true);
@@ -363,9 +504,11 @@ export default function App() {
       { label: 'Speech mode', value: settings.ttsMode },
       { label: 'Speech defaults', value: `${settings.ttsFormat.toUpperCase()} · ${settings.firstChunkLeadingSilenceMs} ms lead-in · ${settings.playbackSpeed.toFixed(1)}x` },
       { label: 'Translation target', value: settings.translationTargetLanguage },
+      { label: 'STT provider', value: `${settings.sttProvider}${settings.sttCompareAll ? ' · compare all' : ''}` },
+      { label: 'Live transcription', value: isLiveTranscribing ? 'running' : 'stopped' },
       { label: 'Current status', value: appStatus },
     ],
-    [appStatus, hotkeyStatus.accelerator, hotkeyStatus.registered, hotkeyStatus.translateAccelerator, settings],
+    [appStatus, hotkeyStatus.accelerator, hotkeyStatus.registered, hotkeyStatus.translateAccelerator, isLiveTranscribing, settings],
   );
 
   return (
@@ -397,6 +540,14 @@ export default function App() {
               onClick={() => void runTranslateSelectedText()}
             >
               Local translation test
+            </button>
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={isSavingSettings}
+              onClick={() => void (isLiveTranscribing ? stopLiveTranscription() : startLiveTranscription())}
+            >
+              {isLiveTranscribing ? 'Stop live transcription' : 'Start live transcription'}
             </button>
           </div>
         </section>
@@ -517,6 +668,40 @@ export default function App() {
               </div>
             ) : null}
 
+            <label className="settings-field">
+              <span className="info-label">STT provider</span>
+              <select value={settings.sttProvider} onChange={(event) => setSettings({ ...settings, sttProvider: event.target.value as AppSettings['sttProvider'] })}>
+                <option value="webview2">WebView2 / Windows speech</option>
+                <option value="openai_online">OpenAI Speech-to-Text API (online, gpt-4o-transcribe realtime)</option>
+                <option value="openai_whisper_local">OpenAI Whisper lokal (offline)</option>
+              </select>
+              <span className="field-note">Single-select for the active permanent transcription path. This is the provider whose transcript should be treated as the primary one.</span>
+            </label>
+
+            <label className="settings-field">
+              <span className="info-label">STT compare mode</span>
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={settings.sttCompareAll}
+                  onChange={(event) => setSettings({ ...settings, sttCompareAll: event.target.checked })}
+                />
+                <span>Also run all STT providers in parallel for debug comparison</span>
+              </label>
+              <span className="field-note">When enabled, the app logs all three transcript variants so you can compare speed and output quality directly in the debug log.</span>
+            </label>
+
+            <label className="settings-field">
+              <span className="info-label">STT language hint</span>
+              <input
+                type="text"
+                placeholder="de"
+                value={settings.sttLanguage}
+                onChange={(event) => setSettings({ ...settings, sttLanguage: event.target.value })}
+              />
+              <span className="field-note">Language hint for online and local transcription, e.g. `de` or `en`.</span>
+            </label>
+
             <label className="settings-field settings-field--wide">
               <span className="info-label">OpenAI API key</span>
               <input
@@ -531,6 +716,35 @@ export default function App() {
           </div>
         </section>
 
+        <section className={`result-card result-card--${isLiveTranscribing ? 'working' : 'success'}`}>
+          <div>
+            <span className="info-label">Live transcription</span>
+            <strong>{liveTranscriptionStatus}</strong>
+          </div>
+          <div className="result-block">
+            <span className="info-label">Active transcript</span>
+            <p>{liveTranscript || 'No transcript yet.'}</p>
+          </div>
+          {Object.values(sttProviderSnapshots).length ? (
+            <div className="result-block">
+              <span className="info-label">Provider comparison</span>
+              <div className="stt-provider-grid">
+                {Object.values(sttProviderSnapshots).filter((snapshot): snapshot is ProviderSnapshot => Boolean(snapshot)).map((snapshot) => (
+                  <article className="stt-provider-card" key={snapshot.provider}>
+                    <strong>{snapshot.provider}</strong>
+                    <p>{snapshot.transcript || 'No transcript yet.'}</p>
+                    <span className="field-note">
+                      {snapshot.ok ? `ok · ${snapshot.latencyMs} ms` : 'error'}
+                      {snapshot.detail ? ` · ${snapshot.detail}` : ''}
+                    </span>
+                  </article>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          {lastSttDebugLogPath ? <div className="result-block"><span className="info-label">Live STT debug log</span><code>{lastSttDebugLogPath}</code></div> : null}
+        </section>
+
         <section className={`result-card result-card--${uiState}`}>
           <div>
             <span className="info-label">Latest run / hotkey status</span>
@@ -542,6 +756,9 @@ export default function App() {
           {lastRequestedTtsMode ? <div className="result-block"><span className="info-label">Requested TTS mode</span><strong>{lastRequestedTtsMode}</strong></div> : null}
           {lastSessionStrategy ? <div className="result-block"><span className="info-label">Session strategy</span><p>{lastSessionStrategy}</p><code>{lastSessionId}</code></div> : null}
           {lastSessionFallbackReason ? <div className="result-block"><span className="info-label">Session fallback</span><p>{lastSessionFallbackReason}</p></div> : null}
+          {lastSttProvider ? <div className="result-block"><span className="info-label">Last STT provider</span><strong>{lastSttProvider}</strong></div> : null}
+          {lastSttActiveTranscript ? <div className="result-block"><span className="info-label">Last STT transcript</span><p>{lastSttActiveTranscript}</p></div> : null}
+          {lastSttDebugLogPath ? <div className="result-block"><span className="info-label">STT debug log</span><code>{lastSttDebugLogPath}</code></div> : null}
           {startLatencyMs !== null ? <div className="result-block"><span className="info-label">Visible start latency</span><strong>{startLatencyMs} ms</strong></div> : null}
           {(hotkeyToFirstPlaybackMs !== null || hotkeyToFirstAudioMs !== null) ? (
             <div className="result-block">
@@ -599,9 +816,10 @@ export default function App() {
           <span className="info-label">Usage</span>
           <ol>
             <li>Keep the app running in the background.</li>
-            <li>Select text in another Windows app.</li>
+            <li>Use <strong>Start live transcription</strong> to begin continuous microphone transcription with the selected STT provider.</li>
+            <li>Select text in another Windows app when you want to test the existing TTS flows.</li>
             <li><strong>{hotkeyStatus.accelerator}</strong> reads it aloud, while <strong>{hotkeyStatus.translateAccelerator}</strong> translates it and speaks the translation.</li>
-            <li>The translated text stays visible in the UI for the current MVP.</li>
+            <li>The live transcription comparison and the STT debug log let you compare latency and transcript quality across providers.</li>
           </ol>
         </section>
       </main>

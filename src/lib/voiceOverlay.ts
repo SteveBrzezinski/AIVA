@@ -31,11 +31,51 @@ export type AppSettings = {
   translationTargetLanguage: string;
   playbackSpeed: number;
   openaiApiKey: string;
+  sttProvider: 'webview2' | 'openai_online' | 'openai_whisper_local';
+  sttCompareAll: boolean;
+  sttLanguage: string;
 };
 
 export type LanguageOption = {
   code: string;
   label: string;
+};
+
+export type RealtimeTranscriptionSessionInfo = {
+  provider: string;
+  sessionId: string;
+  model: string;
+  language?: string | null;
+};
+
+export type RealtimeTranscriptEvent = {
+  provider: string;
+  kind: 'delta' | 'final' | 'status' | 'error' | string;
+  text: string;
+  latencyMs?: number | null;
+  detail?: string | null;
+  itemId?: string | null;
+};
+
+export type LocalSttChunkResult = {
+  provider: string;
+  transcript: string;
+  latencyMs: number;
+  ok: boolean;
+  detail?: string | null;
+  audioPath: string;
+};
+
+export type SttDebugEntry = {
+  provider: string;
+  transcript: string;
+  latencyMs: number;
+  ok: boolean;
+  detail?: string | null;
+};
+
+export type AppendSttDebugLogResult = {
+  debugLogPath: string;
 };
 
 export type CaptureAndSpeakResult = {
@@ -130,6 +170,9 @@ export type HotkeyStatus = {
   firstAudioToPlaybackMs?: number | null;
   lastTranslationText?: string | null;
   lastTranslationTargetLanguage?: string | null;
+  lastSttProvider?: string | null;
+  lastSttDebugLogPath?: string | null;
+  lastSttActiveTranscript?: string | null;
 };
 
 const HOTKEY_STATUS_EVENT = 'hotkey-status';
@@ -197,6 +240,62 @@ export async function captureAndTranslate(
       model: translateOptions.model,
       sourceLanguage: translateOptions.sourceLanguage,
       targetLanguage: translateOptions.targetLanguage,
+    },
+  });
+}
+
+export async function startOpenAiRealtimeTranscription(options: {
+  model?: string;
+  language?: string;
+} = {}): Promise<RealtimeTranscriptionSessionInfo> {
+  return invoke<RealtimeTranscriptionSessionInfo>('start_openai_realtime_transcription_command', {
+    options: {
+      model: options.model,
+      language: options.language,
+    },
+  });
+}
+
+export async function appendOpenAiRealtimeAudio(audioBase64: string): Promise<RealtimeTranscriptEvent[]> {
+  return invoke<RealtimeTranscriptEvent[]>('append_openai_realtime_audio_command', {
+    options: { audioBase64 },
+  });
+}
+
+export async function pollOpenAiRealtimeTranscription(): Promise<RealtimeTranscriptEvent[]> {
+  return invoke<RealtimeTranscriptEvent[]>('poll_openai_realtime_transcription_command');
+}
+
+export async function stopOpenAiRealtimeTranscription(): Promise<RealtimeTranscriptEvent[]> {
+  return invoke<RealtimeTranscriptEvent[]>('stop_openai_realtime_transcription_command');
+}
+
+export async function transcribeWavChunkLocal(options: {
+  audioBase64: string;
+  language?: string;
+  model?: string;
+}): Promise<LocalSttChunkResult> {
+  return invoke<LocalSttChunkResult>('transcribe_wav_chunk_local_command', {
+    options: {
+      audioBase64: options.audioBase64,
+      language: options.language,
+      model: options.model,
+    },
+  });
+}
+
+export async function appendSttDebugLog(options: {
+  sessionId: string;
+  selectedProvider: string;
+  activeTranscript: string;
+  entries: SttDebugEntry[];
+}): Promise<AppendSttDebugLogResult> {
+  return invoke<AppendSttDebugLogResult>('append_stt_debug_log_command', {
+    options: {
+      sessionId: options.sessionId,
+      selectedProvider: options.selectedProvider,
+      activeTranscript: options.activeTranscript,
+      entries: options.entries,
     },
   });
 }

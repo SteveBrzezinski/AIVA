@@ -23,6 +23,9 @@ pub struct AppSettings {
     pub translation_target_language: String,
     pub playback_speed: f32,
     pub openai_api_key: String,
+    pub stt_provider: String,
+    pub stt_compare_all: bool,
+    pub stt_language: String,
 }
 
 impl Default for AppSettings {
@@ -35,6 +38,9 @@ impl Default for AppSettings {
             translation_target_language: "en".to_string(),
             playback_speed: DEFAULT_PLAYBACK_SPEED,
             openai_api_key: String::new(),
+            stt_provider: "webview2".to_string(),
+            stt_compare_all: true,
+            stt_language: "de".to_string(),
         }
     }
 }
@@ -138,6 +144,16 @@ pub fn sanitize_settings(mut settings: AppSettings) -> AppSettings {
 
     settings.playback_speed = sanitize_playback_speed(settings.playback_speed);
     settings.openai_api_key = settings.openai_api_key.trim().to_string();
+    settings.stt_provider = match settings.stt_provider.trim().to_lowercase().as_str() {
+        "openai_online" | "openai-whisper-online" | "openai online" => "openai_online".to_string(),
+        "openai_whisper_local" | "openai-whisper-local" | "whisper_local" | "whisper-local" | "local" => "openai_whisper_local".to_string(),
+        _ => "webview2".to_string(),
+    };
+    settings.stt_language = if settings.stt_language.trim().is_empty() {
+        "de".to_string()
+    } else {
+        settings.stt_language.trim().to_lowercase()
+    };
 
     settings
 }
