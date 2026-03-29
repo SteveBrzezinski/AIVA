@@ -278,7 +278,7 @@ export default function App() {
     sttDebugWriteTimerRef.current = window.setTimeout(() => {
       void appendSttDebugLog({
         sessionId: liveTranscriptionSessionId,
-        selectedProvider: settings.sttProvider,
+        selectedProvider: 'webview2',
         activeTranscript: liveTranscript,
         entries,
       })
@@ -294,7 +294,7 @@ export default function App() {
         window.clearTimeout(sttDebugWriteTimerRef.current);
       }
     };
-  }, [isLiveTranscribing, liveTranscript, liveTranscriptionSessionId, settings.sttProvider, sttProviderSnapshots]);
+  }, [isLiveTranscribing, liveTranscript, liveTranscriptionSessionId, sttProviderSnapshots]);
 
   const hasUnsavedChanges = useMemo(
     () => JSON.stringify(settings) !== JSON.stringify(savedSettings),
@@ -438,15 +438,13 @@ export default function App() {
     setSttProviderSnapshots({});
     setLiveTranscript('');
     setLastSttDebugLogPath('');
-    setLastSttProvider(activeSettings.sttProvider);
+    setLastSttProvider('webview2');
     setLastSttActiveTranscript('');
     setIsLiveTranscribing(true);
 
     try {
       await controller.start(
         {
-          provider: activeSettings.sttProvider,
-          compareAll: activeSettings.sttCompareAll,
           language: activeSettings.sttLanguage,
         },
         {
@@ -455,7 +453,7 @@ export default function App() {
           },
           onProviderSnapshot: (snapshot) => {
             setSttProviderSnapshots((current) => ({ ...current, [snapshot.provider]: snapshot }));
-            if (snapshot.provider === activeSettings.sttProvider && snapshot.transcript) {
+            if (snapshot.transcript) {
               setLiveTranscript(snapshot.transcript);
               setLastSttProvider(snapshot.provider);
               setLastSttActiveTranscript(snapshot.transcript);
@@ -504,7 +502,7 @@ export default function App() {
       { label: 'Speech mode', value: settings.ttsMode },
       { label: 'Speech defaults', value: `${settings.ttsFormat.toUpperCase()} · ${settings.firstChunkLeadingSilenceMs} ms lead-in · ${settings.playbackSpeed.toFixed(1)}x` },
       { label: 'Translation target', value: settings.translationTargetLanguage },
-      { label: 'STT provider', value: `${settings.sttProvider}${settings.sttCompareAll ? ' · compare all' : ''}` },
+      { label: 'STT provider', value: 'webview2' },
       { label: 'Live transcription', value: isLiveTranscribing ? 'running' : 'stopped' },
       { label: 'Current status', value: appStatus },
     ],
@@ -670,25 +668,8 @@ export default function App() {
 
             <label className="settings-field">
               <span className="info-label">STT provider</span>
-              <select value={settings.sttProvider} onChange={(event) => setSettings({ ...settings, sttProvider: event.target.value as AppSettings['sttProvider'] })}>
-                <option value="webview2">WebView2 / Windows speech</option>
-                <option value="openai_online">OpenAI Speech-to-Text API (online, gpt-4o-transcribe realtime)</option>
-                <option value="openai_whisper_local">OpenAI Whisper lokal (offline)</option>
-              </select>
-              <span className="field-note">Single-select for the active permanent transcription path. This is the provider whose transcript should be treated as the primary one.</span>
-            </label>
-
-            <label className="settings-field">
-              <span className="info-label">STT compare mode</span>
-              <label className="checkbox-row">
-                <input
-                  type="checkbox"
-                  checked={settings.sttCompareAll}
-                  onChange={(event) => setSettings({ ...settings, sttCompareAll: event.target.checked })}
-                />
-                <span>Also run all STT providers in parallel for debug comparison</span>
-              </label>
-              <span className="field-note">When enabled, the app logs all three transcript variants so you can compare speed and output quality directly in the debug log.</span>
+              <input type="text" value="WebView2 / Windows speech" readOnly />
+              <span className="field-note">The live transcription path is now simplified to WebView2 only to keep local overhead and lag as low as possible.</span>
             </label>
 
             <label className="settings-field">
@@ -699,7 +680,7 @@ export default function App() {
                 value={settings.sttLanguage}
                 onChange={(event) => setSettings({ ...settings, sttLanguage: event.target.value })}
               />
-              <span className="field-note">Language hint for online and local transcription, e.g. `de` or `en`.</span>
+              <span className="field-note">Language hint for WebView2 speech recognition, e.g. `de` or `en`.</span>
             </label>
 
             <label className="settings-field settings-field--wide">
@@ -727,7 +708,7 @@ export default function App() {
           </div>
           {Object.values(sttProviderSnapshots).length ? (
             <div className="result-block">
-              <span className="info-label">Provider comparison</span>
+              <span className="info-label">Recognition status</span>
               <div className="stt-provider-grid">
                 {Object.values(sttProviderSnapshots).filter((snapshot): snapshot is ProviderSnapshot => Boolean(snapshot)).map((snapshot) => (
                   <article className="stt-provider-card" key={snapshot.provider}>
@@ -816,10 +797,10 @@ export default function App() {
           <span className="info-label">Usage</span>
           <ol>
             <li>Keep the app running in the background.</li>
-            <li>Use <strong>Start live transcription</strong> to begin continuous microphone transcription with the selected STT provider.</li>
+            <li>Use <strong>Start live transcription</strong> to begin continuous microphone transcription with WebView2 speech recognition.</li>
             <li>Select text in another Windows app when you want to test the existing TTS flows.</li>
             <li><strong>{hotkeyStatus.accelerator}</strong> reads it aloud, while <strong>{hotkeyStatus.translateAccelerator}</strong> translates it and speaks the translation.</li>
-            <li>The live transcription comparison and the STT debug log let you compare latency and transcript quality across providers.</li>
+            <li>The live transcription status card and STT debug log help you see what WebView2 recognized and whether the runtime stayed stable.</li>
           </ol>
         </section>
       </main>
