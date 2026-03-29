@@ -32,7 +32,18 @@ import {
   type LanguageOption,
   type SttDebugEntry,
 } from './lib/voiceOverlay';
-import { LiveSttController, type AssistantStateSnapshot, type ProviderSnapshot, type SttProviderId } from './lib/liveStt';
+import {
+  ASSISTANT_CUE_COOLDOWN_MS_MAX,
+  ASSISTANT_MATCH_THRESHOLD_MAX,
+  ASSISTANT_MATCH_THRESHOLD_MIN,
+  DEFAULT_ASSISTANT_CLOSE_THRESHOLD,
+  DEFAULT_ASSISTANT_CUE_COOLDOWN_MS,
+  DEFAULT_ASSISTANT_WAKE_THRESHOLD,
+  LiveSttController,
+  type AssistantStateSnapshot,
+  type ProviderSnapshot,
+  type SttProviderId,
+} from './lib/liveStt';
 
 type UiState = 'idle' | 'working' | 'success' | 'error';
 type ProviderSnapshotMap = Partial<Record<SttProviderId, ProviderSnapshot>>;
@@ -72,6 +83,9 @@ const fallbackSettings: AppSettings = {
   assistantWakeSamples: [],
   assistantCloseSamples: [],
   assistantNameSamples: [],
+  assistantWakeThreshold: DEFAULT_ASSISTANT_WAKE_THRESHOLD,
+  assistantCloseThreshold: DEFAULT_ASSISTANT_CLOSE_THRESHOLD,
+  assistantCueCooldownMs: DEFAULT_ASSISTANT_CUE_COOLDOWN_MS,
 };
 
 function formatTimestamp(value?: number | null): string {
@@ -188,6 +202,15 @@ function mapRecognitionLanguage(language: string): string {
     case 'ja': return 'ja-JP';
     default: return language || 'en-US';
   }
+}
+
+function parseBoundedInteger(value: string, fallback: number, min: number, max: number): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+
+  return Math.min(max, Math.max(min, Math.round(parsed)));
 }
 
 export default function App() {
@@ -758,6 +781,9 @@ export default function App() {
           wakeSamples: activeSettings.assistantWakeSamples,
           closeSamples: activeSettings.assistantCloseSamples,
           nameSamples: activeSettings.assistantNameSamples,
+          assistantWakeThreshold: activeSettings.assistantWakeThreshold,
+          assistantCloseThreshold: activeSettings.assistantCloseThreshold,
+          assistantCueCooldownMs: activeSettings.assistantCueCooldownMs,
         },
         {
           onStatus: (status) => {
@@ -771,6 +797,7 @@ export default function App() {
             setLastSttProvider(snapshot.provider);
             if (
               snapshot.transcript &&
+              snapshot.detail?.startsWith('assistant-active') &&
               !snapshot.detail?.includes('wake-word') &&
               !snapshot.detail?.includes('close-word')
             ) {
@@ -1076,6 +1103,69 @@ export default function App() {
               <span className="field-note">While inactive, WebView2 listens in English for the wake phrase. After activation it switches to this language for normal transcription, e.g. <code>de</code> or <code>en</code>.</span>
             </label>
 
+            <label className="settings-field">
+              <span className="info-label">Wake match threshold</span>
+              <input
+                type="number"
+                min={ASSISTANT_MATCH_THRESHOLD_MIN}
+                max={ASSISTANT_MATCH_THRESHOLD_MAX}
+                step="1"
+                value={settings.assistantWakeThreshold}
+                onChange={(event) => setSettings({
+                  ...settings,
+                  assistantWakeThreshold: parseBoundedInteger(
+                    event.target.value,
+                    settings.assistantWakeThreshold,
+                    ASSISTANT_MATCH_THRESHOLD_MIN,
+                    ASSISTANT_MATCH_THRESHOLD_MAX,
+                  ),
+                })}
+              />
+              <span className="field-note">Higher is stricter. Recognition status shows the live wake score against this threshold.</span>
+            </label>
+
+            <label className="settings-field">
+              <span className="info-label">Close match threshold</span>
+              <input
+                type="number"
+                min={ASSISTANT_MATCH_THRESHOLD_MIN}
+                max={ASSISTANT_MATCH_THRESHOLD_MAX}
+                step="1"
+                value={settings.assistantCloseThreshold}
+                onChange={(event) => setSettings({
+                  ...settings,
+                  assistantCloseThreshold: parseBoundedInteger(
+                    event.target.value,
+                    settings.assistantCloseThreshold,
+                    ASSISTANT_MATCH_THRESHOLD_MIN,
+                    ASSISTANT_MATCH_THRESHOLD_MAX,
+                  ),
+                })}
+              />
+              <span className="field-note">Keep this slightly higher than wake detection if you want deactivation to be more conservative.</span>
+            </label>
+
+            <label className="settings-field">
+              <span className="info-label">Cue cooldown</span>
+              <input
+                type="number"
+                min="0"
+                max={ASSISTANT_CUE_COOLDOWN_MS_MAX}
+                step="100"
+                value={settings.assistantCueCooldownMs}
+                onChange={(event) => setSettings({
+                  ...settings,
+                  assistantCueCooldownMs: parseBoundedInteger(
+                    event.target.value,
+                    settings.assistantCueCooldownMs,
+                    0,
+                    ASSISTANT_CUE_COOLDOWN_MS_MAX,
+                  ),
+                })}
+              />
+              <span className="field-note">Milliseconds to ignore repeated cue hits right after a wake/close toggle so one utterance cannot bounce the state back.</span>
+            </label>
+
             <label className="settings-field settings-field--wide">
               <span className="info-label">OpenAI API key</span>
               <input
@@ -1104,6 +1194,11 @@ export default function App() {
             <span className="info-label">Wake / close phrases</span>
             <p><strong>{assistantWakePhrase}</strong> · <strong>{assistantClosePhrase}</strong></p>
             <span className="field-note">Wake and close word detection stays in English. Normal speech is only treated as active transcription after activation.</span>
+          </div>
+          <div className="result-block">
+            <span className="info-label">Cue matching</span>
+            <p>Wake {settings.assistantWakeThreshold}/100 Â· Close {settings.assistantCloseThreshold}/100 Â· Cooldown {settings.assistantCueCooldownMs} ms</p>
+            <span className="field-note">Recognition status shows the current fuzzy score, component hints, and best matching fragment for tuning.</span>
           </div>
           <div className="result-block">
             <span className="info-label">Active transcript</span>

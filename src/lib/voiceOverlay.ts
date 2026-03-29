@@ -36,6 +36,9 @@ export type AppSettings = {
   assistantWakeSamples: string[];
   assistantCloseSamples: string[];
   assistantNameSamples: string[];
+  assistantWakeThreshold: number;
+  assistantCloseThreshold: number;
+  assistantCueCooldownMs: number;
 };
 
 export type LanguageOption = {

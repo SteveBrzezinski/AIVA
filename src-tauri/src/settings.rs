@@ -12,6 +12,9 @@ pub const DEFAULT_CANCEL_HOTKEY: &str = "Ctrl+Shift+X";
 pub const SETTINGS_EVENT: &str = "settings-updated";
 pub const CONFIG_FILE_NAME: &str = ".voice-overlay-assistant.config.json";
 const DEFAULT_PLAYBACK_SPEED: f32 = 1.0;
+const DEFAULT_ASSISTANT_WAKE_THRESHOLD: u8 = 68;
+const DEFAULT_ASSISTANT_CLOSE_THRESHOLD: u8 = 72;
+const DEFAULT_ASSISTANT_CUE_COOLDOWN_MS: u32 = 1200;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
@@ -28,6 +31,9 @@ pub struct AppSettings {
     pub assistant_wake_samples: Vec<String>,
     pub assistant_close_samples: Vec<String>,
     pub assistant_name_samples: Vec<String>,
+    pub assistant_wake_threshold: u8,
+    pub assistant_close_threshold: u8,
+    pub assistant_cue_cooldown_ms: u32,
 }
 
 impl Default for AppSettings {
@@ -45,6 +51,9 @@ impl Default for AppSettings {
             assistant_wake_samples: Vec::new(),
             assistant_close_samples: Vec::new(),
             assistant_name_samples: Vec::new(),
+            assistant_wake_threshold: DEFAULT_ASSISTANT_WAKE_THRESHOLD,
+            assistant_close_threshold: DEFAULT_ASSISTANT_CLOSE_THRESHOLD,
+            assistant_cue_cooldown_ms: DEFAULT_ASSISTANT_CUE_COOLDOWN_MS,
         }
     }
 }
@@ -161,6 +170,9 @@ pub fn sanitize_settings(mut settings: AppSettings) -> AppSettings {
     settings.assistant_wake_samples = sanitize_phrase_samples(settings.assistant_wake_samples, 4);
     settings.assistant_close_samples = sanitize_phrase_samples(settings.assistant_close_samples, 4);
     settings.assistant_name_samples = sanitize_phrase_samples(settings.assistant_name_samples, 2);
+    settings.assistant_wake_threshold = sanitize_assistant_threshold(settings.assistant_wake_threshold);
+    settings.assistant_close_threshold = sanitize_assistant_threshold(settings.assistant_close_threshold);
+    settings.assistant_cue_cooldown_ms = sanitize_assistant_cooldown_ms(settings.assistant_cue_cooldown_ms);
 
     settings
 }
@@ -221,6 +233,14 @@ fn sanitize_playback_speed(value: f32) -> f32 {
     }
 
     ((value * 10.0).round() / 10.0).clamp(0.5, 2.0)
+}
+
+fn sanitize_assistant_threshold(value: u8) -> u8 {
+    value.clamp(45, 95)
+}
+
+fn sanitize_assistant_cooldown_ms(value: u32) -> u32 {
+    value.clamp(0, 5_000)
 }
 
 fn load_env_file_if_present() {
