@@ -260,5 +260,3 @@ cargo check
 ```
 
 > Rust/Tauri-Windows-Teile lassen sich am sinnvollsten auf einem echten Windows-Setup validieren.
-
-jo
