@@ -2,15 +2,17 @@ export type SttProviderId = 'webview2';
 
 type AssistantControlSource = 'wake-word' | 'close-word' | 'hotkey' | 'manual' | 'system';
 type CueKind = 'wake' | 'close';
-type CueWord = 'hey' | 'bye';
+type CueWord = string;
 
 export const DEFAULT_ASSISTANT_WAKE_THRESHOLD = 68;
 export const DEFAULT_ASSISTANT_CLOSE_THRESHOLD = 64;
 export const DEFAULT_ASSISTANT_CUE_COOLDOWN_MS = 1200;
-export const ASSISTANT_UTTERANCE_SILENCE_MS = 2000;
+export const DEFAULT_ASSISTANT_ACTIVATION_WINDOW_MS = 3000;
+export const ASSISTANT_UTTERANCE_SILENCE_MS = 1200;
 export const ASSISTANT_MATCH_THRESHOLD_MIN = 45;
 export const ASSISTANT_MATCH_THRESHOLD_MAX = 95;
 export const ASSISTANT_CUE_COOLDOWN_MS_MAX = 5000;
+export const ASSISTANT_ACTIVATION_WINDOW_MS_MAX = 10000;
 
 const INTERIM_THRESHOLD_BONUS = 8;
 const MAX_CUE_WINDOW_WORDS = 5;
@@ -50,6 +52,7 @@ export type LiveSttConfig = {
   assistantWakeThreshold?: number;
   assistantCloseThreshold?: number;
   assistantCueCooldownMs?: number;
+  assistantActivationWindowMs?: number;
 };
 
 export type LiveSttCallbacks = {
@@ -111,6 +114,7 @@ export class LiveSttController {
   private cueCooldownUntilMs = 0;
   private utteranceSegments = new Map<number, string>();
   private utteranceSilenceTimerId: number | null = null;
+  private activationWindowTimerId: number | null = null;
 
   async start(config: LiveSttConfig, callbacks: LiveSttCallbacks): Promise<void> {
     if (this.running) {
@@ -127,6 +131,10 @@ export class LiveSttController {
       assistantWakeThreshold: sanitizeThreshold(config.assistantWakeThreshold, DEFAULT_ASSISTANT_WAKE_THRESHOLD),
       assistantCloseThreshold: sanitizeThreshold(config.assistantCloseThreshold, DEFAULT_ASSISTANT_CLOSE_THRESHOLD),
       assistantCueCooldownMs: sanitizeCooldownMs(config.assistantCueCooldownMs, DEFAULT_ASSISTANT_CUE_COOLDOWN_MS),
+      assistantActivationWindowMs: sanitizeActivationWindowMs(
+        config.assistantActivationWindowMs,
+        DEFAULT_ASSISTANT_ACTIVATION_WINDOW_MS,
+      ),
     };
     this.callbacks = callbacks;
     this.running = true;
@@ -144,7 +152,7 @@ export class LiveSttController {
     if (this.assistantActive) {
       this.reportAssistantState(true, `Assistant activated manually. Say "${this.currentClosePhrase()}" to deactivate.`, 'manual');
     } else {
-      this.reportAssistantState(false, `Listening for wake phrase "${this.currentWakePhrase()}".`, 'system');
+      this.reportAssistantState(false, `Listening for assistant name "${this.currentWakePhrase()}".`, 'system');
     }
   }
 
@@ -153,6 +161,7 @@ export class LiveSttController {
     this.assistantActive = false;
     this.assistantInputSuppressed = false;
     this.cueCooldownUntilMs = 0;
+    this.clearActivationWindow();
     this.clearActiveUtteranceState();
 
     if (this.speechRecognition) {
@@ -172,10 +181,10 @@ export class LiveSttController {
     }
 
     this.clearActiveUtteranceState();
+    this.clearActivationWindow();
     this.assistantActive = true;
     this.applyCueCooldown();
     this.reportAssistantState(true, `Assistant active. Say "${this.currentClosePhrase()}" to deactivate.`, source);
-    this.restartRecognitionForCurrentMode();
   }
 
   manualDeactivate(source: AssistantControlSource = 'hotkey'): void {
@@ -184,17 +193,62 @@ export class LiveSttController {
     }
 
     this.clearActiveUtteranceState();
+    this.clearActivationWindow();
     this.assistantActive = false;
     this.applyCueCooldown();
     this.reportAssistantState(false, `Assistant inactive. Listening for "${this.currentWakePhrase()}".`, source);
-    this.restartRecognitionForCurrentMode();
   }
 
   setAssistantInputSuppressed(suppressed: boolean): void {
     this.assistantInputSuppressed = suppressed;
     if (suppressed) {
+      this.clearActivationWindow();
       this.clearActiveUtteranceState();
     }
+  }
+
+  openActivationWindow(
+    durationMs?: number,
+    source: AssistantControlSource = 'wake-word',
+    reason?: string,
+    transcript = '',
+    detailSuffix?: string,
+  ): void {
+    if (!this.running) {
+      return;
+    }
+
+    const effectiveDurationMs = sanitizeActivationWindowMs(durationMs, this.currentActivationWindowMs());
+    this.clearActiveUtteranceState();
+    this.clearActivationWindow();
+    this.assistantActive = true;
+    this.applyCueCooldown();
+    this.reportAssistantState(
+      true,
+      reason ?? `Assistant active. Start speaking within ${Math.max(0.1, effectiveDurationMs / 1000).toFixed(1)} seconds.`,
+      source,
+      transcript,
+      detailSuffix,
+    );
+    this.activationWindowTimerId = window.setTimeout(() => {
+      this.activationWindowTimerId = null;
+
+      if (!this.running || !this.assistantActive || this.assistantInputSuppressed) {
+        return;
+      }
+
+      if (this.currentUtteranceTranscript()) {
+        return;
+      }
+
+      this.assistantActive = false;
+      this.applyCueCooldown();
+      this.reportAssistantState(
+        false,
+        `Assistant inactive. No speech was detected after the assistant name. Listening for "${this.currentWakePhrase()}".`,
+        'system',
+      );
+    }, effectiveDurationMs);
   }
 
   private startWebSpeechRecognition(): void {
@@ -280,7 +334,7 @@ export class LiveSttController {
       const wakeEvaluation = evaluateCuePhrase({
         transcript: trimmed,
         kind: 'wake',
-        cueWord: 'hey',
+        cueWord: '',
         aiName: this.currentAssistantName(),
         trainedPhrases: this.config?.wakeSamples ?? [],
         trainedNameSamples: this.config?.nameSamples ?? [],
@@ -290,17 +344,14 @@ export class LiveSttController {
       });
 
       if (wakeEvaluation.matched) {
-        this.clearActiveUtteranceState();
-        this.assistantActive = true;
-        this.applyCueCooldown();
-        this.reportAssistantState(
-          true,
-          `Wake phrase detected (${wakeEvaluation.score}/${wakeEvaluation.threshold}): ${this.currentWakePhrase()}.`,
+        const activationWindowMs = this.currentActivationWindowMs();
+        this.openActivationWindow(
+          activationWindowMs,
           'wake-word',
+          `Assistant name detected (${wakeEvaluation.score}/${wakeEvaluation.threshold}): ${this.currentWakePhrase()}. Start speaking within ${Math.max(0.1, activationWindowMs / 1000).toFixed(1)} seconds.`,
           trimmed,
           formatCueEvaluationSummary(wakeEvaluation),
         );
-        this.restartRecognitionForCurrentMode();
         return;
       }
 
@@ -341,6 +392,7 @@ export class LiveSttController {
 
     if (closeEvaluation.matched) {
       this.clearActiveUtteranceState();
+      this.clearActivationWindow();
       this.assistantActive = false;
       this.applyCueCooldown();
       this.reportAssistantState(
@@ -350,10 +402,10 @@ export class LiveSttController {
         trimmed,
         formatCueEvaluationSummary(closeEvaluation),
       );
-      this.restartRecognitionForCurrentMode();
       return;
     }
 
+    this.clearActivationWindow();
     this.updateActiveUtterance(changedSegments);
     const utteranceTranscript = this.currentUtteranceTranscript() || trimmed;
     if (utteranceTranscript) {
@@ -394,19 +446,6 @@ export class LiveSttController {
       detail: [active ? 'assistant-active' : 'assistant-inactive', source, detailSuffix].filter(Boolean).join(' · '),
       updatedAtMs: Date.now(),
     });
-  }
-
-  private restartRecognitionForCurrentMode(): void {
-    if (!this.speechRecognition) {
-      return;
-    }
-
-    try {
-      this.speechRecognition.lang = this.currentRecognitionLanguage();
-      this.speechRecognition.stop();
-    } catch {
-      // ignore stop/restart race
-    }
   }
 
   private applyCueCooldown(): void {
@@ -463,6 +502,13 @@ export class LiveSttController {
     this.utteranceSegments.clear();
   }
 
+  private clearActivationWindow(): void {
+    if (this.activationWindowTimerId !== null) {
+      window.clearTimeout(this.activationWindowTimerId);
+      this.activationWindowTimerId = null;
+    }
+  }
+
   private cooldownRemainingMs(): number {
     return Math.max(0, this.cueCooldownUntilMs - Date.now());
   }
@@ -472,7 +518,7 @@ export class LiveSttController {
   }
 
   private currentWakePhrase(): string {
-    return `Hey ${this.currentAssistantName()}`;
+    return this.currentAssistantName();
   }
 
   private currentClosePhrase(): string {
@@ -493,6 +539,13 @@ export class LiveSttController {
 
   private currentCueCooldownMs(): number {
     return sanitizeCooldownMs(this.config?.assistantCueCooldownMs, DEFAULT_ASSISTANT_CUE_COOLDOWN_MS);
+  }
+
+  private currentActivationWindowMs(): number {
+    return sanitizeActivationWindowMs(
+      this.config?.assistantActivationWindowMs,
+      DEFAULT_ASSISTANT_ACTIVATION_WINDOW_MS,
+    );
   }
 }
 
@@ -524,6 +577,15 @@ function sanitizeCooldownMs(value: number | undefined, fallback: number): number
 
   const safeValue = value ?? fallback;
   return Math.round(clamp(safeValue, 0, ASSISTANT_CUE_COOLDOWN_MS_MAX));
+}
+
+function sanitizeActivationWindowMs(value: number | undefined, fallback: number): number {
+  if (!Number.isFinite(value)) {
+    return fallback;
+  }
+
+  const safeValue = value ?? fallback;
+  return Math.round(clamp(safeValue, 500, ASSISTANT_ACTIVATION_WINDOW_MS_MAX));
 }
 
 function evaluateCuePhrase(options: {
@@ -564,8 +626,13 @@ function evaluateCuePhrase(options: {
     return fallbackEvaluation;
   }
 
-  const expectedPhrase = normalizeForMatch(`${options.cueWord} ${options.aiName}`);
-  const compactExpectedPhrase = normalizeCompact(`${options.cueWord} ${options.aiName}`);
+  const normalizedCueWord = normalizeForMatch(options.cueWord);
+  const expectedPhrase = normalizedCueWord
+    ? normalizeForMatch(`${normalizedCueWord} ${options.aiName}`)
+    : normalizeForMatch(options.aiName);
+  const compactExpectedPhrase = normalizedCueWord
+    ? normalizeCompact(`${normalizedCueWord} ${options.aiName}`)
+    : normalizeCompact(options.aiName);
   const normalizedPhraseSamples = sanitizeSamples(options.trainedPhrases).map((value) => normalizeForMatch(value)).filter(Boolean);
   const compactPhraseSamples = normalizedPhraseSamples.map((value) => value.replace(/\s+/g, ''));
   const normalizedNameTargets = [
@@ -578,19 +645,21 @@ function evaluateCuePhrase(options: {
   for (const candidate of buildCandidateWindows(normalized, MAX_CUE_WINDOW_WORDS)) {
     const words = candidate.split(' ');
     const compactCandidate = candidate.replace(/\s+/g, '');
-    let cueScore = 0;
+    let cueScore = normalizedCueWord ? 0 : 1;
     let cueWordIndex = -1;
 
-    for (let index = 0; index < words.length; index += 1) {
-      const score = similarity(words[index] ?? '', options.cueWord);
-      if (score > cueScore) {
-        cueScore = score;
-        cueWordIndex = index;
+    if (normalizedCueWord) {
+      for (let index = 0; index < words.length; index += 1) {
+        const score = similarity(words[index] ?? '', normalizedCueWord);
+        if (score > cueScore) {
+          cueScore = score;
+          cueWordIndex = index;
+        }
       }
     }
 
     const nameScore = maxNameSimilarity(
-      buildNameCandidates(words, compactCandidate, cueWordIndex, options.cueWord),
+      buildNameCandidates(words, compactCandidate, cueWordIndex, normalizedCueWord),
       normalizedNameTargets,
       compactNameTargets,
     );
@@ -609,7 +678,7 @@ function evaluateCuePhrase(options: {
         (compactScore * 0.1)
       ) * 100,
     );
-    const hasCueEvidence = cueScore >= 0.6 || phraseScore >= 0.78 || sampleScore >= 0.82 || compactScore >= 0.82;
+    const hasCueEvidence = !normalizedCueWord || cueScore >= 0.6 || phraseScore >= 0.78 || sampleScore >= 0.82 || compactScore >= 0.82;
     const hasNameEvidence = nameScore >= 0.55 || phraseScore >= 0.78 || compactScore >= 0.82;
     const evaluation: CueEvaluation = {
       kind: options.kind,
@@ -673,9 +742,19 @@ function buildNameCandidates(
         candidates.add(value);
       }
     }
+  } else {
+    for (let take = 1; take <= Math.min(MAX_NAME_WINDOW_WORDS, words.length); take += 1) {
+      const value = words.slice(0, take).join(' ');
+      if (value) {
+        candidates.add(value);
+      }
+    }
+    if (compactCandidate) {
+      candidates.add(compactCandidate);
+    }
   }
 
-  if (compactCandidate.length > cueWord.length) {
+  if (cueWord && compactCandidate.length > cueWord.length) {
     candidates.add(compactCandidate.slice(cueWord.length));
   }
 

@@ -1,262 +1,83 @@
-# Voice Overlay Assistant – MVP+
+# Voice Overlay Assistant
 
-Windows-first Tauri app for selection-based AI flows with **global run control**.
+Voice Overlay Assistant ist eine Windows-basierte Desktop-Anwendung auf Basis von Tauri, React und Rust. Das Tool kombiniert globale Hotkeys, lokale Live-Transkription, OpenAI-TTS sowie eine direkte OpenClaw-Anbindung, damit ausgewählte Texte oder gesprochene Eingaben schnell verarbeitet und vorgelesen werden können.
 
-## Settings And Local Config
+## Funktionen
 
-- UI settings are persistent and stored in a local config file at `.voice-overlay-assistant.config.json` in the project root.
-- The file is created on first start and is git-ignored.
-- The settings UI now covers speech mode (`classic` / `live` / `realtime` experimental), the optional realtime fallback toggle, audio format, first-chunk lead-in, speech playback speed, translation target language, the WebView2 STT language hint, the assistant name used for wake/close phrases, and the OpenAI API key.
-- If an OpenAI API key is saved in the UI, it overrides `OPENAI_API_KEY` from `.env`. If the UI field is empty, `.env` remains the fallback.
-- The Settings view includes a reset-to-default action with confirmation before anything is cleared.
-- The default UI language is English, and the default translation target language is English.
+- globale Hotkeys für Vorlesen sowie Übersetzen und Vorlesen
+- laufende Live-Transkription über WebView2
+- Aktivierung des Sprachassistenten über den Assistentennamen
+- Weiterleitung gesprochener Eingaben an einen lokalen OpenClaw-Agenten
+- Ausgabe der Antworten über die integrierte TTS-Pipeline
+- lokale, persistente Einstellungen über die App-Oberfläche
 
-## Kernidee
+## Voraussetzungen
 
-Die App arbeitet immer mit einem **zentralen aktiven Run**.
-Ein Run kann z. B. sein:
+Für die lokale Nutzung werden benötigt:
 
-- Speak
-- Translate + Speak
-- spätere Rewrite-/Explain-/Grammar-Flows
+- Windows
+- Node.js inklusive `npm`
+- Rust inklusive `cargo`
+- die Tauri-Voraussetzungen für Windows
+- ein OpenAI API-Key
+- optional eine lokale OpenClaw-Installation für den Voice-Agent-Flow
 
-Wichtig dabei:
-- **Pause/Resume und Cancel sind global**
-- sie gelten **nicht nur für einen einzelnen Speak-Flow**, sondern für **jeden aktiven AI-Run**
-- das soll auch für zukünftige Features so bleiben
+## Installation
 
-## Hotkeys
-
-- **Ctrl+Shift+Space** → capture marked text and speak it
-- **Ctrl+Shift+T** → capture marked text, translate it, and speak the translation
-- **Ctrl+Shift+P** → Pause / Resume des aktuell laufenden Runs
-- **Ctrl+Shift+X** → Cancel / Abbruch des aktuell laufenden Runs
-
-## Globale Run-Control-Regel
-
-**Produktregel:**
-Jeder aktive AI-Workflow muss an den zentralen Run-Controller angeschlossen sein.
-
-Das gilt für aktuelle und zukünftige Features:
-- Speak
-- Translate
-- Rewrite
-- Explain
-- Grammar fix
-- Streaming-/Live-Modi
-- weitere AI-Aktionen
-
-Das Ziel ist:
-- ein aktiver Run muss immer global pausierbar sein
-- ein aktiver Run muss immer global abbrechbar sein
-- Audio-Playback darf nie ein Sonderfall außerhalb dieser globalen Steuerung sein
-
-## Was jetzt drin ist
-
-- globaler Speak-Hotkey: `Ctrl+Shift+Space`
-- globaler Translate-Hotkey: `Ctrl+Shift+T`
-- globaler Pause/Resume-Hotkey: `Ctrl+Shift+P`
-- globaler Cancel-Hotkey: `Ctrl+Shift+X`
-- globaler Assistant-Aktivieren-Hotkey: `Ctrl+Shift+A`
-- globaler Assistant-Deaktivieren-Hotkey: `Ctrl+Shift+D`
-- Selection Capture per Hintergrund-`Ctrl+C`
-- Clipboard-Restore nach Möglichkeit
-- OpenAI TTS mit satzweisem Chunking
-- konfigurierbarer TTS-Modus: `classic` / `stable`, `live` / `session-ready streaming`, `realtime` / experimental
-- eingebetteter Rust-Audioplayer über `rodio`
-- Standard-Audioformat: **WAV**
-- konfigurierbarer Startpuffer für den ersten Chunk
-- konfigurierbare Speech-Playback-Geschwindigkeit von `0.5x` bis `2.0x`
-- Translation mit konfigurierbarer Zielsprache
-- Settings in der UI für:
-  - Audioformat (`WAV` / `MP3`)
-  - Speech-Modus (`Classic / stable`, `Live / session-ready streaming`, `Realtime / experimental`)
-  - erster Chunk Startpuffer
-  - Speech-Playback-Speed
-  - Zielsprache für Übersetzung
-  - OpenAI API Key
-  - Reset auf Default-Werte mit Bestätigung
-- Settings werden lokal persistent gespeichert
-- Timing-/Chunk-Logging für Debugging inkl. aktivem Modus, erstem Audio-Empfang, erstem hörbaren Playback-Start und sichtbarer Startlatenz
-- laufende Mikrofon-Transkription mit Start/Stop direkt in der UI
-- laufende Mikrofon-Transkription mit WebView2 / Windows Speech Recognition
-- Wake-/Close-Word-Flow mit konfigurierbarem Assistentennamen (Default: `AIVA`) sowie englischen Phrasen `Hey AIVA` / `Bye AIVA`
-- Kalibrier-Modal für den Assistentennamen: 4 Wake-Phrasen, 4 Close-Phrasen und 2 Namensproben per WebView2-Erkennung
-- zusätzliche globale Hotkeys zum Aktivieren/Deaktivieren des Live-Assistenten
-- STT-Debug-Logs mit erkanntem Transkript und Aktiv-/Inaktiv-Status für den WebView2-Livepfad
-
-## Bedienung
-
-1. App starten und im Hintergrund offen lassen.
-2. In einer anderen Windows-App Text markieren.
-3. Einen Hotkey drücken:
-   - `Ctrl+Shift+Space` → Vorlesen
-   - `Ctrl+Shift+T` → Übersetzen + Vorlesen
-4. Während ein Run aktiv ist:
-   - `Ctrl+Shift+P` → Pause / Resume
-   - `Ctrl+Shift+X` → Cancel
-
-## Audio / Playback
-
-Es gibt jetzt drei Modi:
-
-- `classic` / `stable`:
-  - bisheriger robuster Pfad
-  - Text wird satzweise gechunkt
-  - mehrere `audio/speech`-Requests laufen parallel
-  - Antworten werden komplett empfangen, als Dateien geschrieben und danach geordnet abgespielt
-  - `firstChunkLeadingSilenceMs` gilt hier weiter
-  - Playback-Speed nutzt den bisherigen time-stretch-Pfad
-- `live` / `low-latency`:
-  - OpenAI `audio/speech` wird als Stream verwendet
-  - intern wird `pcm` gestreamt und sofort in denselben `rodio`-Player geschoben
-  - die finale Datei wird nach Abschluss zusätzlich als `WAV` gespeichert
-  - bei `1.0x` bleibt der schnelle Direktpfad mit minimalem Zusatzbuffer aktiv
-  - bei `speed != 1.0` nutzt `live` jetzt einen stärker gepufferten, blockweisen time-stretch-/crossfade-Kompromiss statt `Sink::set_speed`
-  - der künstliche erste Chunk-Lead-in wird bewusst übersprungen; für den naturalized-speed-Pfad entsteht stattdessen absichtlich etwas zusätzliche Startlatenz
-- `realtime` / experimental:
-  - verbindet sich per WebSocket mit `wss://api.openai.com/v1/realtime?model=...`
-  - initialisiert die Session per `session.update`
-  - sendet den Text per `conversation.item.create`
-  - triggert Audio per `response.create`
-  - verarbeitet echte Base64-Audio-Deltas aus `response.output_audio.delta` / `response.audio.delta`
-  - spielt die ersten PCM-Blöcke so früh wie möglich über denselben `rodio`-Player ab
-  - speichert am Ende ebenfalls eine `WAV`
-  - bleibt bewusst experimentell; Realtime-Fehler werden standardmäßig direkt sichtbar, und der Rückfall auf `live` ist nur optional per Setting aktivierbar
-
-Praktische Einschätzung:
-- `classic` bleibt der konservative Modus für den bisherigen stabilen Dateiflow.
-- `live` ist ein echter Streaming-Pfad mit deutlich kleinerer Time-to-first-audible-audio, ohne auf die globale Run-Control zu verzichten.
-- `realtime` ist jetzt ein echter OpenAI-Realtime-WebSocket-Pfad, aber noch nicht der neue Standardpfad.
-
-## Pause / Resume / Cancel – aktueller Stand
-
-Aktuell gilt:
-- **Pause/Resume** wirkt direkt auf die laufende Wiedergabe
-- **Cancel** stoppt aktuelles Audio sofort und verhindert weiteres Abspielen der restlichen Queue
-- im `classic`-Modus werden laufende HTTP-Requests weiterhin nicht hart netzwerkseitig abgebrochen, aber ihre Ergebnisse werden nach Rückkehr ignoriert
-- im `live`-Modus gilt Pause/Resume/Cancel ebenfalls; der Stream wird zwischen Read-Zyklen geprüft und das Playback sofort über denselben Sink gesteuert
-- im `realtime`-Modus bleibt Pause/Resume playback-seitig; bei erkanntem Cancel versucht die App zusätzlich `response.cancel` zu senden und die WebSocket-Session sauber zu schließen
-
-Das ist absichtlich als robuster MVP umgesetzt und bildet die Grundlage für alle späteren AI-Flows.
-
-## Translation
-
-Aktuell:
-- markierten Text capturen
-- an OpenAI zur Übersetzung schicken
-- Übersetzung direkt sprechen
-- Ergebnis zusätzlich in der App sichtbar halten
-
-Die Architektur ist so angelegt, dass später leicht erweitert werden kann auf:
-- Copy-to-clipboard
-- paste-back / auto replace
-- alternative Ausgaben wie Overlay / Rewrite / Explain
-
-## Realtime / Session-Stand
-
-Stand nach diesem Umbau:
-
-- `live` bleibt der echte Streaming-TTS-Pfad über `POST /v1/audio/speech` mit gestreamtem `pcm`
-- `realtime` nutzt jetzt einen echten OpenAI-Realtime-WebSocket-Pfad für Text-zu-Audio
-- darüber liegt eine **Session-Plan-/Session-Strategie-Abstraktion**, damit verschiedene Transportpfade sauber andocken können
-- neues UI-Setting: `realtime` / experimental
-- **Wichtig:** `realtime` ist weiterhin experimentell
-- wenn WebSocket-Verbindung, Session-Initialisierung oder die frühe Audio-Ausgabe fehlschlägt, wird der Realtime-Fehler jetzt standardmäßig direkt sichtbar; der Rückfall auf `live` ist nur noch optional per Setting aktivierbar
-
-Warum das so ist:
-- der aktuelle Produktfluss startet von **fertigem Text** und braucht heute vor allem stabiles TTS + globale Run-Control
-- der WebSocket-Pfad liefert zwar jetzt echte Realtime-Audio-Deltas, ist aber in dieser Desktop-App noch bewusst konservativ abgesichert
-- die Session-Struktur macht den nächsten Schritt zu Mic-in + Audio-out deutlich leichter, ohne den bestehenden Flow kaputt zu machen
-
-Was die Session-Schicht jetzt bereits liefert:
-- pro TTS-Run eine `session_id`
-- Trennung zwischen **requested mode** und **resolved mode**
-- explizite `session_strategy` (z. B. `chunked_file_session`, `streaming_audio_session`, `realtime_websocket_session`, `realtime_websocket_live_fallback_session`)
-- ehrliche `fallback_reason`, wenn `realtime` auf `live` zurückfallen musste
-- Status-/Timing-Signale für `connecting`, `connected`, erstes Audio und ersten hörbaren Playback-Start
-- derselbe globale Pause/Resume/Cancel-Controller bleibt für alle Strategien aktiv
-
-Verbleibende Grenzen:
-- `live` priorisiert niedrige Startlatenz vor maximaler Format-Flexibilität; intern wird immer `pcm` gestreamt
-- `live` speichert am Ende immer `WAV`, auch wenn im klassischen Modus `MP3` gewählt werden kann
-- `realtime` ist im Moment ein **experimenteller** Text-zu-Audio-WebSocket-Pfad, nicht die voll ausgebaute bidirektionale Voice-Agent-Implementierung
-- es gibt noch kein Mic-Capture und kein kontinuierliches bidirektionales Audio-Streaming
-- wenn der Realtime-Pfad **nach** bereits gestarteter Audio-Ausgabe fehlschlägt, wird nicht auf `live` dupliziert; der Fehler wird dann direkt gemeldet
-- die Audioausgabe über WebSocket basiert auf `audio/pcm`; die App speichert daraus lokal weiter `WAV`
-
-## Lokale Installation auf Windows
-
-### Voraussetzungen
-
-Du brauchst auf deinem PC:
-- **Windows**
-- **Node.js** (inkl. `npm`)
-- **Rust** mit `cargo`
-- die **Tauri prerequisites für Windows**
-- einen **OpenAI API Key**
-
-### Projekt holen
-
-Wenn du das Repo noch nicht lokal hast:
+### 1. Repository klonen
 
 ```powershell
 git clone https://github.com/SteveBrzezinski/ai_ovlay_assistant.git
 cd ai_ovlay_assistant
 ```
 
-Wenn du schon im Projektordner bist, einfach dort weitermachen.
-
-### Abhängigkeiten installieren
+### 2. Abhängigkeiten installieren
 
 ```powershell
 npm install
 ```
 
-### `.env` anlegen
+### 3. `.env` anlegen
 
-Im Projektverzeichnis eine `.env` anlegen:
+Lege im Projektverzeichnis eine `.env`-Datei an:
 
 ```env
 OPENAI_API_KEY=your_key_here
 ```
 
-Falls noch keine Datei existiert, kannst du z. B. in PowerShell eine neue erzeugen oder `.env.example` als Vorlage nutzen.
+Alternativ kann der OpenAI API-Key direkt in der App unter den Einstellungen gespeichert werden. Wenn dort ein Key hinterlegt ist, hat er Vorrang vor der `.env`.
 
-Alternativ kannst du den OpenAI API Key direkt in der Settings-UI hinterlegen. Wenn dort ein Key gespeichert ist, hat er Vorrang vor `.env`.
-
-### Dev-Modus starten
+### 4. Anwendung im Entwicklungsmodus starten
 
 ```powershell
 npm run tauri:dev
 ```
 
-Dann:
-1. App offen lassen
-2. in einer anderen Windows-App Text markieren
-3. einen der Hotkeys verwenden
-
-### Production-Build
+## Produktions-Build
 
 ```powershell
 npm run tauri:build
 ```
 
-## Entwicklung
+## Nutzung
 
-```bash
-npm install
-npm run tauri:dev
-```
+- App starten und geöffnet lassen
+- für die Textfunktionen in einer anderen Windows-Anwendung Text markieren
+- `Ctrl+Shift+Space` liest markierten Text vor
+- `Ctrl+Shift+T` übersetzt markierten Text und liest ihn vor
+- der Sprachassistent lauscht nach dem eingestellten Assistentennamen als Aktivierungswort
+- nach der Aktivierung wird die gesprochene Eingabe transkribiert, an OpenClaw gesendet und die Antwort vorgelesen
 
-Beim ersten Start erzeugt die App die lokale Datei `.voice-overlay-assistant.config.json`. Darin werden die UI-Settings inklusive optional gespeichertem OpenAI API Key abgelegt.
+## Lokale Konfiguration
 
-## Checks
+Die App legt beim ersten Start eine lokale Konfigurationsdatei unter `.voice-overlay-assistant.config.json` im Projektverzeichnis an. Diese Datei ist für lokale Einstellungen gedacht und bleibt aus dem Repository heraus.
 
-```bash
-npm run build
-npx tsc --noEmit
-cargo check
-```
+## Lizenz
 
-> Rust/Tauri-Windows-Teile lassen sich am sinnvollsten auf einem echten Windows-Setup validieren.
+Dieses Repository ist **nicht Open Source**. Die Nutzung ist ausschließlich nach den Bedingungen in [LICENSE.md](./LICENSE.md) erlaubt.
+
+Kurzfassung:
+
+- Download und private, nicht-kommerzielle Nutzung sind erlaubt
+- kommerzielle Nutzung ist nicht erlaubt
+- Weiterverkauf, Weiterlizenzierung und der Einsatz als Basis für kommerzielle Produkte oder Services sind nicht erlaubt

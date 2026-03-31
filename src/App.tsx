@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { startTransition, useEffect, useMemo, useRef, useState } from 'react';
 
  type RunHistoryEntry = {
   id: string;
@@ -25,6 +25,7 @@ import {
   getSettings,
   onHotkeyStatus,
   onLiveSttControl,
+  onOpenClawStreamEvent,
   resetSettings,
   runOpenClawVoiceTurn,
   updateSettings,
@@ -34,10 +35,12 @@ import {
   type SttDebugEntry,
 } from './lib/voiceOverlay';
 import {
+  ASSISTANT_ACTIVATION_WINDOW_MS_MAX,
   ASSISTANT_CUE_COOLDOWN_MS_MAX,
   ASSISTANT_MATCH_THRESHOLD_MAX,
   ASSISTANT_MATCH_THRESHOLD_MIN,
   ASSISTANT_UTTERANCE_SILENCE_MS,
+  DEFAULT_ASSISTANT_ACTIVATION_WINDOW_MS,
   DEFAULT_ASSISTANT_CLOSE_THRESHOLD,
   DEFAULT_ASSISTANT_CUE_COOLDOWN_MS,
   DEFAULT_ASSISTANT_WAKE_THRESHOLD,
@@ -93,7 +96,11 @@ const fallbackSettings: AppSettings = {
   assistantWakeThreshold: DEFAULT_ASSISTANT_WAKE_THRESHOLD,
   assistantCloseThreshold: DEFAULT_ASSISTANT_CLOSE_THRESHOLD,
   assistantCueCooldownMs: DEFAULT_ASSISTANT_CUE_COOLDOWN_MS,
+  assistantActivationWindowMs: DEFAULT_ASSISTANT_ACTIVATION_WINDOW_MS,
 };
+
+const STREAM_PREVIEW_FLUSH_MS = 60;
+const STREAM_CONSOLE_FLUSH_MS = 120;
 
 function formatTimestamp(value?: number | null): string {
   if (!value) {
@@ -172,7 +179,7 @@ function buildCalibrationSteps(name: string, language: string): CalibrationStep[
     ...Array.from({ length: 4 }, (_, index) => ({
       id: `wake-${index + 1}`,
       target: 'wake' as const,
-      prompt: `Hey ${safeName}`,
+      prompt: safeName,
       headline: 'Bitte sagen sie:',
       progress: `${index + 1}/4`,
       recognitionLanguage,
@@ -254,9 +261,12 @@ export default function App() {
   const [lastSessionId, setLastSessionId] = useState('');
   const [lastSessionFallbackReason, setLastSessionFallbackReason] = useState('');
   const [lastOpenClawEndpoint, setLastOpenClawEndpoint] = useState('');
+  const [lastOpenClawTransport, setLastOpenClawTransport] = useState('');
   const [lastOpenClawAgentId, setLastOpenClawAgentId] = useState('');
   const [lastOpenClawRequestedSessionId, setLastOpenClawRequestedSessionId] = useState('');
   const [lastOpenClawResponseSessionId, setLastOpenClawResponseSessionId] = useState('');
+  const [lastOpenClawSessionKey, setLastOpenClawSessionKey] = useState('');
+  const [lastOpenClawRunId, setLastOpenClawRunId] = useState('');
   const [lastSttProvider, setLastSttProvider] = useState('');
   const [lastSttDebugLogPath, setLastSttDebugLogPath] = useState('');
   const [lastSttActiveTranscript, setLastSttActiveTranscript] = useState('');
@@ -288,11 +298,12 @@ export default function App() {
   const [isAssistantTrainingRecording, setIsAssistantTrainingRecording] = useState(false);
   const [assistantTrainingReadyName, setAssistantTrainingReadyName] = useState<string | null>(null);
   const [isLiveTranscribing, setIsLiveTranscribing] = useState(false);
+  const [hasLoadedInitialState, setHasLoadedInitialState] = useState(false);
   const [isSubmittingVoiceTurn, setIsSubmittingVoiceTurn] = useState(false);
   const [liveTranscriptionStatus, setLiveTranscriptionStatus] = useState('Live transcription is stopped.');
   const [assistantActive, setAssistantActive] = useState(false);
   const [assistantStateDetail, setAssistantStateDetail] = useState('Listening is stopped.');
-  const [assistantWakePhrase, setAssistantWakePhrase] = useState('Hey AIVA');
+  const [assistantWakePhrase, setAssistantWakePhrase] = useState('AIVA');
   const [assistantClosePhrase, setAssistantClosePhrase] = useState('Bye AIVA');
   const [liveTranscript, setLiveTranscript] = useState('');
   const [sttProviderSnapshots, setSttProviderSnapshots] = useState<ProviderSnapshotMap>({});
@@ -304,6 +315,60 @@ export default function App() {
   const startLiveTranscriptionRef = useRef<(options?: { activateImmediately?: boolean }) => Promise<void>>(async () => undefined);
   const assistantTrainingRecognitionRef = useRef<{ stop: () => void } | null>(null);
   const sttDebugWriteTimerRef = useRef<number | null>(null);
+  const autoStartLiveTranscriptionRef = useRef(false);
+  const assistantResponsePreviewBufferRef = useRef('');
+  const assistantResponsePreviewFlushTimerRef = useRef<number | null>(null);
+  const openClawConsoleBufferRef = useRef('');
+  const openClawConsoleFlushTimerRef = useRef<number | null>(null);
+
+  const sanitizeAssistantResponsePreview = (value: string): string =>
+    value.replace(/\[\[[a-z0-9_:-]+\]\]\s*/gi, '').trimStart();
+
+  const flushAssistantResponsePreview = (): void => {
+    if (assistantResponsePreviewFlushTimerRef.current !== null) {
+      window.clearTimeout(assistantResponsePreviewFlushTimerRef.current);
+      assistantResponsePreviewFlushTimerRef.current = null;
+    }
+
+    const nextPreview = sanitizeAssistantResponsePreview(assistantResponsePreviewBufferRef.current);
+    startTransition(() => {
+      setAssistantResponsePreview(nextPreview);
+    });
+  };
+
+  const scheduleAssistantResponsePreviewFlush = (): void => {
+    if (assistantResponsePreviewFlushTimerRef.current !== null) {
+      return;
+    }
+
+    assistantResponsePreviewFlushTimerRef.current = window.setTimeout(() => {
+      flushAssistantResponsePreview();
+    }, STREAM_PREVIEW_FLUSH_MS);
+  };
+
+  const flushOpenClawConsoleText = (): void => {
+    if (openClawConsoleFlushTimerRef.current !== null) {
+      window.clearTimeout(openClawConsoleFlushTimerRef.current);
+      openClawConsoleFlushTimerRef.current = null;
+    }
+
+    const text = sanitizeAssistantResponsePreview(openClawConsoleBufferRef.current);
+    openClawConsoleBufferRef.current = '';
+    if (text) {
+      console.debug('[openclaw-stream:text]', text);
+    }
+  };
+
+  const queueOpenClawConsoleText = (delta: string): void => {
+    openClawConsoleBufferRef.current += delta;
+    if (openClawConsoleFlushTimerRef.current !== null) {
+      return;
+    }
+
+    openClawConsoleFlushTimerRef.current = window.setTimeout(() => {
+      flushOpenClawConsoleText();
+    }, STREAM_CONSOLE_FLUSH_MS);
+  };
 
   useEffect(() => {
     savedSettingsRef.current = savedSettings;
@@ -321,7 +386,7 @@ export default function App() {
         setSettings(appSettings);
         setSavedSettings(appSettings);
         setAssistantTrainingReadyName(isAssistantCalibrationComplete(appSettings) ? appSettings.assistantName : null);
-        setAssistantWakePhrase(`Hey ${appSettings.assistantName}`);
+        setAssistantWakePhrase(appSettings.assistantName);
         setAssistantClosePhrase(`Bye ${appSettings.assistantName}`);
         setLanguageOptions(languages);
         setMessage(hotkey.message);
@@ -351,6 +416,7 @@ export default function App() {
         setCaptureToTtsStartMs(hotkey.captureToTtsStartMs ?? null);
         setTtsToFirstAudioMs(hotkey.ttsToFirstAudioMs ?? null);
         setFirstAudioToPlaybackMs(hotkey.firstAudioToPlaybackMs ?? null);
+        setHasLoadedInitialState(true);
       })
       .catch((error: unknown) => {
         const text = error instanceof Error ? error.message : String(error);
@@ -359,6 +425,7 @@ export default function App() {
 
     let unlisten: (() => void | Promise<void>) | undefined;
     let unlistenLiveSttControl: (() => void | Promise<void>) | undefined;
+    let unlistenOpenClawStream: (() => void | Promise<void>) | undefined;
     void onHotkeyStatus((status) => {
       setHotkeyStatus(status);
       setMessage(status.message);
@@ -422,9 +489,61 @@ export default function App() {
       unlistenLiveSttControl = cleanup;
     });
 
+    void onOpenClawStreamEvent((event) => {
+      if (event.phase === 'text_delta') {
+        const streamText = event.delta ?? event.accumulatedText ?? '';
+        if (streamText) {
+          queueOpenClawConsoleText(streamText);
+        }
+      } else {
+        if (openClawConsoleBufferRef.current) {
+          flushOpenClawConsoleText();
+        }
+        console.debug('[openclaw-stream]', event);
+      }
+
+      if (event.transport) {
+        setLastOpenClawTransport(event.transport);
+      }
+      if (event.agentId) {
+        setLastOpenClawAgentId(event.agentId);
+      }
+      if (event.requestedSessionId) {
+        setLastOpenClawRequestedSessionId(event.requestedSessionId);
+      }
+      if (event.responseSessionId) {
+        setLastOpenClawResponseSessionId(event.responseSessionId);
+      }
+      if (event.sessionKey) {
+        setLastOpenClawSessionKey(event.sessionKey);
+      }
+      if (event.runId) {
+        setLastOpenClawRunId(event.runId);
+      }
+
+      if (event.phase === 'text_delta') {
+        if (event.accumulatedText) {
+          assistantResponsePreviewBufferRef.current = event.accumulatedText;
+        } else if (event.delta) {
+          assistantResponsePreviewBufferRef.current += event.delta;
+        }
+        scheduleAssistantResponsePreviewFlush();
+      }
+
+      if (event.phase === 'status' && event.detail) {
+        setLiveTranscriptionStatus(event.detail);
+        if (assistantActiveRef.current) {
+          setAssistantStateDetail(event.detail);
+        }
+      }
+    }).then((cleanup) => {
+      unlistenOpenClawStream = cleanup;
+    });
+
     return () => {
       void unlisten?.();
       void unlistenLiveSttControl?.();
+      void unlistenOpenClawStream?.();
     };
   }, []);
 
@@ -432,6 +551,12 @@ export default function App() {
     return () => {
       if (sttDebugWriteTimerRef.current !== null) {
         window.clearTimeout(sttDebugWriteTimerRef.current);
+      }
+      if (assistantResponsePreviewFlushTimerRef.current !== null) {
+        window.clearTimeout(assistantResponsePreviewFlushTimerRef.current);
+      }
+      if (openClawConsoleFlushTimerRef.current !== null) {
+        window.clearTimeout(openClawConsoleFlushTimerRef.current);
       }
       if (liveSttControllerRef.current) {
         void liveSttControllerRef.current.stop();
@@ -446,7 +571,7 @@ export default function App() {
 
   useEffect(() => {
     if (!isLiveTranscribing) {
-      setAssistantWakePhrase(`Hey ${settings.assistantName || 'AIVA'}`);
+      setAssistantWakePhrase(settings.assistantName || 'AIVA');
       setAssistantClosePhrase(`Bye ${settings.assistantName || 'AIVA'}`);
     }
   }, [isLiveTranscribing, settings.assistantName]);
@@ -526,7 +651,7 @@ export default function App() {
         normalizeLanguageCode(next.sttLanguage) !== normalizeLanguageCode(savedSettings.assistantSampleLanguage)) &&
       !isAssistantCalibrationComplete(next)
     ) {
-      const calibrationError = 'Please finish the assistant wake-word calibration for the current name and language before saving.';
+      const calibrationError = 'Please finish the assistant activation calibration for the current name and language before saving.';
       setUiState('error');
       setMessage(calibrationError);
       throw new Error(calibrationError);
@@ -567,14 +692,20 @@ export default function App() {
     const controller = liveSttControllerRef.current;
     voiceTurnInFlightRef.current = true;
     setIsSubmittingVoiceTurn(true);
+    controller?.manualDeactivate('system');
     setLiveTranscript(transcript);
     setLastSttActiveTranscript(transcript);
     setCapturedPreview(transcript);
     setTranslatedPreview('');
+    assistantResponsePreviewBufferRef.current = '';
+    openClawConsoleBufferRef.current = '';
     setAssistantResponsePreview('');
-    setAssistantStateDetail('Assistant active. Sending the captured voice turn to OpenClaw...');
+    setLastOpenClawTransport('');
+    setLastOpenClawSessionKey('');
+    setLastOpenClawRunId('');
+    setAssistantStateDetail('Assistant inactive. Sending the captured voice turn to OpenClaw...');
     setLiveTranscriptionStatus(
-      `Captured voice turn after ${snapshot.silenceDurationMs} ms of silence. Waiting for OpenClaw...`,
+      `Captured voice turn after ${snapshot.silenceDurationMs} ms of silence. Assistant returned to name-listening while OpenClaw is processing...`,
     );
     controller?.setAssistantInputSuppressed(true);
 
@@ -586,11 +717,18 @@ export default function App() {
         sessionId: currentSettings.openclawSessionId.trim() || undefined,
       });
 
-      setAssistantResponsePreview(result.openclaw.text);
+      assistantResponsePreviewBufferRef.current = result.openclaw.text;
+      flushAssistantResponsePreview();
+      if (openClawConsoleBufferRef.current) {
+        flushOpenClawConsoleText();
+      }
       setLastOpenClawEndpoint(result.openclaw.endpointUrl);
+      setLastOpenClawTransport(result.openclaw.transport);
       setLastOpenClawAgentId(result.openclaw.agentId ?? '');
       setLastOpenClawRequestedSessionId(result.openclaw.requestedSessionId ?? '');
       setLastOpenClawResponseSessionId(result.openclaw.responseSessionId ?? '');
+      setLastOpenClawSessionKey(result.openclaw.sessionKey ?? '');
+      setLastOpenClawRunId(result.openclaw.runId ?? '');
       setLastAudioPath(result.speech.filePath);
       setLastAudioOutputDirectory(result.speech.outputDirectory);
       setLastAudioChunkCount(result.speech.chunkCount);
@@ -602,26 +740,18 @@ export default function App() {
       setFirstAudioReceivedAtMs(result.speech.firstAudioReceivedAtMs ?? null);
       setFirstAudioPlaybackStartedAtMs(result.speech.firstAudioPlaybackStartedAtMs ?? null);
       setStartLatencyMs(result.speech.startLatencyMs ?? null);
-      if (assistantActiveRef.current) {
-        setAssistantStateDetail('Assistant active. Waiting for the next voice turn.');
-      }
+      setAssistantStateDetail(`Assistant inactive. Listening for "${savedSettingsRef.current.assistantName || 'AIVA'}".`);
       setLiveTranscriptionStatus(
         `OpenClaw replied and the response entered the ${result.speech.mode} TTS pipeline.`,
       );
     } catch (error: unknown) {
       const text = error instanceof Error ? error.message : String(error);
       if (isCancelledRunError(error)) {
-        setLiveTranscriptionStatus('Assistant voice run was cancelled. Listening for the next turn.');
-        if (assistantActiveRef.current) {
-          setAssistantStateDetail('Assistant active. Last voice run was cancelled.');
-        }
+        setLiveTranscriptionStatus('Assistant voice run was cancelled. Assistant-name listening continues.');
       } else {
         setUiState('error');
         setMessage(text);
-        setLiveTranscriptionStatus(`Assistant voice run failed: ${text}`);
-        if (assistantActiveRef.current) {
-          setAssistantStateDetail('Assistant active. The last OpenClaw request failed.');
-        }
+        setLiveTranscriptionStatus(`Assistant voice run failed: ${text}. Assistant-name listening resumed.`);
       }
     } finally {
       setLiveTranscript('');
@@ -759,7 +889,7 @@ export default function App() {
       };
       setSettings(nextSettings);
       setAssistantTrainingReadyName(nextSettings.assistantName);
-      setAssistantTrainingStatus('Calibration completed. Save settings to persist the trained wake phrases.');
+      setAssistantTrainingStatus('Calibration completed. Save settings to persist the trained activation phrases.');
       setMessage('Assistant calibration captured. Save settings to persist it.');
       closeAssistantTrainingDialog();
       return;
@@ -887,9 +1017,9 @@ export default function App() {
     setLastSttDebugLogPath('');
     setLastSttProvider('webview2');
     setLastSttActiveTranscript('');
-    setAssistantWakePhrase(`Hey ${activeSettings.assistantName}`);
+    setAssistantWakePhrase(activeSettings.assistantName);
     setAssistantClosePhrase(`Bye ${activeSettings.assistantName}`);
-    setAssistantStateDetail('Starting wake-word listener...');
+    setAssistantStateDetail('Starting assistant-name listener...');
     setIsLiveTranscribing(true);
 
     try {
@@ -904,6 +1034,7 @@ export default function App() {
           assistantWakeThreshold: activeSettings.assistantWakeThreshold,
           assistantCloseThreshold: activeSettings.assistantCloseThreshold,
           assistantCueCooldownMs: activeSettings.assistantCueCooldownMs,
+          assistantActivationWindowMs: activeSettings.assistantActivationWindowMs,
         },
         {
           onStatus: (status) => {
@@ -939,6 +1070,15 @@ export default function App() {
   };
 
   startLiveTranscriptionRef.current = startLiveTranscription;
+
+  useEffect(() => {
+    if (autoStartLiveTranscriptionRef.current || !hasLoadedInitialState || isLiveTranscribing) {
+      return;
+    }
+
+    autoStartLiveTranscriptionRef.current = true;
+    void startLiveTranscriptionRef.current();
+  }, [hasLoadedInitialState, isLiveTranscribing]);
 
   const stopLiveTranscription = async (): Promise<void> => {
     if (liveSttControllerRef.current) {
@@ -981,7 +1121,7 @@ export default function App() {
       { label: 'Assistant deactivate hotkey', value: `${hotkeyStatus.deactivateAccelerator} · ${hotkeyStatus.registered ? 'active' : 'inactive'}` },
       { label: 'Assistant name', value: settings.assistantName },
       { label: 'Assistant state', value: assistantActive ? 'active' : 'inactive' },
-      { label: 'OpenClaw bridge', value: settings.openclawEndpointUrl.trim() ? 'configured' : 'missing endpoint' },
+      { label: 'OpenClaw bridge', value: settings.openclawEndpointUrl.trim() ? 'local gateway auto + HTTP fallback' : 'local gateway auto-detect' },
       { label: 'Speech mode', value: settings.ttsMode },
       { label: 'Speech defaults', value: `${settings.ttsFormat.toUpperCase()} · ${settings.firstChunkLeadingSilenceMs} ms lead-in · ${settings.playbackSpeed.toFixed(1)}x` },
       { label: 'Translation target', value: settings.translationTargetLanguage },
@@ -1033,14 +1173,6 @@ export default function App() {
               onClick={() => void runTranslateSelectedText()}
             >
               Local translation test
-            </button>
-            <button
-              type="button"
-              className="secondary-button"
-              disabled={isSavingSettings}
-              onClick={() => void (isLiveTranscribing ? stopLiveTranscription() : startLiveTranscription())}
-            >
-              {isLiveTranscribing ? 'Stop live transcription' : 'Start live transcription'}
             </button>
             <button
               type="button"
@@ -1208,7 +1340,7 @@ export default function App() {
                   className="secondary-button secondary-button--icon"
                   disabled={Boolean(assistantNameError) || isSavingSettings}
                   onClick={() => void openAssistantTrainingDialog()}
-                  title="Train wake phrase"
+                  title="Train activation phrase"
                 >
                   Activate
                 </button>
@@ -1218,9 +1350,9 @@ export default function App() {
                 <span className="field-note field-note--warning">Please train the current name and language before saving.</span>
               ) : null}
               {!assistantNameError && assistantCalibrationComplete && assistantTrainingReadyName === settings.assistantName ? (
-                <span className="field-note field-note--success">Wake-/close-word calibration is ready for this name and language.</span>
+                <span className="field-note field-note--success">Activation/close-word calibration is ready for this name and language.</span>
               ) : null}
-              <span className="field-note">Use 4-8 characters, one single word. Wake and close phrases stay in English: <code>Hey {settings.assistantName || 'AIVA'}</code> activates, <code>Bye {settings.assistantName || 'AIVA'}</code> deactivates.</span>
+              <span className="field-note">Use 4-8 characters, one single word. Saying <code>{settings.assistantName || 'AIVA'}</code> activates the assistant, and <code>Bye {settings.assistantName || 'AIVA'}</code> deactivates it.</span>
             </label>
 
             <label className="settings-field">
@@ -1313,6 +1445,27 @@ export default function App() {
               <span className="field-note">Milliseconds to ignore repeated cue hits right after a wake/close toggle so one utterance cannot bounce the state back.</span>
             </label>
 
+            <label className="settings-field">
+              <span className="info-label">Wake speaking window</span>
+              <input
+                type="number"
+                min="500"
+                max={ASSISTANT_ACTIVATION_WINDOW_MS_MAX}
+                step="100"
+                value={settings.assistantActivationWindowMs}
+                onChange={(event) => setSettings({
+                  ...settings,
+                  assistantActivationWindowMs: parseBoundedInteger(
+                    event.target.value,
+                    settings.assistantActivationWindowMs,
+                    500,
+                    ASSISTANT_ACTIVATION_WINDOW_MS_MAX,
+                  ),
+                })}
+              />
+              <span className="field-note">How long the assistant stays active after the assistant name is detected if the user has not started speaking yet. Default is 3000 ms.</span>
+            </label>
+
             <label className="settings-field settings-field--wide">
               <span className="info-label">OpenAI API key</span>
               <input
@@ -1326,7 +1479,7 @@ export default function App() {
             </label>
 
             <label className="settings-field settings-field--wide">
-              <span className="info-label">OpenClaw endpoint URL</span>
+              <span className="info-label">OpenClaw endpoint URL (fallback)</span>
               <input
                 type="url"
                 autoComplete="off"
@@ -1334,7 +1487,7 @@ export default function App() {
                 value={settings.openclawEndpointUrl}
                 onChange={(event) => setSettings({ ...settings, openclawEndpointUrl: event.target.value })}
               />
-              <span className="field-note">The voice bridge sends each finalized assistant utterance here as JSON after 2 seconds of silence.</span>
+              <span className="field-note">Optional HTTP fallback. The app prefers the local OpenClaw gateway automatically and only uses this endpoint when no local gateway is available.</span>
             </label>
 
             <label className="settings-field">
@@ -1370,28 +1523,28 @@ export default function App() {
           </div>
           <div className="result-block">
             <span className="info-label">Assistant state</span>
-            <p>{assistantActive ? 'Assistant is active.' : 'Assistant is inactive and listening for the wake phrase.'}</p>
+            <p>{assistantActive ? 'Assistant is active.' : 'Assistant is inactive and listening for the assistant name.'}</p>
             <span className="field-note">{assistantStateDetail}</span>
           </div>
           <div className="result-block">
-            <span className="info-label">Wake / close phrases</span>
+            <span className="info-label">Activation / close phrases</span>
             <p><strong>{assistantWakePhrase}</strong> · <strong>{assistantClosePhrase}</strong></p>
-            <span className="field-note">Wake and close word detection stays in English. Normal speech is only treated as active transcription after activation.</span>
+            <span className="field-note">The wake word is just the assistant name. The close phrase stays in English. Normal speech is only treated as active transcription after activation.</span>
           </div>
           <div className="result-block">
             <span className="info-label">Cue matching</span>
-            <p>Wake {settings.assistantWakeThreshold}/100 Â· Close {settings.assistantCloseThreshold}/100 Â· Cooldown {settings.assistantCueCooldownMs} ms</p>
+            <p>Wake {settings.assistantWakeThreshold}/100 Â· Close {settings.assistantCloseThreshold}/100 Â· Cooldown {settings.assistantCueCooldownMs} ms Â· Wake window {settings.assistantActivationWindowMs} ms</p>
             <span className="field-note">Recognition status shows the current fuzzy score, component hints, and best matching fragment for tuning.</span>
           </div>
           <div className="result-block">
             <span className="info-label">Active transcript</span>
-            <p>{liveTranscript || (assistantActive ? 'No transcript yet.' : 'Waiting for wake phrase...')}</p>
+            <p>{liveTranscript || (assistantActive ? 'No transcript yet.' : 'Waiting for assistant name...')}</p>
             <span className="field-note">Once active, the controller keeps buffering speech and submits the utterance after {ASSISTANT_UTTERANCE_SILENCE_MS / 1000} seconds of silence.</span>
           </div>
           <div className="result-block">
             <span className="info-label">Voice bridge</span>
             <p>{isSubmittingVoiceTurn ? 'OpenClaw request in progress. STT capture is temporarily suppressed.' : 'Ready for the next finalized voice turn.'}</p>
-            <span className="field-note">{settings.openclawEndpointUrl.trim() || 'Set an OpenClaw endpoint URL in Settings to enable the bridge.'}</span>
+            <span className="field-note">{settings.openclawEndpointUrl.trim() ? 'Local OpenClaw gateway is preferred. The configured HTTP endpoint remains available as fallback.' : 'Local OpenClaw gateway is used automatically when available. The HTTP endpoint is optional.'}</span>
           </div>
           {assistantResponsePreview ? (
             <div className="result-block">
@@ -1399,13 +1552,16 @@ export default function App() {
               <p>{assistantResponsePreview}</p>
             </div>
           ) : null}
-          {(lastOpenClawEndpoint || lastOpenClawAgentId || lastOpenClawRequestedSessionId || lastOpenClawResponseSessionId) ? (
+          {(lastOpenClawEndpoint || lastOpenClawTransport || lastOpenClawAgentId || lastOpenClawRequestedSessionId || lastOpenClawResponseSessionId || lastOpenClawSessionKey || lastOpenClawRunId) ? (
             <div className="result-block">
               <span className="info-label">Last OpenClaw route</span>
+              {lastOpenClawTransport ? <p>Transport: {lastOpenClawTransport}</p> : null}
               {lastOpenClawEndpoint ? <p>Endpoint: {lastOpenClawEndpoint}</p> : null}
               {lastOpenClawAgentId ? <p>Agent: {lastOpenClawAgentId}</p> : null}
               {lastOpenClawRequestedSessionId ? <p>Requested session: {lastOpenClawRequestedSessionId}</p> : null}
               {lastOpenClawResponseSessionId ? <p>Response session: {lastOpenClawResponseSessionId}</p> : null}
+              {lastOpenClawSessionKey ? <p>Session key: {lastOpenClawSessionKey}</p> : null}
+              {lastOpenClawRunId ? <p>Run ID: {lastOpenClawRunId}</p> : null}
             </div>
           ) : null}
           {Object.values(sttProviderSnapshots).length ? (
@@ -1499,10 +1655,10 @@ export default function App() {
           <span className="info-label">Usage</span>
           <ol>
             <li>Keep the app running in the background.</li>
-            <li>Use <strong>Start live transcription</strong> to begin continuous WebView2 listening.</li>
-            <li>Configure the OpenClaw endpoint in Settings before using voice turns.</li>
+            <li>Live transcription starts automatically when the app launches and keeps the assistant-name listener running in the background.</li>
+            <li>The app uses the local OpenClaw gateway automatically. The OpenClaw endpoint in Settings is only an optional HTTP fallback.</li>
             <li>Say <strong>{assistantWakePhrase}</strong> to activate the assistant, then speak in the configured active transcription language.</li>
-            <li>After you stop speaking for about {ASSISTANT_UTTERANCE_SILENCE_MS / 1000} seconds, the captured utterance is sent to OpenClaw automatically and the reply is spoken through the existing TTS pipeline.</li>
+            <li>After you stop speaking for about {ASSISTANT_UTTERANCE_SILENCE_MS / 1000} seconds, the captured utterance is sent to OpenClaw automatically and the response is spoken through the existing TTS pipeline.</li>
             <li>Say <strong>{assistantClosePhrase}</strong> to deactivate again, or use <strong>{hotkeyStatus.activateAccelerator}</strong> / <strong>{hotkeyStatus.deactivateAccelerator}</strong> to force activation or deactivation.</li>
             <li>Select text in another Windows app when you want to test the existing TTS flows.</li>
             <li><strong>{hotkeyStatus.accelerator}</strong> reads it aloud, while <strong>{hotkeyStatus.translateAccelerator}</strong> translates it and speaks the translation.</li>
@@ -1522,7 +1678,7 @@ export default function App() {
             <button type="button" className="modal-close" aria-label="Close assistant training dialog" onClick={closeAssistantTrainingDialog}>
               x
             </button>
-            <h2 id="assistant-training-title">Assistant wake-word training</h2>
+            <h2 id="assistant-training-title">Assistant activation training</h2>
             <p>{currentAssistantTrainingStep.progress}) {currentAssistantTrainingStep.headline}</p>
             <div className="training-phrase-box">
               <strong>{currentAssistantTrainingStep.prompt}</strong>

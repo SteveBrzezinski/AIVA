@@ -43,6 +43,7 @@ export type AppSettings = {
   assistantWakeThreshold: number;
   assistantCloseThreshold: number;
   assistantCueCooldownMs: number;
+  assistantActivationWindowMs: number;
 };
 
 export type LanguageOption = {
@@ -123,9 +124,28 @@ export type CaptureAndTranslateResult = {
 export type OpenClawBridgeResult = {
   text: string;
   endpointUrl: string;
+  transport: string;
   agentId?: string | null;
   requestedSessionId?: string | null;
   responseSessionId?: string | null;
+  sessionKey?: string | null;
+  runId?: string | null;
+};
+
+export type OpenClawStreamEvent = {
+  phase: string;
+  transport: string;
+  detail?: string | null;
+  delta?: string | null;
+  accumulatedText?: string | null;
+  agentId?: string | null;
+  sessionKey?: string | null;
+  requestedSessionId?: string | null;
+  responseSessionId?: string | null;
+  runId?: string | null;
+  toolName?: string | null;
+  toolPhase?: string | null;
+  timestampMs: number;
 };
 
 export type OpenClawVoiceTurnResult = {
@@ -201,6 +221,7 @@ export type LiveSttControlEvent = {
 
 const HOTKEY_STATUS_EVENT = 'hotkey-status';
 const LIVE_STT_CONTROL_EVENT = 'live-stt-control';
+const OPENCLAW_STREAM_EVENT = 'openclaw-stream';
 
 export async function getAppStatus(): Promise<string> {
   return invoke<string>('app_status');
@@ -232,6 +253,12 @@ export async function onHotkeyStatus(callback: (status: HotkeyStatus) => void): 
 
 export async function onLiveSttControl(callback: (event: LiveSttControlEvent) => void): Promise<UnlistenFn> {
   return listen<LiveSttControlEvent>(LIVE_STT_CONTROL_EVENT, (event) => callback(event.payload));
+}
+
+export async function onOpenClawStreamEvent(
+  callback: (event: OpenClawStreamEvent) => void,
+): Promise<UnlistenFn> {
+  return listen<OpenClawStreamEvent>(OPENCLAW_STREAM_EVENT, (event) => callback(event.payload));
 }
 
 export async function captureAndSpeak(
