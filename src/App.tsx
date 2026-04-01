@@ -76,18 +76,40 @@ const fallbackHotkeyStatus: HotkeyStatus = {
   message: 'Checking global hotkeys...',
 };
 
+function defaultVoiceAgentPreferredLanguage(languageCode: string): string {
+  switch (languageCode.trim().toLowerCase()) {
+    case 'de': return 'German';
+    case 'en': return 'English';
+    case 'fr': return 'French';
+    case 'es': return 'Spanish';
+    case 'it': return 'Italian';
+    case 'pt': return 'Portuguese';
+    case 'pl': return 'Polish';
+    case 'nl': return 'Dutch';
+    case 'tr': return 'Turkish';
+    case 'ja': return 'Japanese';
+    default: return 'English';
+  }
+}
+
+function defaultVoiceAgentExtraInstructions(): string {
+  return 'Keep using the stored assistant name unchanged and do not rename yourself.';
+}
+
 const fallbackSettings: AppSettings = {
   translationTargetLanguage: 'en',
   playbackSpeed: 1,
   openaiApiKey: '',
   sttLanguage: 'de',
+  launchAtLogin: false,
+  startHiddenOnLaunch: true,
   assistantName: 'AIVA',
   voiceAgentModel: 'gpt-realtime',
   voiceAgentVoice: 'marin',
-  voiceAgentPersonality: 'Souveraen, technisch praezise, freundlich und knapp.',
-  voiceAgentBehavior: 'Wenn eine PC-Aufgabe unklar ist, frage sofort nach. Wenn etwas laenger dauert, kuendige es kurz an und melde dich spaeter mit dem Ergebnis.',
-  voiceAgentExtraInstructions: 'Sprich standardmaessig Deutsch. Verwende den gespeicherten Assistant-Namen unveraendert und nenne dich nicht anders.',
-  voiceAgentPreferredLanguage: 'Deutsch',
+  voiceAgentPersonality: 'Composed, technically precise, friendly, and concise.',
+  voiceAgentBehavior: 'If a PC task is unclear, ask immediately. If something takes longer, acknowledge it briefly and follow up with the result.',
+  voiceAgentExtraInstructions: defaultVoiceAgentExtraInstructions(),
+  voiceAgentPreferredLanguage: defaultVoiceAgentPreferredLanguage('de'),
   voiceAgentToneNotes: '',
   voiceAgentOnboardingComplete: true,
   assistantWakeSamples: [],
@@ -177,7 +199,7 @@ function buildCalibrationSteps(name: string, language: string): CalibrationStep[
       id: `wake-${index + 1}`,
       target: 'wake' as const,
       prompt: `Hey ${safeName}`,
-      headline: 'Bitte sagen sie:',
+      headline: 'Please say:',
       progress: `${index + 1}/4`,
       recognitionLanguage,
     })),
@@ -185,7 +207,7 @@ function buildCalibrationSteps(name: string, language: string): CalibrationStep[
       id: 'name-1',
       target: 'name',
       prompt: safeName,
-      headline: 'Bitte sagen sie nur den Namen:',
+      headline: 'Please say only the name:',
       progress: '1/2',
       recognitionLanguage,
     },
@@ -193,7 +215,7 @@ function buildCalibrationSteps(name: string, language: string): CalibrationStep[
       id: `close-${index + 1}`,
       target: 'close' as const,
       prompt: `Bye ${safeName}`,
-      headline: 'Bitte sagen sie:',
+      headline: 'Please say:',
       progress: `${index + 1}/4`,
       recognitionLanguage,
     })),
@@ -201,7 +223,7 @@ function buildCalibrationSteps(name: string, language: string): CalibrationStep[
       id: 'name-2',
       target: 'name',
       prompt: safeName,
-      headline: 'Bitte sagen sie nur den Namen erneut:',
+      headline: 'Please say only the name again:',
       progress: '2/2',
       recognitionLanguage,
     },
@@ -295,7 +317,7 @@ export default function App() {
   const [sttProviderSnapshots, setSttProviderSnapshots] = useState<ProviderSnapshotMap>({});
   const [liveTranscriptionSessionId, setLiveTranscriptionSessionId] = useState('');
   const [voiceAgentState, setVoiceAgentState] = useState<VoiceConnectionState>('idle');
-  const [voiceAgentDetail, setVoiceAgentDetail] = useState('Realtime voice session is idle.');
+  const [voiceAgentDetail, setVoiceAgentDetail] = useState('Persistent realtime voice session is starting.');
   const [voiceAgentSession, setVoiceAgentSession] = useState<CreateVoiceAgentSessionResult | null>(null);
   const [voiceEventFeed, setVoiceEventFeed] = useState<VoiceFeedItem[]>([]);
   const [voiceTaskFeed, setVoiceTaskFeed] = useState<VoiceFeedItem[]>([]);
@@ -304,6 +326,7 @@ export default function App() {
   const startLiveTranscriptionRef = useRef<(options?: { activateImmediately?: boolean }) => Promise<void>>(async () => undefined);
   const assistantTrainingRecognitionRef = useRef<{ stop: () => void } | null>(null);
   const sttDebugWriteTimerRef = useRef<number | null>(null);
+  const [initialStateLoaded, setInitialStateLoaded] = useState(false);
 
   useEffect(() => {
     void Promise.all([getAppStatus(), getHotkeyStatus(), getSettings(), getLanguageOptions()])
@@ -347,6 +370,9 @@ export default function App() {
       .catch((error: unknown) => {
         const text = error instanceof Error ? error.message : String(error);
         setAppStatus(`Failed to load status: ${text}`);
+      })
+      .finally(() => {
+        setInitialStateLoaded(true);
       });
 
     let unlisten: (() => void | Promise<void>) | undefined;
@@ -400,16 +426,12 @@ export default function App() {
         if (liveSttControllerRef.current) {
           liveSttControllerRef.current.manualActivate('hotkey');
         } else {
-          void startLiveTranscriptionRef.current({ activateImmediately: true });
+          void activateAssistantVoice('hotkey');
         }
         return;
       }
 
-      if (liveSttControllerRef.current) {
-        liveSttControllerRef.current.manualDeactivate('hotkey');
-      } else {
-        setLiveTranscriptionStatus('Deactivate hotkey received, but live transcription is not running yet.');
-      }
+      void deactivateAssistantVoice('hotkey');
     }).then((cleanup) => {
       unlistenLiveSttControl = cleanup;
     });
@@ -421,12 +443,19 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!initialStateLoaded) {
+      return;
+    }
+    void startVoiceAgent();
+  }, [initialStateLoaded]);
+
+  useEffect(() => {
     return () => {
       if (sttDebugWriteTimerRef.current !== null) {
         window.clearTimeout(sttDebugWriteTimerRef.current);
       }
       if (realtimeVoiceAgentRef.current) {
-        void realtimeVoiceAgentRef.current.disconnect();
+        void realtimeVoiceAgentRef.current.disconnect('app-shutdown');
         realtimeVoiceAgentRef.current = null;
       }
       if (liveSttControllerRef.current) {
@@ -533,6 +562,12 @@ export default function App() {
       setSettings(saved);
       setSavedSettings(saved);
       setAssistantTrainingReadyName(isAssistantCalibrationComplete(saved) ? saved.assistantName : null);
+      try {
+        await restartVoiceAgentSession('settings-update', assistantActive);
+      } catch (voiceError: unknown) {
+        const text = voiceError instanceof Error ? voiceError.message : String(voiceError);
+        setVoiceAgentDetail(`Voice session restart failed after settings update: ${text}`);
+      }
       setMessage(successMessage);
       return saved;
     } catch (error: unknown) {
@@ -584,6 +619,11 @@ export default function App() {
         setVoiceAgentDetail(status.detail);
         setVoiceAgentSession(status.session ?? null);
       },
+      onAssistantControlRequest: ({ action, reason }) => {
+        if (action === 'deactivate') {
+          void deactivateAssistantVoice(reason || 'assistant-requested');
+        }
+      },
     });
 
     realtimeVoiceAgentRef.current = controller;
@@ -594,14 +634,56 @@ export default function App() {
     }
   };
 
-  const stopVoiceAgent = async (): Promise<void> => {
+  const stopVoiceAgent = async (reason = 'deactivate'): Promise<void> => {
     if (realtimeVoiceAgentRef.current) {
-      await realtimeVoiceAgentRef.current.disconnect();
+      await realtimeVoiceAgentRef.current.disconnect(reason);
       realtimeVoiceAgentRef.current = null;
     }
     setVoiceAgentState('idle');
     setVoiceAgentDetail('Realtime voice session is idle.');
     setVoiceAgentSession(null);
+  };
+
+  const activateAssistantVoice = async (source: 'manual' | 'hotkey' | 'wake-word' | 'system' = 'manual'): Promise<void> => {
+    if (liveSttControllerRef.current) {
+      liveSttControllerRef.current.manualActivate(source);
+      return;
+    }
+
+    await startVoiceAgent();
+    await realtimeVoiceAgentRef.current?.startListening(source);
+    setAssistantActive(true);
+    setAssistantStateDetail(`Assistant active. Microphone is live (${source}).`);
+    setLiveTranscriptionStatus(`Assistant active. Microphone is live (${source}).`);
+  };
+
+  const deactivateAssistantVoice = async (source: 'manual' | 'hotkey' | 'close-word' | 'system' | string = 'manual'): Promise<void> => {
+    if (liveSttControllerRef.current) {
+      liveSttControllerRef.current.manualDeactivate(
+        source === 'manual' || source === 'hotkey' || source === 'close-word' || source === 'system'
+          ? source
+          : 'system',
+      );
+      return;
+    }
+
+    await realtimeVoiceAgentRef.current?.mute(source);
+    setAssistantActive(false);
+    setAssistantStateDetail(`Assistant inactive. Realtime session is still connected, but the microphone is muted (${source}).`);
+    setLiveTranscriptionStatus(`Assistant inactive. Realtime session is still connected, but the microphone is muted (${source}).`);
+    setLiveTranscript('');
+    setLastSttActiveTranscript('');
+  };
+
+  const restartVoiceAgentSession = async (reason: string, shouldResumeListening: boolean): Promise<void> => {
+    const hadController = Boolean(realtimeVoiceAgentRef.current);
+    if (hadController) {
+      await stopVoiceAgent(reason);
+    }
+    await startVoiceAgent();
+    if (shouldResumeListening) {
+      await realtimeVoiceAgentRef.current?.startListening(reason);
+    }
   };
 
   const stopAssistantTrainingRecognition = (): void => {
@@ -834,6 +916,8 @@ export default function App() {
       await liveSttControllerRef.current.stop();
     }
 
+    await startVoiceAgent();
+
     const controller = new LiveSttController();
     liveSttControllerRef.current = controller;
     const sessionId = `stt-live-${Date.now()}`;
@@ -843,11 +927,6 @@ export default function App() {
     setLastSttDebugLogPath('');
     setLastSttProvider('webview2');
     setLastSttActiveTranscript('');
-    setVoiceEventFeed([]);
-    setVoiceTaskFeed([]);
-    setVoiceAgentState('idle');
-    setVoiceAgentDetail('Realtime voice session is idle.');
-    setVoiceAgentSession(null);
     setAssistantWakePhrase(`Hey ${activeSettings.assistantName}`);
     setAssistantClosePhrase(`Bye ${activeSettings.assistantName}`);
     setAssistantStateDetail('Starting wake-word listener...');
@@ -873,9 +952,12 @@ export default function App() {
           onAssistantStateChange: (snapshot) => {
             applyAssistantState(snapshot);
             if (snapshot.active) {
-              void startVoiceAgent();
+              void (async () => {
+                await startVoiceAgent();
+                await realtimeVoiceAgentRef.current?.startListening(snapshot.source);
+              })();
             } else {
-              void stopVoiceAgent();
+              void realtimeVoiceAgentRef.current?.mute(snapshot.source);
             }
           },
           onProviderSnapshot: (snapshot) => {
@@ -889,6 +971,7 @@ export default function App() {
             ) {
               setLiveTranscript(snapshot.transcript);
               setLastSttActiveTranscript(snapshot.transcript);
+              realtimeVoiceAgentRef.current?.observeExternalUserTranscript(snapshot.transcript);
             }
           },
         },
@@ -903,16 +986,16 @@ export default function App() {
   startLiveTranscriptionRef.current = startLiveTranscription;
 
   const stopLiveTranscription = async (): Promise<void> => {
-    await stopVoiceAgent();
+    await realtimeVoiceAgentRef.current?.mute('stop-live-transcription');
     if (liveSttControllerRef.current) {
       await liveSttControllerRef.current.stop();
       liveSttControllerRef.current = null;
     }
     setIsLiveTranscribing(false);
     setAssistantActive(false);
-    setAssistantStateDetail('Listening is stopped.');
+    setAssistantStateDetail('Wake-word listener stopped. Realtime session remains connected and muted.');
     setLiveTranscript('');
-    setLiveTranscriptionStatus('Live transcription is stopped.');
+    setLiveTranscriptionStatus('Live transcription is stopped. Realtime session remains connected and muted.');
   };
 
   const resetAllSettings = async (): Promise<void> => {
@@ -1004,16 +1087,16 @@ export default function App() {
             <button
               type="button"
               className="secondary-button"
-              disabled={isSavingSettings || !isLiveTranscribing || assistantActive}
-              onClick={() => liveSttControllerRef.current?.manualActivate('manual')}
+              disabled={isSavingSettings || assistantActive || voiceAgentState === 'connecting'}
+              onClick={() => void activateAssistantVoice('manual')}
             >
               Activate assistant
             </button>
             <button
               type="button"
               className="secondary-button"
-              disabled={isSavingSettings || !isLiveTranscribing || !assistantActive}
-              onClick={() => liveSttControllerRef.current?.manualDeactivate('manual')}
+              disabled={isSavingSettings || !assistantActive}
+              onClick={() => void deactivateAssistantVoice('manual')}
             >
               Deactivate assistant
             </button>
@@ -1068,13 +1151,13 @@ export default function App() {
             <label className="settings-field">
               <span className="info-label">Read / translate engine</span>
               <input type="text" value="live / fixed" readOnly />
-              <span className="field-note">Vorlesen und Uebersetzen+Vorlesen verwenden jetzt fest den live TTS-Pfad im Hintergrund. Es gibt dafuer keinen umschaltbaren Speech-Mode mehr.</span>
+              <span className="field-note">Read aloud and translate-plus-read now always use the live TTS path in the background. There is no switchable speech mode anymore.</span>
             </label>
 
             <label className="settings-field">
               <span className="info-label">Voice assistant transport</span>
               <input type="text" value="WebRTC realtime" readOnly />
-              <span className="field-note">Der eigentliche Sprachdialog des Assistenten laeuft getrennt ueber OpenAI Realtime via WebRTC.</span>
+              <span className="field-note">The assistant&apos;s spoken conversation runs separately through OpenAI Realtime over WebRTC.</span>
             </label>
 
             <label className="settings-field settings-field--wide">
@@ -1230,6 +1313,28 @@ export default function App() {
             </label>
 
             <label className="settings-field settings-field--wide">
+              <span className="info-label">Background startup</span>
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={settings.launchAtLogin}
+                  onChange={(event) => setSettings({ ...settings, launchAtLogin: event.target.checked })}
+                />
+                <span>Launch the app automatically when I sign in to Windows</span>
+              </label>
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={settings.startHiddenOnLaunch}
+                  disabled={!settings.launchAtLogin}
+                  onChange={(event) => setSettings({ ...settings, startHiddenOnLaunch: event.target.checked })}
+                />
+                <span>When started automatically, keep the window hidden and run in the background</span>
+              </label>
+              <span className="field-note">Saving this writes or removes a Windows Startup launcher for the current executable. Closing the main window now keeps the assistant alive in the tray so hotkeys, wake-word listening, and the realtime voice session can continue.</span>
+            </label>
+
+            <label className="settings-field settings-field--wide">
               <span className="info-label">OpenAI API key</span>
               <input
                 type="password"
@@ -1250,7 +1355,7 @@ export default function App() {
           </div>
           <div className="result-block">
             <span className="info-label">Assistant state</span>
-            <p>{assistantActive ? 'Assistant is active.' : 'Assistant is inactive and listening for the wake phrase.'}</p>
+            <p>{assistantActive ? 'Assistant is active.' : isLiveTranscribing ? 'Assistant is inactive and listening for the wake phrase.' : 'Assistant is inactive. The Realtime session stays online, but the microphone is muted.'}</p>
             <span className="field-note">{assistantStateDetail}</span>
           </div>
           <div className="result-block">
@@ -1266,7 +1371,7 @@ export default function App() {
           <div className="result-block">
             <span className="info-label">Wake / close phrases</span>
             <p><strong>{assistantWakePhrase}</strong> · <strong>{assistantClosePhrase}</strong></p>
-            <span className="field-note">WebView2 keeps listening for wake and close phrases. The actual conversation runs over WebRTC once the assistant is active.</span>
+            <span className="field-note">WebView2 can listen for wake and close phrases. The Realtime WebRTC session stays connected in the background, and only the microphone uplink is toggled on activation.</span>
           </div>
           <div className="result-block">
             <span className="info-label">Cue matching</span>
@@ -1275,7 +1380,7 @@ export default function App() {
           </div>
           <div className="result-block">
             <span className="info-label">Active transcript</span>
-            <p>{liveTranscript || (assistantActive ? 'No transcript yet.' : 'Waiting for wake phrase...')}</p>
+            <p>{liveTranscript || (assistantActive ? 'No transcript yet.' : isLiveTranscribing ? 'Waiting for wake phrase...' : 'Microphone muted. Start live transcription for wake-word listening or activate the assistant manually.')}</p>
           </div>
           {Object.values(sttProviderSnapshots).length ? (
             <div className="result-block">
@@ -1406,9 +1511,9 @@ export default function App() {
           <span className="info-label">Usage</span>
           <ol>
             <li>Keep the app running in the background.</li>
-            <li>Use <strong>Start live transcription</strong> to begin continuous WebView2 listening.</li>
-            <li>Say <strong>{assistantWakePhrase}</strong> to activate the assistant. That keeps WebView2 listening for <strong>{assistantClosePhrase}</strong> and starts the actual assistant conversation over WebRTC.</li>
-            <li>Say <strong>{assistantClosePhrase}</strong> to deactivate again, or use <strong>{hotkeyStatus.activateAccelerator}</strong> / <strong>{hotkeyStatus.deactivateAccelerator}</strong> to force activation or deactivation.</li>
+            <li>Use <strong>Start live transcription</strong> when you want continuous local wake-word listening via WebView2.</li>
+            <li>Say <strong>{assistantWakePhrase}</strong> or click <strong>Activate assistant</strong> to switch the Realtime session to <strong>online_listening</strong> and enable the microphone uplink.</li>
+            <li>Say <strong>{assistantClosePhrase}</strong>, let the assistant close itself naturally, or use <strong>{hotkeyStatus.activateAccelerator}</strong> / <strong>{hotkeyStatus.deactivateAccelerator}</strong> or the buttons to return to <strong>online_muted</strong>.</li>
             <li>Select text in another Windows app when you want to test the separate read-aloud or translate+read flows.</li>
             <li><strong>{hotkeyStatus.accelerator}</strong> reads it aloud, while <strong>{hotkeyStatus.translateAccelerator}</strong> translates it and speaks the translation.</li>
           </ol>
@@ -1441,10 +1546,10 @@ export default function App() {
                 Stop
               </button>
               <button type="button" className="secondary-button" disabled={!assistantTrainingCapturedTranscript.trim()} onClick={retryAssistantTrainingStep}>
-                Nochmal
+                Retry
               </button>
               <button type="button" className="secondary-button" disabled={!assistantTrainingCapturedTranscript.trim()} onClick={confirmAssistantTrainingStep}>
-                Bestätigen
+                Confirm
               </button>
             </div>
             <div className="result-block">

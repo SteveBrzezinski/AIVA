@@ -1,5 +1,6 @@
 use crate::{
     settings::SettingsState,
+    voice_memory::{recall_voice_memory, RecallVoiceMemoryRequest},
     voice_profile::{build_assistant_instructions, build_voice_agent_state},
     voice_tasks::VoiceTaskState,
 };
@@ -7,6 +8,7 @@ use serde_json::{json, Value};
 use std::{
     collections::{HashSet, VecDeque},
     env, fs,
+    io::{Read, Write},
     path::{Path, PathBuf},
     process::Command,
     thread,
@@ -49,127 +51,30 @@ const IGNORED_DIRECTORIES: &[&str] = &[
     "target",
 ];
 
-struct KnownApplicationDefinition {
-    key: &'static str,
-    display_name: &'static str,
-    aliases: &'static [&'static str],
-    commands: &'static [&'static str],
-    executable_names: &'static [&'static str],
-    candidate_relative_paths: &'static [&'static str],
-    start_menu_terms: &'static [&'static str],
-}
-
-const KNOWN_APPLICATIONS: &[KnownApplicationDefinition] = &[
-    KnownApplicationDefinition {
-        key: "word",
-        display_name: "Microsoft Word",
-        aliases: &["word", "microsoft word", "winword"],
-        commands: &["winword"],
-        executable_names: &["WINWORD.EXE"],
-        candidate_relative_paths: &[
-            "Microsoft Office\\root\\Office16\\WINWORD.EXE",
-            "Microsoft Office\\Office16\\WINWORD.EXE",
-            "Microsoft Office\\root\\Office15\\WINWORD.EXE",
-            "Microsoft Office\\Office15\\WINWORD.EXE",
-        ],
-        start_menu_terms: &["Word"],
-    },
-    KnownApplicationDefinition {
-        key: "excel",
-        display_name: "Microsoft Excel",
-        aliases: &["excel", "microsoft excel"],
-        commands: &["excel"],
-        executable_names: &["EXCEL.EXE"],
-        candidate_relative_paths: &[
-            "Microsoft Office\\root\\Office16\\EXCEL.EXE",
-            "Microsoft Office\\Office16\\EXCEL.EXE",
-            "Microsoft Office\\root\\Office15\\EXCEL.EXE",
-            "Microsoft Office\\Office15\\EXCEL.EXE",
-        ],
-        start_menu_terms: &["Excel"],
-    },
-    KnownApplicationDefinition {
-        key: "powerpoint",
-        display_name: "Microsoft PowerPoint",
-        aliases: &["powerpoint", "power point", "microsoft powerpoint", "powerpnt"],
-        commands: &["powerpnt"],
-        executable_names: &["POWERPNT.EXE"],
-        candidate_relative_paths: &[
-            "Microsoft Office\\root\\Office16\\POWERPNT.EXE",
-            "Microsoft Office\\Office16\\POWERPNT.EXE",
-            "Microsoft Office\\root\\Office15\\POWERPNT.EXE",
-            "Microsoft Office\\Office15\\POWERPNT.EXE",
-        ],
-        start_menu_terms: &["PowerPoint"],
-    },
-    KnownApplicationDefinition {
-        key: "notepad",
-        display_name: "Notepad",
-        aliases: &["notepad", "editor", "text editor"],
-        commands: &["notepad"],
-        executable_names: &["notepad.exe"],
-        candidate_relative_paths: &[],
-        start_menu_terms: &["Notepad"],
-    },
-    KnownApplicationDefinition {
-        key: "calculator",
-        display_name: "Calculator",
-        aliases: &["calculator", "calc", "taschenrechner"],
-        commands: &["calc"],
-        executable_names: &["CalculatorApp.exe", "calc.exe"],
-        candidate_relative_paths: &[],
-        start_menu_terms: &["Calculator"],
-    },
-    KnownApplicationDefinition {
-        key: "paint",
-        display_name: "Paint",
-        aliases: &["paint", "mspaint"],
-        commands: &["mspaint"],
-        executable_names: &["mspaint.exe"],
-        candidate_relative_paths: &[],
-        start_menu_terms: &["Paint"],
-    },
-    KnownApplicationDefinition {
-        key: "explorer",
-        display_name: "File Explorer",
-        aliases: &["explorer", "file explorer", "windows explorer"],
-        commands: &["explorer"],
-        executable_names: &["explorer.exe"],
-        candidate_relative_paths: &[],
-        start_menu_terms: &["File Explorer"],
-    },
-];
-
 struct SearchPathItem {
     path: String,
     kind: &'static str,
     name: String,
 }
 
-enum ApplicationTarget {
-    Command(String),
-    Path(String),
-    AppId(String),
-}
-
 pub fn realtime_tools() -> Vec<Value> {
     vec![
         json!({
             "type": "function",
-            "name": "get_pc_context",
-            "description": "Liefert den aktuellen lokalen PC-Kontext mit Betriebssystem, Benutzername und wichtigen Ordnern.",
+            "name": "discover_environment",
+            "description": "Returns the current local runtime context such as operating system, working directory, home directory, temp directory, and important default paths.",
             "parameters": { "type": "object", "properties": {}, "additionalProperties": false }
         }),
         json!({
             "type": "function",
-            "name": "find_paths",
-            "description": "Sucht nach Dateien oder Ordnern auf dem lokalen PC in typischen Arbeitsverzeichnissen oder in einem angegebenen Basisordner.",
+            "name": "search_paths",
+            "description": "Searches dynamically for files or folders on the local system. Use this when you do not know an exact path.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "query": { "type": "string", "description": "Ein Teil des Dateinamens oder Ordnernamens." },
-                    "basePath": { "type": "string", "description": "Optionaler Basisordner, in dem die Suche eingegrenzt werden soll." },
-                    "limit": { "type": "integer", "minimum": 1, "maximum": 15, "description": "Maximale Anzahl an Treffern." }
+                    "query": { "type": "string", "description": "Part of a file or folder name." },
+                    "basePath": { "type": "string", "description": "Optional base folder to limit the search scope." },
+                    "limit": { "type": "integer", "minimum": 1, "maximum": 15, "description": "Maximum number of matches." }
                 },
                 "required": ["query"],
                 "additionalProperties": false
@@ -177,29 +82,168 @@ pub fn realtime_tools() -> Vec<Value> {
         }),
         json!({
             "type": "function",
-            "name": "submit_pc_task",
-            "description": "Plant und fuehrt einfache lokale PC-Aufgaben aus. Unterstuetzt aktuell das direkte Oeffnen eines bekannten Pfads, das Suchen und Oeffnen einer Datei sowie das Starten bekannter Anwendungen wie Word oder Excel.",
+            "name": "stat_path",
+            "description": "Reads metadata for an exact path, for example whether it exists, how large it is, and whether it is a file or directory.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "action": { "type": "string", "enum": ["open_path", "search_and_open", "launch_app"] },
-                    "path": { "type": "string" },
-                    "query": { "type": "string" },
-                    "appName": { "type": "string" },
-                    "basePath": { "type": "string" }
+                    "path": { "type": "string", "description": "Exact local path." }
                 },
-                "required": ["action"],
+                "required": ["path"],
+                "additionalProperties": false
+            }
+        }),
+        json!({
+            "type": "function",
+            "name": "open_target",
+            "description": "Opens an exact path, folder, or URL with the operating system's default handler. Not intended for complex Office automation.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "target": { "type": "string", "description": "Exact path, folder, or URL." }
+                },
+                "required": ["target"],
+                "additionalProperties": false
+            }
+        }),
+        json!({
+            "type": "function",
+            "name": "read_path",
+            "description": "Reads the contents of a file when the format is safely readable locally, for example text files or simple docx documents.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": { "type": "string", "description": "Exact file path." },
+                    "maxBytes": { "type": "integer", "minimum": 256, "maximum": 200000, "description": "Optional read limit for large files." }
+                },
+                "required": ["path"],
+                "additionalProperties": false
+            }
+        }),
+        json!({
+            "type": "function",
+            "name": "write_path",
+            "description": "Writes content to a file. Intended for text files and simple docx creation. Delegate complex format handling or UI automation to a specialist.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": { "type": "string", "description": "Exact target path." },
+                    "content": { "type": "string", "description": "File contents." },
+                    "overwrite": { "type": "boolean", "description": "Whether an existing file may be overwritten." },
+                    "createParents": { "type": "boolean", "description": "Whether missing parent directories should be created automatically." }
+                },
+                "required": ["path", "content"],
+                "additionalProperties": false
+            }
+        }),
+        json!({
+            "type": "function",
+            "name": "move_path",
+            "description": "Moves or renames a file or directory.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "sourcePath": { "type": "string" },
+                    "destinationPath": { "type": "string" },
+                    "replaceExisting": { "type": "boolean" }
+                },
+                "required": ["sourcePath", "destinationPath"],
+                "additionalProperties": false
+            }
+        }),
+        json!({
+            "type": "function",
+            "name": "copy_path",
+            "description": "Copies a file or directory to a new location.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "sourcePath": { "type": "string" },
+                    "destinationPath": { "type": "string" },
+                    "replaceExisting": { "type": "boolean" },
+                    "recursive": { "type": "boolean" }
+                },
+                "required": ["sourcePath", "destinationPath"],
+                "additionalProperties": false
+            }
+        }),
+        json!({
+            "type": "function",
+            "name": "delete_path",
+            "description": "Deletes a file or directory. For directories, recursive=true is required.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": { "type": "string" },
+                    "recursive": { "type": "boolean" }
+                },
+                "required": ["path"],
+                "additionalProperties": false
+            }
+        }),
+        json!({
+            "type": "function",
+            "name": "list_processes",
+            "description": "Lists currently running processes. Optionally filters by name.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": { "type": "string" },
+                    "limit": { "type": "integer", "minimum": 1, "maximum": 50 }
+                },
+                "additionalProperties": false
+            }
+        }),
+        json!({
+            "type": "function",
+            "name": "start_process",
+            "description": "Starts a process or command explicitly via a target program plus optional arguments. Prefer open_target for documents or URLs.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "target": { "type": "string", "description": "Command, program name, or exact path." },
+                    "arguments": { "type": "array", "items": { "type": "string" } },
+                    "workingDirectory": { "type": "string" }
+                },
+                "required": ["target"],
+                "additionalProperties": false
+            }
+        }),
+        json!({
+            "type": "function",
+            "name": "stop_process",
+            "description": "Stops a running process by PID or process name.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "pid": { "type": "integer", "minimum": 1 },
+                    "name": { "type": "string" },
+                    "force": { "type": "boolean" }
+                },
+                "additionalProperties": false
+            }
+        }),
+        json!({
+            "type": "function",
+            "name": "deactivate_voice_assistant",
+            "description": "Switches the voice agent back to online_muted. Use this when the conversation ends naturally.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "reason": { "type": "string" },
+                    "farewell": { "type": "string" }
+                },
                 "additionalProperties": false
             }
         }),
         json!({
             "type": "function",
             "name": "update_assistant_state",
-            "description": "Speichert Stimme, Persoenlichkeit und weitere Vorgaben des Assistenten. Der Name bleibt fest an die Wake-Word-Konfiguration gebunden.",
+            "description": "Stores the assistant's voice, personality, and other preferences. The name remains fixed to the wake-word configuration.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "name": { "type": "string", "description": "Wird ignoriert, weil der Assistentenname von der Wake-Word-Konfiguration kommt." },
+                    "name": { "type": "string", "description": "Ignored because the assistant name comes from the wake-word configuration." },
                     "voice": { "type": "string" },
                     "model": { "type": "string" },
                     "personality": { "type": "string" },
@@ -214,20 +258,36 @@ pub fn realtime_tools() -> Vec<Value> {
         }),
         json!({
             "type": "function",
+            "name": "recall_memory",
+            "description": "Searches the local daily memory for earlier tasks, files, paths, outcomes, and follow-ups. Use this for recall questions such as 'What did we do five days ago?'.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": { "type": "string", "description": "What to search for in the memory entries, for example a topic, file name, or path." },
+                    "date": { "type": "string", "description": "Optional exact date as dd.MM.yyyy or yyyy-MM-dd." },
+                    "limit": { "type": "integer", "minimum": 1, "maximum": 10, "description": "Maximum number of matches." },
+                    "daysBackLimit": { "type": "integer", "minimum": 1, "maximum": 60, "description": "How many days back to search when no exact date is given." }
+                },
+                "required": ["query"],
+                "additionalProperties": false
+            }
+        }),
+        json!({
+            "type": "function",
             "name": "get_openclaw_status",
-            "description": "Prueft, ob OpenClaw auf diesem PC installiert ist und ob der Gateway-Modus verfuegbar ist oder nur der lokale Fallback.",
+            "description": "Checks whether OpenClaw is installed on this machine and whether gateway mode is available or only local fallback.",
             "parameters": { "type": "object", "properties": {}, "additionalProperties": false }
         }),
         json!({
             "type": "function",
             "name": "get_specialist_agents",
-            "description": "Liefert die bekannten Spezialagenten und ihren aktuellen OpenClaw-Status.",
+            "description": "Returns the known specialist agents and their current OpenClaw status.",
             "parameters": { "type": "object", "properties": {}, "additionalProperties": false }
         }),
         json!({
             "type": "function",
             "name": "delegate_to_specialist",
-            "description": "Delegiert eine komplexere Aufgabe an den passendsten Spezialagenten wie pc-ops oder coder.",
+            "description": "Delegates a more complex task to the best fitting specialist such as pc-ops or coder.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -245,7 +305,7 @@ pub fn realtime_tools() -> Vec<Value> {
         json!({
             "type": "function",
             "name": "delegate_to_openclaw",
-            "description": "Delegiert eine Aufgabe direkt an OpenClaw, falls die Spezialagentenstruktur nicht passt oder explizit rohe OpenClaw-Delegation gewuenscht ist.",
+            "description": "Delegates a task directly to OpenClaw when the specialist structure does not fit or raw OpenClaw delegation is explicitly requested.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -269,10 +329,21 @@ pub fn run_voice_agent_tool(
     settings: &SettingsState,
 ) -> Result<Value, String> {
     match tool_name {
-        "get_pc_context" => get_pc_context_tool(),
-        "find_paths" => find_paths_tool(&args),
-        "submit_pc_task" => submit_pc_task_tool(&args, app),
+        "discover_environment" | "get_pc_context" => discover_environment_tool(),
+        "search_paths" | "find_paths" => search_paths_tool(&args),
+        "stat_path" => stat_path_tool(&args),
+        "open_target" => open_target_tool(&args),
+        "read_path" => read_path_tool(&args),
+        "write_path" => write_path_tool(&args),
+        "move_path" => move_path_tool(&args),
+        "copy_path" => copy_path_tool(&args),
+        "delete_path" => delete_path_tool(&args),
+        "list_processes" => list_processes_tool(&args),
+        "start_process" => start_process_tool(&args),
+        "stop_process" => stop_process_tool(&args),
+        "deactivate_voice_assistant" => deactivate_voice_assistant_tool(&args),
         "update_assistant_state" => update_assistant_state_tool(&args, settings),
+        "recall_memory" => recall_memory_tool(&args),
         "get_openclaw_status" => get_openclaw_status_tool(),
         "get_specialist_agents" => get_specialist_agents_tool(),
         "delegate_to_specialist" => delegate_to_specialist_tool(&args, app),
@@ -281,32 +352,31 @@ pub fn run_voice_agent_tool(
     }
 }
 
-fn get_pc_context_tool() -> Result<Value, String> {
+fn discover_environment_tool() -> Result<Value, String> {
     let working_directory = env::current_dir()
         .map_err(|error| format!("Failed to resolve current directory: {error}"))?;
+    let home_directory = home_dir();
     Ok(json!({
         "platform": env::consts::OS,
         "osType": env::consts::FAMILY,
         "hostname": env::var("COMPUTERNAME").unwrap_or_else(|_| "unknown".to_string()),
         "username": env::var("USERNAME").unwrap_or_else(|_| "unknown".to_string()),
         "workingDirectory": working_directory.to_string_lossy(),
-        "homeDirectory": home_dir().to_string_lossy(),
+        "homeDirectory": home_directory.to_string_lossy(),
+        "tempDirectory": env::temp_dir().to_string_lossy(),
         "commonLocations": common_locations(),
-        "availableApplications": KNOWN_APPLICATIONS.iter().map(|item| json!({
-            "key": item.key,
-            "displayName": item.display_name,
-            "aliases": item.aliases,
-        })).collect::<Vec<_>>(),
+        "pathSeparator": "\\",
+        "projectRoot": project_root().to_string_lossy(),
     }))
 }
 
-fn find_paths_tool(args: &Value) -> Result<Value, String> {
+fn search_paths_tool(args: &Value) -> Result<Value, String> {
     let query = value_to_string(args.get("query")).trim().to_string();
     if query.len() < 2 {
         return Ok(json!({
             "ok": false,
             "reason": "query_too_short",
-            "message": "Bitte suche nach mindestens zwei Zeichen."
+            "message": "Please search for at least two characters."
         }));
     }
 
@@ -324,147 +394,417 @@ fn find_paths_tool(args: &Value) -> Result<Value, String> {
     }))
 }
 
-fn submit_pc_task_tool(args: &Value, app: &AppHandle) -> Result<Value, String> {
-    let action = value_to_string(args.get("action")).trim().to_string();
-    if action.is_empty() {
+fn stat_path_tool(args: &Value) -> Result<Value, String> {
+    let path = resolve_existing_local_path(&value_to_string(args.get("path")))?;
+    let metadata = fs::metadata(&path)
+        .map_err(|error| format!("Failed to read metadata for {}: {error}", path.to_string_lossy()))?;
+    let file_type = if metadata.is_dir() {
+        "directory"
+    } else if metadata.is_file() {
+        "file"
+    } else {
+        "other"
+    };
+    let modified = metadata
+        .modified()
+        .ok()
+        .and_then(|value| value.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|value| value.as_secs());
+
+    Ok(json!({
+        "ok": true,
+        "path": path.to_string_lossy(),
+        "exists": true,
+        "fileType": file_type,
+        "isFile": metadata.is_file(),
+        "isDirectory": metadata.is_dir(),
+        "sizeBytes": metadata.len(),
+        "extension": path.extension().and_then(|value| value.to_str()).unwrap_or(""),
+        "modifiedUnixSeconds": modified,
+        "readOnly": metadata.permissions().readonly(),
+    }))
+}
+
+fn open_target_tool(args: &Value) -> Result<Value, String> {
+    let target = value_to_string(args.get("target"));
+    let trimmed = target.trim();
+    if trimmed.is_empty() {
         return Ok(json!({
             "ok": false,
             "status": "needs_clarification",
-            "message": "Es wurde keine PC-Aktion angegeben.",
-            "question": "Was genau soll ich auf dem PC tun?"
+            "message": "open_target is missing a target.",
+            "question": "Which exact path, folder, or URL should I open?"
         }));
     }
 
-    if action == "open_path" {
-        let path = value_to_string(args.get("path"));
-        if path.trim().is_empty() {
-            return Ok(json!({
-                "ok": false,
-                "status": "needs_clarification",
-                "message": "Fuer open_path fehlt der Zielpfad.",
-                "question": "Welchen exakten Pfad soll ich oeffnen?"
-            }));
-        }
-
-        let opened = open_path(&path)?;
-        let status = if opened.get("ok").and_then(Value::as_bool).unwrap_or(false) {
-            "completed"
-        } else {
-            "failed"
-        };
-        let mut object = opened.as_object().cloned().unwrap_or_default();
-        object.insert("status".to_string(), Value::String(status.to_string()));
-        return Ok(Value::Object(object));
+    if is_probable_url(trimmed) {
+        let script = format!("Start-Process '{}'", escape_powershell_literal(trimmed));
+        let output = run_powershell_output(&script)?;
+        return Ok(json!({
+            "ok": output.success,
+            "path": trimmed,
+            "kind": "url",
+            "message": if output.success {
+                format!("Opened: {trimmed}")
+            } else {
+                combined_output(&output)
+            },
+        }));
     }
 
-    if action == "search_and_open" {
-        let query = value_to_string(args.get("query")).trim().to_string();
-        if query.len() < 2 {
-            return Ok(json!({
-                "ok": false,
-                "status": "needs_clarification",
-                "message": "Die Suchanfrage ist zu ungenau.",
-                "question": "Welche Datei oder welcher Ordner soll geoeffnet werden? Bitte nenne mindestens zwei Zeichen oder den exakten Namen."
-            }));
-        }
+    open_path(trimmed)
+}
 
-        if match_known_application(&query).is_some() {
-            let launched = launch_known_application(&query)?;
-            let status = if launched.get("ok").and_then(Value::as_bool).unwrap_or(false) {
-                "completed"
-            } else {
-                "failed"
-            };
-            let mut object = launched.as_object().cloned().unwrap_or_default();
-            object.insert("status".to_string(), Value::String(status.to_string()));
-            object.insert("query".to_string(), Value::String(query));
-            return Ok(Value::Object(object));
-        }
+fn read_path_tool(args: &Value) -> Result<Value, String> {
+    let path = resolve_existing_local_path(&value_to_string(args.get("path")))?;
+    let metadata = fs::metadata(&path)
+        .map_err(|error| format!("Failed to read metadata for {}: {error}", path.to_string_lossy()))?;
+    if metadata.is_dir() {
+        return Ok(json!({
+            "ok": false,
+            "reason": "is_directory",
+            "message": "The given path is a directory. Use stat_path or search_paths for directories."
+        }));
+    }
 
-        let base_path = args.get("basePath").and_then(Value::as_str);
-        let (quick_results, _, _) = search_paths(&query, base_path, 3, 400)?;
-        if quick_results.len() == 1 {
-            let path = quick_results[0].path.clone();
-            let opened = open_path(&path)?;
-            let status = if opened.get("ok").and_then(Value::as_bool).unwrap_or(false) {
-                "completed"
-            } else {
-                "failed"
-            };
-            let mut object = opened.as_object().cloned().unwrap_or_default();
-            object.insert("status".to_string(), Value::String(status.to_string()));
-            object.insert("matchedBy".to_string(), Value::String("quick_search".to_string()));
-            object.insert("query".to_string(), Value::String(query));
-            return Ok(Value::Object(object));
-        }
+    let max_bytes = args
+        .get("maxBytes")
+        .and_then(Value::as_u64)
+        .map(|value| value as usize)
+        .unwrap_or(50_000)
+        .clamp(256, 200_000);
 
-        if quick_results.len() > 1 {
-            return Ok(json!({
-                "ok": false,
-                "status": "needs_clarification",
-                "message": format!("Mehrere schnelle Treffer fuer \"{query}\" gefunden."),
-                "question": "Ich habe mehrere passende Dateien gefunden. Welchen exakten Treffer soll ich oeffnen?",
-                "matches": quick_results.iter().map(search_item_to_json).collect::<Vec<_>>(),
-            }));
-        }
-
-        let payload = json!({
-            "query": query,
-            "basePath": normalize_search_base(base_path).map(|path| path.to_string_lossy().to_string()),
-        });
-        let task = app.state::<VoiceTaskState>().create_task("search_and_open", payload.clone());
-        app.state::<VoiceTaskState>().emit_task(app, &task);
-
-        let app_handle = app.clone();
-        let task_id = task.id.clone();
-        thread::spawn(move || {
-            run_search_and_open_task(&app_handle, &task_id, payload);
-        });
-
+    if is_docx_path(&path) {
+        let text = read_docx_text(&path)?;
+        let truncated = text.len() > max_bytes;
+        let content = if truncated { truncate_string(&text, max_bytes) } else { text };
         return Ok(json!({
             "ok": true,
-            "status": "queued",
-            "taskId": task.id,
-            "etaSeconds": 10,
-            "message": format!("Suche nach \"{query}\" laeuft im Hintergrund. Ich melde mich, sobald ein Ergebnis vorliegt."),
+            "path": path.to_string_lossy(),
+            "fileType": "docx",
+            "content": content,
+            "truncated": truncated,
+            "message": format!("Read file: {}", path.to_string_lossy()),
         }));
     }
 
-    if action == "launch_app" {
-        let app_name = value_to_string(args.get("appName"));
-        let fallback_query = value_to_string(args.get("query"));
-        let resolved_name = if app_name.trim().is_empty() { fallback_query } else { app_name };
-        if resolved_name.trim().is_empty() {
+    if !is_text_like_path(&path) {
+        return Ok(json!({
+            "ok": false,
+            "reason": "unsupported_format",
+            "message": "This file type is not supported for direct reading by the voice agent. Delegate complex formats to a specialist.",
+            "path": path.to_string_lossy(),
+        }));
+    }
+
+    let content = fs::read_to_string(&path)
+        .map_err(|error| format!("Failed to read file {}: {error}", path.to_string_lossy()))?;
+    let truncated = content.len() > max_bytes;
+    Ok(json!({
+        "ok": true,
+        "path": path.to_string_lossy(),
+        "fileType": "text",
+        "content": if truncated { truncate_string(&content, max_bytes) } else { content },
+        "truncated": truncated,
+        "message": format!("Read file: {}", path.to_string_lossy()),
+    }))
+}
+
+fn write_path_tool(args: &Value) -> Result<Value, String> {
+    let path = resolve_local_path(&value_to_string(args.get("path")))?;
+    let content = value_to_string(args.get("content"));
+    let overwrite = args.get("overwrite").and_then(Value::as_bool).unwrap_or(false);
+    let create_parents = args.get("createParents").and_then(Value::as_bool).unwrap_or(true);
+
+    if path.exists() && !overwrite {
+        return Ok(json!({
+            "ok": false,
+            "status": "needs_clarification",
+            "message": format!("The file {} already exists.", path.to_string_lossy()),
+            "question": "Should I overwrite the existing file?"
+        }));
+    }
+
+    if let Some(parent) = path.parent() {
+        if create_parents {
+            fs::create_dir_all(parent)
+                .map_err(|error| format!("Failed to create directory {}: {error}", parent.to_string_lossy()))?;
+        } else if !parent.exists() {
             return Ok(json!({
                 "ok": false,
                 "status": "needs_clarification",
-                "message": "Fuer launch_app fehlt der Anwendungsname.",
-                "question": "Welche Anwendung soll ich starten?"
+                "message": format!("The target directory {} does not exist.", parent.to_string_lossy()),
+                "question": "Should I create the missing directories?"
             }));
         }
+    }
 
-        let launched = launch_known_application(&resolved_name)?;
-        let status = if launched.get("ok").and_then(Value::as_bool).unwrap_or(false) {
-            "completed"
-        } else {
-            "failed"
-        };
-        let mut object = launched.as_object().cloned().unwrap_or_default();
-        object.insert("status".to_string(), Value::String(status.to_string()));
-        object.insert("requestedApplication".to_string(), Value::String(resolved_name.trim().to_string()));
-        return Ok(Value::Object(object));
+    if is_docx_path(&path) {
+        let result = create_word_document(&path, &content)?;
+        return Ok(result);
+    }
+
+    if !is_text_like_path(&path) {
+        return Ok(json!({
+            "ok": false,
+            "reason": "unsupported_format",
+            "message": "This file type is not supported for direct writing by the voice agent. Delegate complex formats to a specialist.",
+            "path": path.to_string_lossy(),
+        }));
+    }
+
+    fs::write(&path, content.as_bytes())
+        .map_err(|error| format!("Failed to write file {}: {error}", path.to_string_lossy()))?;
+
+    Ok(json!({
+        "ok": true,
+        "path": path.to_string_lossy(),
+        "bytesWritten": content.as_bytes().len(),
+        "message": format!("Wrote file: {}", path.to_string_lossy()),
+    }))
+}
+
+fn move_path_tool(args: &Value) -> Result<Value, String> {
+    let source = resolve_existing_local_path(&value_to_string(args.get("sourcePath")))?;
+    let destination = resolve_local_path(&value_to_string(args.get("destinationPath")))?;
+    let replace_existing = args.get("replaceExisting").and_then(Value::as_bool).unwrap_or(false);
+
+    if destination.exists() && !replace_existing {
+        return Ok(json!({
+            "ok": false,
+            "status": "needs_clarification",
+            "message": format!("The destination {} already exists.", destination.to_string_lossy()),
+            "question": "Should I replace the destination?"
+        }));
+    }
+
+    if let Some(parent) = destination.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|error| format!("Failed to create destination directory {}: {error}", parent.to_string_lossy()))?;
+    }
+
+    if destination.exists() {
+        remove_path(&destination, true)?;
+    }
+
+    fs::rename(&source, &destination).map_err(|error| {
+        format!(
+            "Failed to move {} to {}: {error}",
+            source.to_string_lossy(),
+            destination.to_string_lossy()
+        )
+    })?;
+
+    Ok(json!({
+        "ok": true,
+        "sourcePath": source.to_string_lossy(),
+        "destinationPath": destination.to_string_lossy(),
+        "message": format!("Moved: {} -> {}", source.to_string_lossy(), destination.to_string_lossy()),
+    }))
+}
+
+fn copy_path_tool(args: &Value) -> Result<Value, String> {
+    let source = resolve_existing_local_path(&value_to_string(args.get("sourcePath")))?;
+    let destination = resolve_local_path(&value_to_string(args.get("destinationPath")))?;
+    let replace_existing = args.get("replaceExisting").and_then(Value::as_bool).unwrap_or(false);
+    let recursive = args.get("recursive").and_then(Value::as_bool).unwrap_or(false);
+    let source_metadata = fs::metadata(&source)
+        .map_err(|error| format!("Failed to read metadata for {}: {error}", source.to_string_lossy()))?;
+
+    if destination.exists() && !replace_existing {
+        return Ok(json!({
+            "ok": false,
+            "status": "needs_clarification",
+            "message": format!("The destination {} already exists.", destination.to_string_lossy()),
+            "question": "Should I replace the destination?"
+        }));
+    }
+
+    if destination.exists() {
+        remove_path(&destination, true)?;
+    }
+
+    if let Some(parent) = destination.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|error| format!("Failed to create destination directory {}: {error}", parent.to_string_lossy()))?;
+    }
+
+    if source_metadata.is_dir() {
+        if !recursive {
+            return Ok(json!({
+                "ok": false,
+                "status": "needs_clarification",
+                "message": format!("{} is a directory.", source.to_string_lossy()),
+                "question": "Should I copy the directory recursively? If yes, set recursive=true."
+            }));
+        }
+        copy_directory_recursive(&source, &destination)?;
+    } else {
+        fs::copy(&source, &destination).map_err(|error| {
+            format!(
+                "Failed to copy {} to {}: {error}",
+                source.to_string_lossy(),
+                destination.to_string_lossy()
+            )
+        })?;
     }
 
     Ok(json!({
-        "ok": false,
-        "status": "needs_clarification",
-        "message": format!("Die Aktion \"{action}\" wird aktuell nicht unterstuetzt."),
-        "question": "Soll ich stattdessen einen Pfad direkt oeffnen oder nach einer Datei suchen und sie oeffnen?"
+        "ok": true,
+        "sourcePath": source.to_string_lossy(),
+        "destinationPath": destination.to_string_lossy(),
+        "message": format!("Copied: {} -> {}", source.to_string_lossy(), destination.to_string_lossy()),
+    }))
+}
+
+fn delete_path_tool(args: &Value) -> Result<Value, String> {
+    let path = resolve_existing_local_path(&value_to_string(args.get("path")))?;
+    let recursive = args.get("recursive").and_then(Value::as_bool).unwrap_or(false);
+    ensure_safe_delete_target(&path)?;
+    remove_path(&path, recursive)?;
+    Ok(json!({
+        "ok": true,
+        "path": path.to_string_lossy(),
+        "message": format!("Deleted: {}", path.to_string_lossy()),
+    }))
+}
+
+fn list_processes_tool(args: &Value) -> Result<Value, String> {
+    let query = value_to_string(args.get("query")).trim().to_string();
+    let limit = normalize_search_limit(args.get("limit").and_then(Value::as_u64), 12, 50);
+    let script = format!(
+        "$items = Get-Process | Select-Object Id, ProcessName, MainWindowTitle, Path; \
+if ('{query}' -ne '') {{ $items = $items | Where-Object {{ $_.ProcessName -like '*{query}*' -or $_.MainWindowTitle -like '*{query}*' -or $_.Path -like '*{query}*' }} }}; \
+$items | Select-Object -First {limit} | ConvertTo-Json -Compress",
+        query = escape_powershell_literal(&query),
+        limit = limit
+    );
+    let output = run_powershell_output(&script)?;
+    if !output.success {
+        return Err(combined_output(&output));
+    }
+    let payload = extract_json_value(&format!("{}\n{}", output.stdout, output.stderr))?;
+    let processes = if payload.is_array() { payload } else { Value::Array(vec![payload]) };
+    Ok(json!({
+        "ok": true,
+        "query": query,
+        "processes": processes,
+    }))
+}
+
+fn start_process_tool(args: &Value) -> Result<Value, String> {
+    let target = value_to_string(args.get("target"));
+    let trimmed_target = target.trim();
+    if trimmed_target.is_empty() {
+        return Ok(json!({
+            "ok": false,
+            "status": "needs_clarification",
+            "message": "start_process is missing a target.",
+            "question": "Which program or command should I start?"
+        }));
+    }
+
+    let working_directory = value_to_string(args.get("workingDirectory"));
+    let arguments = args
+        .get("arguments")
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .map(|item| format!("'{}'", escape_powershell_literal(item)))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
+    let target_path = PathBuf::from(trimmed_target);
+    let resolved_target = if target_path.is_absolute() || target_path.components().count() > 1 {
+        resolve_local_path(trimmed_target)?.to_string_lossy().to_string()
+    } else {
+        trimmed_target.to_string()
+    };
+    let working_directory_script = if working_directory.trim().is_empty() {
+        String::new()
+    } else {
+        let resolved = resolve_local_path(&working_directory)?.to_string_lossy().to_string();
+        format!(" -WorkingDirectory '{}'", escape_powershell_literal(&resolved))
+    };
+    let arguments_script = if arguments.is_empty() {
+        String::new()
+    } else {
+        format!(" -ArgumentList @({})", arguments.join(", "))
+    };
+    let script = format!(
+        "Start-Process -FilePath '{}'{}{}",
+        escape_powershell_literal(&resolved_target),
+        arguments_script,
+        working_directory_script
+    );
+    let output = run_powershell_output(&script)?;
+    Ok(json!({
+        "ok": output.success,
+        "target": resolved_target,
+        "arguments": args.get("arguments").cloned().unwrap_or(Value::Array(Vec::new())),
+        "message": if output.success {
+            format!("Started process: {}", trimmed_target)
+        } else {
+            combined_output(&output)
+        },
+    }))
+}
+
+fn stop_process_tool(args: &Value) -> Result<Value, String> {
+    let pid = args.get("pid").and_then(Value::as_u64);
+    let name = value_to_string(args.get("name"));
+    if pid.is_none() && name.trim().is_empty() {
+        return Ok(json!({
+            "ok": false,
+            "status": "needs_clarification",
+            "message": "stop_process requires either pid or name.",
+            "question": "Which process should I stop?"
+        }));
+    }
+
+    let force = args.get("force").and_then(Value::as_bool).unwrap_or(true);
+    let script = if let Some(pid) = pid {
+        format!(
+            "Stop-Process -Id {}{} -ErrorAction Stop",
+            pid,
+            if force { " -Force" } else { "" }
+        )
+    } else {
+        format!(
+            "Stop-Process -Name '{}'{} -ErrorAction Stop",
+            escape_powershell_literal(name.trim()),
+            if force { " -Force" } else { "" }
+        )
+    };
+    let output = run_powershell_output(&script)?;
+    Ok(json!({
+        "ok": output.success,
+        "pid": pid,
+        "name": if name.trim().is_empty() { Value::Null } else { Value::String(name.trim().to_string()) },
+        "message": if output.success {
+            "Process stopped.".to_string()
+        } else {
+            combined_output(&output)
+        },
+    }))
+}
+
+fn deactivate_voice_assistant_tool(args: &Value) -> Result<Value, String> {
+    Ok(json!({
+        "ok": true,
+        "action": "deactivate_voice_assistant",
+        "reason": value_to_string(args.get("reason")),
+        "farewell": value_to_string(args.get("farewell")),
+        "message": "Voice assistant will return to the online_muted state.",
     }))
 }
 
 struct SpecialistDefinition {
     id: &'static str,
+    openclaw_agent_id: &'static str,
     name: &'static str,
     theme: &'static str,
     description: &'static str,
@@ -478,24 +818,26 @@ struct SpecialistDefinition {
 const SPECIALISTS: &[SpecialistDefinition] = &[
     SpecialistDefinition {
         id: "pc-ops",
+        openclaw_agent_id: "voice-overlay-pc-ops",
         name: "PC Ops",
         theme: "desktop-automation",
-        description: "Spezialist fuer Desktop-, Datei-, Office- und allgemeine lokale PC-Aufgaben.",
-        when_to_use: "App-Starts, Dateien, Ordner, Dokumente, Explorer, Word, Downloads und lokale Automationsaufgaben.",
+        description: "Specialist for desktop, file, Office, and general local machine tasks.",
+        when_to_use: "App launches, files, folders, documents, Explorer, Word, Downloads, and local automation tasks.",
         default_thinking_level: "medium",
         default_timeout_seconds: 180,
         default_prefer_mode: "local",
         keywords: &[
             "app", "application", "browser", "desktop", "directory", "document", "download", "drive", "explorer", "excel", "file", "folder", "notepad",
-            "office", "ordner", "path", "pdf", "powerpoint", "speichere", "word", "oeffne", "oeffnen", "pc",
+            "office", "folder", "path", "pdf", "powerpoint", "save", "saved", "word", "open", "opened", "pc",
         ],
     },
     SpecialistDefinition {
         id: "coder",
+        openclaw_agent_id: "voice-overlay-coder",
         name: "Coder",
         theme: "software-engineering",
-        description: "Spezialist fuer Coding, Fehlersuche, Skripte, Repo-Aenderungen, Tests und technische Implementierung.",
-        when_to_use: "Code schreiben, Bugs beheben, Dateien aendern, Tests ausfuehren, Refactors, Skripte und technische Analyse.",
+        description: "Specialist for coding, debugging, scripts, repository changes, tests, and implementation work.",
+        when_to_use: "Writing code, fixing bugs, changing files, running tests, refactors, scripts, and technical analysis.",
         default_thinking_level: "high",
         default_timeout_seconds: 240,
         default_prefer_mode: "local",
@@ -609,11 +951,12 @@ fn get_specialist_agents_tool() -> Result<Value, String> {
             let existing = existing_agents.iter().find(|item| {
                 item.get("id")
                     .and_then(Value::as_str)
-                    .map(|value| value == definition.id)
+                    .map(|value| value == definition.openclaw_agent_id)
                     .unwrap_or(false)
             });
             json!({
                 "id": definition.id,
+                "openClawAgentId": definition.openclaw_agent_id,
                 "name": definition.name,
                 "description": definition.description,
                 "whenToUse": definition.when_to_use,
@@ -631,8 +974,8 @@ fn delegate_to_openclaw_tool(args: &Value, app: &AppHandle) -> Result<Value, Str
         return Ok(json!({
             "ok": false,
             "status": "needs_clarification",
-            "message": "Fuer die OpenClaw-Bruecke fehlt die Aufgabenbeschreibung.",
-            "question": "Welche konkrete Aufgabe soll an OpenClaw delegiert werden?"
+            "message": "The OpenClaw bridge is missing a task description.",
+            "question": "Which exact task should be delegated to OpenClaw?"
         }));
     }
 
@@ -661,7 +1004,7 @@ fn delegate_to_openclaw_tool(args: &Value, app: &AppHandle) -> Result<Value, Str
         "status": "queued",
         "taskId": task_record.id,
         "etaSeconds": 45,
-        "message": "Die Aufgabe wurde an OpenClaw delegiert. Ich melde mich, sobald der PC-Agent ein Ergebnis hat."
+        "message": "The task was delegated to OpenClaw. I will report back as soon as the PC agent has a result."
     }))
 }
 
@@ -671,8 +1014,8 @@ fn delegate_to_specialist_tool(args: &Value, app: &AppHandle) -> Result<Value, S
         return Ok(json!({
             "ok": false,
             "status": "needs_clarification",
-            "message": "Fuer den Delegationsagenten fehlt die Aufgabenbeschreibung.",
-            "question": "Welche konkrete Aufgabe soll delegiert werden?"
+            "message": "The delegation request is missing a task description.",
+            "question": "Which exact task should be delegated?"
         }));
     }
 
@@ -685,8 +1028,8 @@ fn delegate_to_specialist_tool(args: &Value, app: &AppHandle) -> Result<Value, S
         return Ok(json!({
             "ok": false,
             "status": "needs_clarification",
-            "message": "Der gewuenschte Spezialagent ist unbekannt.",
-            "question": "Soll ich die Aufgabe an pc-ops oder coder delegieren?"
+            "message": "The requested specialist agent is unknown.",
+            "question": "Should I delegate the task to pc-ops or coder?"
         }));
     };
 
@@ -732,68 +1075,53 @@ fn delegate_to_specialist_tool(args: &Value, app: &AppHandle) -> Result<Value, S
         "specialistId": route.specialist.id,
         "routingConfidence": route.confidence,
         "routingReason": route.reason,
-        "message": format!("Die Aufgabe wurde an den Spezialagenten {} delegiert. Ich melde mich, sobald ein Ergebnis vorliegt.", route.specialist.id),
+        "message": format!("The task was delegated to specialist {}. I will report back as soon as a result is available.", route.specialist.id),
     }))
 }
 
-fn run_search_and_open_task(app: &AppHandle, task_id: &str, payload: Value) {
-    let tasks = app.state::<VoiceTaskState>();
-    let _ = tasks.update_task(app, task_id, "running", None);
-
-    let query = payload.get("query").and_then(Value::as_str).unwrap_or("");
-    let base_path = payload.get("basePath").and_then(Value::as_str);
-    match search_paths(query, base_path, 5, 10_000) {
-        Ok((results, _, _)) if results.is_empty() => {
-            let _ = tasks.update_task(
-                app,
-                task_id,
-                "failed",
-                Some(json!({
-                    "message": format!("Kein passender Pfad fuer \"{query}\" gefunden."),
-                    "query": query,
-                    "basePath": base_path,
-                })),
-            );
-        }
-        Ok((results, _, _)) if results.len() > 1 => {
-            let _ = tasks.update_task(
-                app,
-                task_id,
-                "needs_clarification",
-                Some(json!({
-                    "message": format!("Es wurden mehrere Treffer fuer \"{query}\" gefunden."),
-                    "question": "Welchen Treffer soll ich oeffnen? Nenne bitte den exakten Dateinamen oder Pfad.",
-                    "matches": results.iter().map(search_item_to_json).collect::<Vec<_>>(),
-                })),
-            );
-        }
-        Ok((results, _, _)) => {
-            let path = results[0].path.clone();
-            match open_path(&path) {
-                Ok(opened) if opened.get("ok").and_then(Value::as_bool).unwrap_or(false) => {
-                    let _ = tasks.update_task(
-                        app,
-                        task_id,
-                        "completed",
-                        Some(json!({
-                            "message": format!("Die gesuchte Datei wurde gefunden und geoeffnet: {}", path),
-                            "match": search_item_to_json(&results[0]),
-                            "opened": opened,
-                        })),
-                    );
-                }
-                Ok(opened) => {
-                    let _ = tasks.update_task(app, task_id, "failed", Some(opened));
-                }
-                Err(error) => {
-                    let _ = tasks.update_task(app, task_id, "failed", Some(json!({ "message": error })));
-                }
-            }
-        }
-        Err(error) => {
-            let _ = tasks.update_task(app, task_id, "failed", Some(json!({ "message": error })));
-        }
+fn recall_memory_tool(args: &Value) -> Result<Value, String> {
+    let query = value_to_string(args.get("query")).trim().to_string();
+    if query.is_empty() {
+        return Ok(json!({
+            "ok": false,
+            "reason": "missing_query",
+            "message": "No memory query was provided."
+        }));
     }
+
+    let date = args
+        .get("date")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToString::to_string);
+    let limit = args
+        .get("limit")
+        .and_then(Value::as_u64)
+        .map(|value| value as usize);
+    let days_back_limit = args
+        .get("daysBackLimit")
+        .and_then(Value::as_i64)
+        .or_else(|| args.get("daysBackLimit").and_then(Value::as_u64).map(|value| value as i64));
+
+    let result = recall_voice_memory(&RecallVoiceMemoryRequest {
+        query: query.clone(),
+        date,
+        limit,
+        days_back_limit,
+    })?;
+
+    Ok(json!({
+        "ok": true,
+        "query": query,
+        "message": if result.matches.is_empty() {
+            "No matching memory entries were found.".to_string()
+        } else {
+            format!("Found {} matching memory entries.", result.matches.len())
+        },
+        "matches": result.matches,
+        "searchedFiles": result.searched_files,
+    }))
 }
 
 fn run_openclaw_background_task(app: &AppHandle, task_id: &str, payload: Value) {
@@ -825,6 +1153,11 @@ fn run_specialist_delegation_task(app: &AppHandle, task_id: &str, payload: Value
     let _ = tasks.update_task(app, task_id, "running", None);
 
     let specialist_id = payload.get("specialistId").and_then(Value::as_str).unwrap_or("pc-ops");
+    let openclaw_agent_id = SPECIALISTS
+        .iter()
+        .find(|item| item.id == specialist_id)
+        .map(|item| item.openclaw_agent_id)
+        .unwrap_or(specialist_id);
     let specialist_setup = match ensure_specialist_agent(specialist_id) {
         Ok(setup) => setup,
         Err(error) => {
@@ -848,7 +1181,7 @@ fn run_specialist_delegation_task(app: &AppHandle, task_id: &str, payload: Value
         payload.get("thinkingLevel").and_then(Value::as_str).unwrap_or(""),
         payload.get("preferMode").and_then(Value::as_str).unwrap_or(""),
         payload.get("timeoutSeconds").and_then(Value::as_u64),
-        specialist_id,
+        openclaw_agent_id,
     ) {
         Ok(result) if result.get("ok").and_then(Value::as_bool).unwrap_or(false) => {
             let _ = tasks.update_task(
@@ -858,6 +1191,7 @@ fn run_specialist_delegation_task(app: &AppHandle, task_id: &str, payload: Value
                 Some(json!({
                     "ok": true,
                     "specialistId": specialist_id,
+                    "openClawAgentId": openclaw_agent_id,
                     "routingReason": payload.get("routingReason").cloned().unwrap_or(Value::Null),
                     "specialistProvisioned": specialist_setup,
                     "result": result,
@@ -871,6 +1205,7 @@ fn run_specialist_delegation_task(app: &AppHandle, task_id: &str, payload: Value
                 "failed",
                 Some(json!({
                     "specialistId": specialist_id,
+                    "openClawAgentId": openclaw_agent_id,
                     "specialistProvisioned": specialist_setup,
                     "result": result,
                 })),
@@ -884,6 +1219,7 @@ fn run_specialist_delegation_task(app: &AppHandle, task_id: &str, payload: Value
                 Some(json!({
                     "ok": false,
                     "specialistId": specialist_id,
+                    "openClawAgentId": openclaw_agent_id,
                     "reason": "specialist_delegate_failed",
                     "message": error,
                     "specialistProvisioned": specialist_setup,
@@ -988,13 +1324,275 @@ fn search_paths(
     Ok((results, searched_roots, queue.len() > 0 || directories_visited >= max_directories))
 }
 
+fn resolve_local_path(raw_path: &str) -> Result<PathBuf, String> {
+    let trimmed = raw_path.trim();
+    if trimmed.is_empty() {
+        return Err("Missing path.".to_string());
+    }
+
+    let candidate = PathBuf::from(trimmed);
+    if candidate.is_absolute() {
+        Ok(candidate)
+    } else {
+        let cwd = env::current_dir()
+            .map_err(|error| format!("Failed to resolve current directory: {error}"))?;
+        Ok(cwd.join(candidate))
+    }
+}
+
+fn resolve_existing_local_path(raw_path: &str) -> Result<PathBuf, String> {
+    let path = resolve_local_path(raw_path)?;
+    if !path.exists() {
+        return Err(format!("Path does not exist: {}", path.to_string_lossy()));
+    }
+    Ok(path)
+}
+
+fn is_probable_url(value: &str) -> bool {
+    let lower = value.trim().to_lowercase();
+    lower.starts_with("http://") || lower.starts_with("https://")
+}
+
+fn is_docx_path(path: &Path) -> bool {
+    path.extension()
+        .and_then(|value| value.to_str())
+        .map(|value| value.eq_ignore_ascii_case("docx"))
+        .unwrap_or(false)
+}
+
+fn is_text_like_path(path: &Path) -> bool {
+    match path.extension().and_then(|value| value.to_str()).map(|value| value.to_lowercase()) {
+        None => true,
+        Some(extension) => matches!(
+            extension.as_str(),
+            "txt" | "md" | "json" | "yaml" | "yml" | "toml" | "ini" | "log" | "csv" | "html" | "css" | "js" | "ts" | "tsx" | "jsx" | "rs" | "py" | "xml" | "sql" | "env"
+        ),
+    }
+}
+
+fn truncate_string(value: &str, max_bytes: usize) -> String {
+    if value.len() <= max_bytes {
+        return value.to_string();
+    }
+
+    let mut end = max_bytes.min(value.len());
+    while !value.is_char_boundary(end) && end > 0 {
+        end -= 1;
+    }
+    format!("{}...", &value[..end])
+}
+
+fn read_docx_text(path: &Path) -> Result<String, String> {
+    let file = fs::File::open(path)
+        .map_err(|error| format!("Failed to open {}: {error}", path.to_string_lossy()))?;
+    let mut archive = zip::ZipArchive::new(file)
+        .map_err(|error| format!("Failed to read docx archive {}: {error}", path.to_string_lossy()))?;
+    let mut document_xml = String::new();
+    archive
+        .by_name("word/document.xml")
+        .map_err(|error| format!("word/document.xml missing in {}: {error}", path.to_string_lossy()))?
+        .read_to_string(&mut document_xml)
+        .map_err(|error| format!("Failed to read document.xml in {}: {error}", path.to_string_lossy()))?;
+
+    let text = document_xml
+        .replace("</w:p>", "\n")
+        .replace("</w:tr>", "\n")
+        .replace("<w:tab/>", "\t");
+    let stripped = strip_xml_tags(&text);
+    Ok(html_entity_decode(&stripped).trim().to_string())
+}
+
+fn strip_xml_tags(value: &str) -> String {
+    let mut output = String::new();
+    let mut inside_tag = false;
+    for character in value.chars() {
+        match character {
+            '<' => inside_tag = true,
+            '>' => inside_tag = false,
+            _ if !inside_tag => output.push(character),
+            _ => {}
+        }
+    }
+    output
+}
+
+fn html_entity_decode(value: &str) -> String {
+    value
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&apos;", "'")
+}
+
+fn copy_directory_recursive(source: &Path, destination: &Path) -> Result<(), String> {
+    fs::create_dir_all(destination)
+        .map_err(|error| format!("Failed to create directory {}: {error}", destination.to_string_lossy()))?;
+
+    for entry in fs::read_dir(source)
+        .map_err(|error| format!("Failed to read directory {}: {error}", source.to_string_lossy()))?
+    {
+        let entry = entry.map_err(|error| format!("Failed to inspect entry in {}: {error}", source.to_string_lossy()))?;
+        let path = entry.path();
+        let destination_path = destination.join(entry.file_name());
+        let metadata = entry
+            .metadata()
+            .map_err(|error| format!("Failed to read metadata for {}: {error}", path.to_string_lossy()))?;
+        if metadata.is_dir() {
+            copy_directory_recursive(&path, &destination_path)?;
+        } else {
+            fs::copy(&path, &destination_path).map_err(|error| {
+                format!(
+                    "Failed to copy {} to {}: {error}",
+                    path.to_string_lossy(),
+                    destination_path.to_string_lossy()
+                )
+            })?;
+        }
+    }
+
+    Ok(())
+}
+
+fn remove_path(path: &Path, recursive: bool) -> Result<(), String> {
+    let metadata = fs::metadata(path)
+        .map_err(|error| format!("Failed to read metadata for {}: {error}", path.to_string_lossy()))?;
+    if metadata.is_dir() {
+        if recursive {
+            fs::remove_dir_all(path)
+                .map_err(|error| format!("Failed to remove directory {}: {error}", path.to_string_lossy()))
+        } else {
+            fs::remove_dir(path)
+                .map_err(|error| format!("Failed to remove directory {}: {error}", path.to_string_lossy()))
+        }
+    } else {
+        fs::remove_file(path)
+            .map_err(|error| format!("Failed to remove file {}: {error}", path.to_string_lossy()))
+    }
+}
+
+fn ensure_safe_delete_target(path: &Path) -> Result<(), String> {
+    let normalized = normalize_path_for_compare(&path.to_string_lossy());
+    let protected = [
+        normalize_path_for_compare("C:\\"),
+        normalize_path_for_compare(&home_dir().to_string_lossy()),
+        normalize_path_for_compare(&home_dir().join("Desktop").to_string_lossy()),
+        normalize_path_for_compare(&home_dir().join("Documents").to_string_lossy()),
+        normalize_path_for_compare(&home_dir().join("Downloads").to_string_lossy()),
+        normalize_path_for_compare(&project_root().to_string_lossy()),
+    ];
+    if protected.iter().any(|item| item == &normalized) {
+        return Err(format!(
+            "Refusing to delete protected root path {}. Delegate dangerous delete operations to a specialist.",
+            path.to_string_lossy()
+        ));
+    }
+    Ok(())
+}
+
+fn create_word_document(path: &Path, content: &str) -> Result<Value, String> {
+    let parent = path.parent().ok_or_else(|| format!("Target file has no parent directory: {}", path.to_string_lossy()))?;
+    fs::create_dir_all(parent)
+        .map_err(|error| format!("Failed to create directory {}: {error}", parent.to_string_lossy()))?;
+
+    let file = fs::File::create(path)
+        .map_err(|error| format!("Failed to create Word file {}: {error}", path.to_string_lossy()))?;
+    let mut archive = zip::ZipWriter::new(file);
+    let options = zip::write::FileOptions::default()
+        .compression_method(zip::CompressionMethod::Stored);
+
+    archive
+        .start_file("[Content_Types].xml", options)
+        .map_err(|error| format!("Failed to start [Content_Types].xml in {}: {error}", path.to_string_lossy()))?;
+    archive
+        .write_all(docx_content_types_xml().as_bytes())
+        .map_err(|error| format!("Failed to write [Content_Types].xml in {}: {error}", path.to_string_lossy()))?;
+
+    archive
+        .start_file("_rels/.rels", options)
+        .map_err(|error| format!("Failed to start _rels/.rels in {}: {error}", path.to_string_lossy()))?;
+    archive
+        .write_all(docx_relationships_xml().as_bytes())
+        .map_err(|error| format!("Failed to write _rels/.rels in {}: {error}", path.to_string_lossy()))?;
+
+    archive
+        .start_file("word/document.xml", options)
+        .map_err(|error| format!("Failed to start word/document.xml in {}: {error}", path.to_string_lossy()))?;
+    archive
+        .write_all(build_docx_document_xml(content).as_bytes())
+        .map_err(|error| format!("Failed to write word/document.xml in {}: {error}", path.to_string_lossy()))?;
+
+    archive
+        .finish()
+        .map_err(|error| format!("Failed to finalize Word file {}: {error}", path.to_string_lossy()))?;
+
+    Ok(json!({
+        "ok": true,
+        "action": "write_path",
+        "path": path.to_string_lossy(),
+        "fileType": "docx",
+        "bytesWritten": content.as_bytes().len(),
+        "message": format!("Created Word document: {}", path.to_string_lossy()),
+    }))
+}
+
+fn docx_content_types_xml() -> &'static str {
+    r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>"#
+}
+
+fn docx_relationships_xml() -> &'static str {
+    r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>"#
+}
+
+fn build_docx_document_xml(content: &str) -> String {
+    let paragraphs = if content.is_empty() {
+        vec!["<w:p/>".to_string()]
+    } else {
+        content
+            .replace("\r\n", "\n")
+            .split('\n')
+            .map(|line| {
+                format!(
+                    "<w:p><w:r><w:t xml:space=\"preserve\">{}</w:t></w:r></w:p>",
+                    escape_xml_text(line)
+                )
+            })
+            .collect::<Vec<_>>()
+    };
+
+    format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\
+<w:document xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\">\
+<w:body>{}<w:sectPr><w:pgSz w:w=\"11906\" w:h=\"16838\"/><w:pgMar w:top=\"1440\" w:right=\"1440\" w:bottom=\"1440\" w:left=\"1440\" w:header=\"708\" w:footer=\"708\" w:gutter=\"0\"/></w:sectPr></w:body>\
+</w:document>",
+        paragraphs.join("")
+    )
+}
+
+fn escape_xml_text(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('\"', "&quot;")
+        .replace('\'', "&apos;")
+}
+
 fn open_path(raw_path: &str) -> Result<Value, String> {
     let trimmed = raw_path.trim();
     if trimmed.is_empty() {
         return Ok(json!({
             "ok": false,
             "reason": "missing_path",
-            "message": "Es wurde kein Pfad zum Oeffnen uebergeben."
+            "message": "No path was provided for opening."
         }));
     }
 
@@ -1013,7 +1611,7 @@ fn open_path(raw_path: &str) -> Result<Value, String> {
             return Ok(json!({
                 "ok": false,
                 "reason": "not_found",
-                "message": format!("Pfad wurde nicht gefunden: {}", resolved.to_string_lossy()),
+                "message": format!("Path not found: {}", resolved.to_string_lossy()),
                 "path": resolved.to_string_lossy(),
             }));
         }
@@ -1023,7 +1621,7 @@ fn open_path(raw_path: &str) -> Result<Value, String> {
         return Ok(json!({
             "ok": false,
             "reason": "blocked_executable",
-            "message": format!("Aus Sicherheitsgruenden wird diese Datei nicht direkt geoeffnet: {}", resolved.to_string_lossy()),
+            "message": format!("For safety reasons this file will not be opened directly: {}", resolved.to_string_lossy()),
             "path": resolved.to_string_lossy(),
         }));
     }
@@ -1043,172 +1641,11 @@ fn open_path(raw_path: &str) -> Result<Value, String> {
 
     Ok(json!({
         "ok": true,
-        "action": "open_path",
+        "action": "open_target",
         "path": resolved.to_string_lossy(),
         "kind": if metadata.is_dir() { "directory" } else { "file" },
-        "message": format!("Geoeffnet: {}", resolved.to_string_lossy()),
+        "message": format!("Opened: {}", resolved.to_string_lossy()),
     }))
-}
-
-fn match_known_application(app_name: &str) -> Option<&'static KnownApplicationDefinition> {
-    let normalized = normalize_app_name(app_name);
-    KNOWN_APPLICATIONS.iter().find(|item| item.aliases.iter().any(|alias| *alias == normalized))
-}
-
-fn launch_known_application(app_name: &str) -> Result<Value, String> {
-    let Some(definition) = match_known_application(app_name) else {
-        return Ok(json!({
-            "ok": false,
-            "reason": "unknown_application",
-            "message": format!("Die Anwendung \"{}\" ist in diesem Prototyp nicht bekannt.", app_name),
-            "availableApplications": KNOWN_APPLICATIONS.iter().map(|item| json!({
-                "key": item.key,
-                "displayName": item.display_name,
-                "aliases": item.aliases,
-            })).collect::<Vec<_>>(),
-        }));
-    };
-
-    let target = resolve_application_target(definition)?;
-    let Some(target) = target else {
-        return Ok(json!({
-            "ok": false,
-            "reason": "application_not_found",
-            "message": format!("Die Anwendung \"{}\" wurde auf diesem PC nicht gefunden.", definition.display_name),
-            "application": definition.display_name,
-        }));
-    };
-
-    start_resolved_target(&target)?;
-
-    let (resolved_by, target_value) = match target {
-        ApplicationTarget::Command(value) => ("command", value),
-        ApplicationTarget::Path(value) => ("path", value),
-        ApplicationTarget::AppId(value) => ("appId", value),
-    };
-
-    Ok(json!({
-        "ok": true,
-        "action": "launch_app",
-        "application": definition.display_name,
-        "resolvedBy": resolved_by,
-        "target": target_value,
-        "message": format!("{} wurde gestartet.", definition.display_name),
-    }))
-}
-
-fn resolve_application_target(
-    definition: &'static KnownApplicationDefinition,
-) -> Result<Option<ApplicationTarget>, String> {
-    for command in definition.commands {
-        let script = format!(
-            "Get-Command '{}' -ErrorAction Stop | Out-Null",
-            escape_powershell_literal(command)
-        );
-        let output = run_powershell_output(&script)?;
-        if output.success {
-            return Ok(Some(ApplicationTarget::Command((*command).to_string())));
-        }
-    }
-
-    let install_roots = ["ProgramFiles", "ProgramFiles(x86)"]
-        .into_iter()
-        .filter_map(|key| env::var(key).ok())
-        .map(PathBuf::from)
-        .collect::<Vec<_>>();
-
-    for root in &install_roots {
-        for relative in definition.candidate_relative_paths {
-            let candidate = root.join(relative);
-            if candidate.exists() {
-                return Ok(Some(ApplicationTarget::Path(candidate.to_string_lossy().to_string())));
-            }
-        }
-    }
-
-    if let Some(app_id) = resolve_start_menu_app_id(definition.start_menu_terms)? {
-        return Ok(Some(ApplicationTarget::AppId(app_id)));
-    }
-
-    for root in &install_roots {
-        if let Some(path) = search_for_executable(root, definition.executable_names, 5000)? {
-            return Ok(Some(ApplicationTarget::Path(path.to_string_lossy().to_string())));
-        }
-    }
-
-    Ok(None)
-}
-
-fn resolve_start_menu_app_id(search_terms: &[&str]) -> Result<Option<String>, String> {
-    for term in search_terms {
-        let script = format!(
-            "$match = Get-StartApps | Where-Object {{ $_.Name -like '*{}*' -or $_.AppID -like '*{}*' }} | Select-Object -First 1; if ($match) {{ $match.AppID }}",
-            escape_powershell_literal(term),
-            escape_powershell_literal(term)
-        );
-        let output = run_powershell_output(&script)?;
-        let app_id = output.stdout.trim().to_string();
-        if output.success && !app_id.is_empty() {
-            return Ok(Some(app_id));
-        }
-    }
-    Ok(None)
-}
-
-fn search_for_executable(root: &Path, executable_names: &[&str], max_directories: usize) -> Result<Option<PathBuf>, String> {
-    let targets = executable_names.iter().map(|name| name.to_lowercase()).collect::<HashSet<_>>();
-    let mut queue = VecDeque::from([root.to_path_buf()]);
-    let mut visited = HashSet::new();
-    let mut directories_visited = 0usize;
-
-    while let Some(current) = queue.pop_front() {
-        if directories_visited >= max_directories {
-            break;
-        }
-        let key = current.to_string_lossy().to_string();
-        if visited.contains(&key) {
-            continue;
-        }
-        visited.insert(key);
-        directories_visited += 1;
-
-        let entries = match fs::read_dir(&current) {
-            Ok(entries) => entries,
-            Err(_) => continue,
-        };
-
-        for entry in entries.flatten() {
-            let path = entry.path();
-            let metadata = match entry.metadata() {
-                Ok(metadata) => metadata,
-                Err(_) => continue,
-            };
-            let name = entry.file_name().to_string_lossy().to_string();
-
-            if metadata.is_file() && targets.contains(&name.to_lowercase()) {
-                return Ok(Some(path));
-            }
-            if metadata.is_dir() {
-                queue.push_back(path);
-            }
-        }
-    }
-
-    Ok(None)
-}
-
-fn start_resolved_target(target: &ApplicationTarget) -> Result<(), String> {
-    let script = match target {
-        ApplicationTarget::Command(value) => format!("Start-Process -FilePath '{}'", escape_powershell_literal(value)),
-        ApplicationTarget::Path(value) => format!("Start-Process -LiteralPath '{}'", escape_powershell_literal(value)),
-        ApplicationTarget::AppId(value) => format!("Start-Process 'shell:AppsFolder\\{}'", escape_powershell_literal(value)),
-    };
-    let output = run_powershell_output(&script)?;
-    if output.success {
-        Ok(())
-    } else {
-        Err(combined_output(&output))
-    }
 }
 
 fn resolve_specialist_route<'a>(task: &str, specialist: &str) -> Option<SpecialistRoute<'a>> {
@@ -1218,7 +1655,7 @@ fn resolve_specialist_route<'a>(task: &str, specialist: &str) -> Option<Speciali
         return Some(SpecialistRoute {
             specialist: definition,
             confidence: "explicit",
-            reason: format!("Explizit angeforderter Spezialagent: {}.", definition.id),
+            reason: format!("Explicitly requested specialist agent: {}.", definition.id),
             scores: Value::Null,
         });
     }
@@ -1251,9 +1688,9 @@ fn resolve_specialist_route<'a>(task: &str, specialist: &str) -> Option<Speciali
         specialist: chosen,
         confidence,
         reason: if scores.first().map(|(_, score)| *score).unwrap_or(0) > 0 {
-            format!("Automatisch an {} geroutet, weil die Aufgabe eher zu {} passt.", chosen.id, chosen.when_to_use)
+            format!("Automatically routed to {} because the task fits {}.", chosen.id, chosen.when_to_use)
         } else {
-            "Keine klaren Coding-Signale erkannt. Fallback auf pc-ops.".to_string()
+            "No clear coding signals detected. Falling back to pc-ops.".to_string()
         },
         scores: Value::Array(scores.into_iter().map(|(definition, score)| json!({
             "specialistId": definition.id,
@@ -1267,22 +1704,22 @@ fn build_specialist_task_payload(specialist_id: &str, task: &str, routing_reason
     let context_block = if context.trim().is_empty() {
         String::new()
     } else {
-        format!("Zusatzkontext vom Voice-Orchestrator:\n{}\n\n", context.trim())
+        format!("Additional context from the voice orchestrator:\n{}\n\n", context.trim())
     };
 
     [
-        format!("Du bist der Spezialagent {}.", definition.id),
+        format!("You are the specialist agent {}.", definition.id),
         definition.description.to_string(),
         String::new(),
-        format!("Routing-Hinweis: {}", routing_reason),
+        format!("Routing note: {}", routing_reason),
         context_block,
-        "Arbeitsauftrag:".to_string(),
+        "Task:".to_string(),
         task.to_string(),
         String::new(),
-        "Antwortvertrag:".to_string(),
-        "- Wenn Informationen fehlen, stelle genau eine knappe Rueckfrage.".to_string(),
-        "- Wenn du die Aufgabe erledigen kannst, fuehre sie aus statt lange zu planen.".to_string(),
-        "- Fasse am Ende knapp zusammen, was du getan hast und welches Ergebnis vorliegt.".to_string(),
+        "Response contract:".to_string(),
+        "- If information is missing, ask exactly one concise follow-up question.".to_string(),
+        "- If you can complete the task, execute it instead of over-planning.".to_string(),
+        "- End with a short summary of what you did and the result.".to_string(),
     ].into_iter().filter(|line| !line.trim().is_empty()).collect::<Vec<_>>().join("\n")
 }
 
@@ -1306,19 +1743,43 @@ fn ensure_specialist_agent(specialist_id: &str) -> Result<Value, String> {
 
     let existing_agents = list_openclaw_agents()?;
     if let Some(existing) = existing_agents.iter().find(|agent| {
-        agent.get("id").and_then(Value::as_str).map(|value| value == definition.id).unwrap_or(false)
+        agent
+            .get("id")
+            .and_then(Value::as_str)
+            .map(|value| value == definition.openclaw_agent_id)
+            .unwrap_or(false)
     }) {
-        return Ok(json!({
-            "specialistId": specialist_id,
-            "created": false,
-            "workspacePath": workspace_path.to_string_lossy(),
-            "agent": existing,
-        }));
+        let existing_workspace = existing.get("workspace").and_then(Value::as_str).unwrap_or_default();
+        let expected_workspace = workspace_path.to_string_lossy().to_string();
+        if normalize_path_for_compare(existing_workspace) != normalize_path_for_compare(&expected_workspace) {
+            let delete_script = format!(
+                "openclaw agents delete '{}' --force --json",
+                escape_powershell_literal(definition.openclaw_agent_id)
+            );
+            let delete_output = run_powershell_output(&delete_script)?;
+            if !delete_output.success {
+                return Err(format!(
+                    "Existing specialist agent {} points to {} instead of {} and could not be recreated: {}",
+                    definition.openclaw_agent_id,
+                    existing_workspace,
+                    expected_workspace,
+                    combined_output(&delete_output)
+                ));
+            }
+        } else {
+            return Ok(json!({
+                "specialistId": specialist_id,
+                "openClawAgentId": definition.openclaw_agent_id,
+                "created": false,
+                "workspacePath": workspace_path.to_string_lossy(),
+                "agent": existing,
+            }));
+        }
     }
 
     let add_script = format!(
         "openclaw agents add '{}' --non-interactive --workspace '{}' --model 'openai-codex/gpt-5.4' --json",
-        escape_powershell_literal(definition.id),
+        escape_powershell_literal(definition.openclaw_agent_id),
         escape_powershell_literal(&workspace_path.to_string_lossy())
     );
     let add_output = run_powershell_output(&add_script)?;
@@ -1328,7 +1789,7 @@ fn ensure_specialist_agent(specialist_id: &str) -> Result<Value, String> {
 
     let identity_script = format!(
         "openclaw agents set-identity --agent '{}' --name '{}' --theme '{}' --json",
-        escape_powershell_literal(definition.id),
+        escape_powershell_literal(definition.openclaw_agent_id),
         escape_powershell_literal(definition.name),
         escape_powershell_literal(definition.theme)
     );
@@ -1336,14 +1797,20 @@ fn ensure_specialist_agent(specialist_id: &str) -> Result<Value, String> {
 
     let agent = list_openclaw_agents()?
         .into_iter()
-        .find(|item| item.get("id").and_then(Value::as_str).map(|value| value == definition.id).unwrap_or(false))
+        .find(|item| {
+            item.get("id")
+                .and_then(Value::as_str)
+                .map(|value| value == definition.openclaw_agent_id)
+                .unwrap_or(false)
+        })
         .unwrap_or_else(|| json!({
-            "id": definition.id,
+            "id": definition.openclaw_agent_id,
             "workspace": workspace_path.to_string_lossy(),
         }));
 
     Ok(json!({
         "specialistId": specialist_id,
+        "openClawAgentId": definition.openclaw_agent_id,
         "created": true,
         "workspacePath": workspace_path.to_string_lossy(),
         "agent": agent,
@@ -1362,7 +1829,7 @@ fn run_openclaw_task(
         return Ok(json!({
             "ok": false,
             "reason": "missing_task",
-            "message": "Es wurde keine OpenClaw-Aufgabe uebergeben."
+            "message": "No OpenClaw task was provided."
         }));
     }
 
@@ -1372,7 +1839,7 @@ fn run_openclaw_task(
         return Ok(json!({
             "ok": false,
             "reason": "openclaw_not_installed",
-            "message": "OpenClaw ist auf diesem PC nicht installiert."
+            "message": "OpenClaw is not installed on this machine."
         }));
     }
 
@@ -1418,7 +1885,7 @@ fn run_openclaw_task(
                 .join("\n\n")
         })
         .filter(|text| !text.trim().is_empty())
-        .unwrap_or_else(|| "OpenClaw hat die Aufgabe verarbeitet.".to_string());
+        .unwrap_or_else(|| "OpenClaw processed the task.".to_string());
 
     Ok(json!({
         "ok": true,
@@ -1434,6 +1901,9 @@ fn normalize_thinking_level(value: &str) -> &'static str {
         "off" => "off",
         "minimal" => "minimal",
         "low" => "low",
+        "detailed" => "high",
+        "deep" => "high",
+        "fast" => "low",
         "high" => "high",
         "xhigh" => "xhigh",
         _ => "medium",
@@ -1449,7 +1919,7 @@ fn normalize_prefer_mode(value: &str) -> &'static str {
 }
 
 fn specialist_workspace_path(specialist_id: &str) -> PathBuf {
-    project_root().join("data").join("openclaw-specialists").join(specialist_id)
+    runtime_data_root().join("openclaw-specialists").join(specialist_id)
 }
 
 fn build_identity_content(definition: &SpecialistDefinition) -> String {
@@ -1471,8 +1941,7 @@ fn build_soul_content(definition: &SpecialistDefinition) -> String {
     let guardrail = if definition.id == "coder" {
         [
             "Coding rules:",
-            &format!("- Default project root: {}", project_root().to_string_lossy()),
-            "- Stay inside the requested project path unless the task explicitly says otherwise.",
+            "- Work only inside the project path explicitly requested by the orchestrator or user.",
             "- Inspect before editing.",
             "- Avoid unrelated files.",
             "- Run verification where practical and report what was verified.",
@@ -1480,8 +1949,7 @@ fn build_soul_content(definition: &SpecialistDefinition) -> String {
     } else {
         [
             "Desktop rules:",
-            &format!("- Primary user home: {}", home_dir().to_string_lossy()),
-            &format!("- Common target folders: {}, {}, {}", home_dir().join("Desktop").to_string_lossy(), home_dir().join("Documents").to_string_lossy(), home_dir().join("Downloads").to_string_lossy()),
+            "- Discover concrete paths dynamically from the task context or environment before acting.",
             "- Prefer deterministic actions over broad exploration.",
             "- Ask before risky or destructive operations.",
             "- Report clearly what changed on the PC.",
@@ -1513,18 +1981,16 @@ fn build_tools_content(definition: &SpecialistDefinition) -> String {
         "Local notes for this specialist:".to_string(),
         format!("- Role: {}", definition.description),
         format!("- Use when: {}", definition.when_to_use),
-        if definition.id == "coder" {
-            format!("- Current repository root: {}", project_root().to_string_lossy())
-        } else {
-            format!("- Current user home: {}", home_dir().to_string_lossy())
-        },
+        "- Discover machine-specific paths and applications dynamically at runtime.".to_string(),
         String::new(),
     ].join("\n")
 }
 
 fn ensure_file(path: &Path, content: &str) -> Result<(), String> {
-    if path.exists() {
-        return Ok(());
+    if let Ok(existing) = fs::read_to_string(path) {
+        if existing == content {
+            return Ok(());
+        }
     }
     fs::write(path, content).map_err(|error| format!("Failed to write {}: {error}", path.to_string_lossy()))
 }
@@ -1539,10 +2005,6 @@ fn is_blocked_executable(path: &Path) -> bool {
         .map(|extension| format!(".{}", extension).to_lowercase())
         .map(|extension| BLOCKED_EXECUTABLE_EXTENSIONS.contains(&extension.as_str()))
         .unwrap_or(false)
-}
-
-fn normalize_app_name(value: &str) -> String {
-    value.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase()
 }
 
 fn common_location_paths() -> Vec<PathBuf> {
@@ -1569,6 +2031,16 @@ fn home_dir() -> PathBuf {
         .unwrap_or_else(|_| PathBuf::from("C:\\"))
 }
 
+fn runtime_data_root() -> PathBuf {
+    if let Ok(local_app_data) = env::var("LOCALAPPDATA") {
+        return PathBuf::from(local_app_data)
+            .join("VoiceOverlayAssistant")
+            .join("runtime");
+    }
+
+    home_dir().join(".voice-overlay-assistant").join("runtime")
+}
+
 fn project_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -1578,6 +2050,14 @@ fn project_root() -> PathBuf {
 
 fn value_to_string(value: Option<&Value>) -> String {
     value.and_then(Value::as_str).map(ToString::to_string).unwrap_or_default()
+}
+
+fn normalize_path_for_compare(value: &str) -> String {
+    value
+        .trim()
+        .replace('/', "\\")
+        .trim_end_matches('\\')
+        .to_lowercase()
 }
 
 fn search_item_to_json(item: &SearchPathItem) -> Value {
@@ -1621,14 +2101,71 @@ fn combined_output(output: &ShellOutput) -> String {
 
 fn extract_json_value(raw_text: &str) -> Result<Value, String> {
     let raw = raw_text.trim();
-    let object_index = raw.find('{');
-    let array_index = raw.find('[');
-    let start_index = match (object_index, array_index) {
-        (Some(left), Some(right)) => left.min(right),
-        (Some(left), None) => left,
-        (None, Some(right)) => right,
-        (None, None) => return Err(format!("OpenClaw/PowerShell returned no JSON payload. Raw output: {}", raw)),
-    };
+    if raw.is_empty() {
+        return Err("OpenClaw/PowerShell returned no output.".to_string());
+    }
 
-    serde_json::from_str(&raw[start_index..]).map_err(|error| format!("Failed to decode JSON payload: {error}"))
+    if let Ok(parsed) = serde_json::from_str::<Value>(raw) {
+        return Ok(parsed);
+    }
+
+    for (index, character) in raw.char_indices() {
+        if character != '{' && character != '[' {
+            continue;
+        }
+        if let Ok(parsed) = serde_json::from_str::<Value>(&raw[index..]) {
+            return Ok(parsed);
+        }
+    }
+
+    let preview = if raw.len() > 1200 {
+        format!("{}...", &raw[..1200])
+    } else {
+        raw.to_string()
+    };
+    Err(format!("Failed to decode JSON payload. Raw output preview: {preview}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{create_word_document, extract_json_value};
+    use std::{env, fs, io::Read, time::{SystemTime, UNIX_EPOCH}};
+    use serde_json::json;
+
+    #[test]
+    fn extract_json_value_skips_openclaw_log_lines() {
+        let raw = "[agents/model-providers] bootstrap fallback\n[agent/embedded] WebSocket connect failed\n{\n  \"payloads\": [{\"text\": \"OK\"}],\n  \"meta\": {\"durationMs\": 1234}\n}";
+        let parsed = extract_json_value(raw).expect("json payload should be extracted");
+
+        assert_eq!(parsed.get("payloads"), Some(&json!([{ "text": "OK" }])));
+        assert_eq!(parsed.get("meta").and_then(|value| value.get("durationMs")).and_then(serde_json::Value::as_i64), Some(1234));
+    }
+
+    #[test]
+    fn create_word_document_writes_openxml_package() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time should be after unix epoch")
+            .as_millis();
+        let target = env::temp_dir().join(format!("voice-overlay-assistant-{unique}.docx"));
+        let result = create_word_document(&target, "Hallo\nWie man einen Kuchen backt.")
+            .expect("docx creation should succeed");
+
+        assert!(result.get("ok").and_then(serde_json::Value::as_bool).unwrap_or(false));
+        assert!(target.exists());
+
+        let file = fs::File::open(&target).expect("docx file should exist");
+        let mut archive = zip::ZipArchive::new(file).expect("docx should be a zip archive");
+        let mut document_xml = String::new();
+        archive
+            .by_name("word/document.xml")
+            .expect("document.xml should exist")
+            .read_to_string(&mut document_xml)
+            .expect("document.xml should be readable");
+
+        assert!(document_xml.contains("Hallo"));
+        assert!(document_xml.contains("Wie man einen Kuchen backt."));
+
+        let _ = fs::remove_file(target);
+    }
 }

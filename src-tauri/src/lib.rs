@@ -1,3 +1,4 @@
+pub mod background;
 pub mod hotkey;
 pub mod run_controller;
 pub mod selection_capture;
@@ -6,6 +7,7 @@ pub mod stt;
 pub mod translation;
 pub mod tts;
 pub mod voice_agent;
+pub mod voice_memory;
 pub mod voice_profile;
 pub mod voice_tasks;
 pub mod voice_tools;
@@ -179,4 +181,5 @@ mod commands {
 
 pub use commands::{append_stt_debug_log_command, cancel_current_run, capture_and_speak_command, capture_and_translate_command, capture_selected_text_command, get_language_options, get_settings, pause_resume_current_run, reset_settings, speak_text_command, translate_text_command, update_settings};
 pub use voice_agent::{create_voice_agent_session_command, run_voice_agent_tool_command};
+pub use voice_memory::{get_recent_voice_memory_command, recall_voice_memory_command, store_voice_session_memory_command};
 pub use voice_tasks::get_voice_agent_task_command;

@@ -25,6 +25,8 @@ export type AppSettings = {
   playbackSpeed: number;
   openaiApiKey: string;
   sttLanguage: string;
+  launchAtLogin: boolean;
+  startHiddenOnLaunch: boolean;
   assistantName: string;
   voiceAgentModel: string;
   voiceAgentVoice: string;
@@ -106,6 +108,48 @@ export type VoiceTask = {
 
 export type VoiceTaskEvent = {
   task: VoiceTask;
+};
+
+export type StoreVoiceSessionMemoryRequest = {
+  disconnectReason: string;
+  userTranscripts: string[];
+  assistantTranscripts: string[];
+  toolEvents: string[];
+  taskEvents: string[];
+};
+
+export type StoreVoiceSessionMemoryResult = {
+  ok: boolean;
+  skipped: boolean;
+  filePath: string;
+  lines: string[];
+};
+
+export type RecallVoiceMemoryRequest = {
+  query: string;
+  date?: string | null;
+  limit?: number;
+  daysBackLimit?: number;
+};
+
+export type RecallVoiceMemoryMatch = {
+  date: string;
+  line: string;
+  score: number;
+  filePath: string;
+};
+
+export type RecallVoiceMemoryResult = {
+  ok: boolean;
+  matches: RecallVoiceMemoryMatch[];
+  searchedFiles: string[];
+};
+
+export type RecentVoiceMemoryResult = {
+  ok: boolean;
+  date: string;
+  filePath: string;
+  lines: string[];
 };
 
 export type CaptureAndSpeakResult = {
@@ -320,6 +364,22 @@ export async function runVoiceAgentTool(
 
 export async function getVoiceAgentTask(taskId: string): Promise<VoiceTask> {
   return invoke<VoiceTask>('get_voice_agent_task_command', { taskId });
+}
+
+export async function storeVoiceSessionMemory(
+  request: StoreVoiceSessionMemoryRequest,
+): Promise<StoreVoiceSessionMemoryResult> {
+  return invoke<StoreVoiceSessionMemoryResult>('store_voice_session_memory_command', { request });
+}
+
+export async function recallVoiceMemory(
+  request: RecallVoiceMemoryRequest,
+): Promise<RecallVoiceMemoryResult> {
+  return invoke<RecallVoiceMemoryResult>('recall_voice_memory_command', { request });
+}
+
+export async function getRecentVoiceMemory(limit = 5): Promise<RecentVoiceMemoryResult> {
+  return invoke<RecentVoiceMemoryResult>('get_recent_voice_memory_command', { limit });
 }
 
 export async function pauseResumeCurrentRun(): Promise<string> {

@@ -266,7 +266,7 @@ enum RealtimeSocketRead {
 
 type RealtimeSocket = WebSocket<MaybeTlsStream<TcpStream>>;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LivePlaybackPath {
     FastDirect,
     NaturalizedSpeed,

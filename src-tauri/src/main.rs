@@ -1,10 +1,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use voice_overlay_assistant::{hotkey, run_controller, settings, voice_tasks};
+use tauri::Manager;
+use voice_overlay_assistant::{background, hotkey, run_controller, settings, voice_tasks};
 
 #[tauri::command]
 fn app_status() -> &'static str {
-    "Voice Overlay Assistant is ready: WebView2 handles wake-word listening, read/translate uses live TTS, and the voice assistant uses OpenAI Realtime over WebRTC."
+    "Voice Overlay Assistant is ready: the tray keeps the app alive in the background, WebView2 handles wake-word listening, read/translate uses live TTS, and the voice assistant uses OpenAI Realtime over WebRTC."
 }
 
 fn main() {
@@ -12,14 +13,20 @@ fn main() {
         .expect("failed to initialize persisted settings");
 
     tauri::Builder::default()
+        .manage(background::AppLifecycleState::default())
         .manage(hotkey::HotkeyState::default())
         .manage(run_controller::RunController::default())
         .manage(settings_state)
         .manage(voice_tasks::VoiceTaskState::default())
         .setup(|app| {
+            background::setup_background(&app.handle())
+                .expect("failed to initialize background tray support");
             hotkey::init_hotkey(&app.handle());
+            let settings = app.state::<settings::SettingsState>().get();
+            background::apply_launch_behavior(&app.handle(), &settings);
             Ok(())
         })
+        .on_window_event(background::handle_window_event)
         .invoke_handler(tauri::generate_handler![
             app_status,
             hotkey::get_hotkey_status,
@@ -37,7 +44,10 @@ fn main() {
             voice_overlay_assistant::cancel_current_run,
             voice_overlay_assistant::create_voice_agent_session_command,
             voice_overlay_assistant::run_voice_agent_tool_command,
-            voice_overlay_assistant::get_voice_agent_task_command
+            voice_overlay_assistant::get_voice_agent_task_command,
+            voice_overlay_assistant::store_voice_session_memory_command,
+            voice_overlay_assistant::recall_voice_memory_command,
+            voice_overlay_assistant::get_recent_voice_memory_command
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

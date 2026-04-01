@@ -1,14 +1,25 @@
 import {
   createVoiceAgentSession,
+  getRecentVoiceMemory,
   onVoiceAgentTask,
   runVoiceAgentTool,
+  storeVoiceSessionMemory,
   type CreateVoiceAgentSessionResult,
+  type RecentVoiceMemoryResult,
   type VoiceTask,
 } from './voiceOverlay';
 
+const MAX_MEMORY_ITEMS = 32;
+
 export type VoiceFeedSection = 'events' | 'tasks';
 export type VoiceFeedKind = 'client' | 'server' | 'lifecycle' | 'task' | 'error';
-export type VoiceConnectionState = 'idle' | 'connecting' | 'connected' | 'disconnecting' | 'error';
+export type VoiceConnectionState =
+  | 'idle'
+  | 'connecting'
+  | 'online_muted'
+  | 'online_listening'
+  | 'disconnecting'
+  | 'error';
 
 export type VoiceFeedItem = {
   id: string;
@@ -28,6 +39,7 @@ export type VoiceAgentStatus = {
 export type RealtimeVoiceAgentCallbacks = {
   onFeedItem: (item: VoiceFeedItem) => void;
   onStatus: (status: VoiceAgentStatus) => void;
+  onAssistantControlRequest?: (request: { action: 'deactivate'; reason: string }) => void;
 };
 
 type ToolCallItem = {
@@ -40,115 +52,181 @@ export class RealtimeVoiceAgentController {
   private callbacks: RealtimeVoiceAgentCallbacks;
   private peerConnection: RTCPeerConnection | null = null;
   private dataChannel: RTCDataChannel | null = null;
-  private mediaStream: MediaStream | null = null;
+  private audioSender: RTCRtpSender | null = null;
   private audioElement: HTMLAudioElement | null = null;
+  private inputStream: MediaStream | null = null;
+  private inputTrack: MediaStreamTrack | null = null;
   private session: CreateVoiceAgentSessionResult | null = null;
   private state: VoiceConnectionState = 'idle';
   private unlistenTaskEvents: (() => void | Promise<void>) | null = null;
   private announcedFinalTasks = new Set<string>();
+  private recentMemory: RecentVoiceMemoryResult | null = null;
+  private userTranscripts: string[] = [];
+  private assistantTranscripts: string[] = [];
+  private toolEvents: string[] = [];
+  private taskEvents: string[] = [];
+  private connectPromise: Promise<void> | null = null;
 
   constructor(callbacks: RealtimeVoiceAgentCallbacks) {
     this.callbacks = callbacks;
   }
 
   async connect(): Promise<void> {
-    if (this.state === 'connecting' || this.state === 'connected') {
+    if (this.state === 'online_muted' || this.state === 'online_listening') {
+      return;
+    }
+    if (this.connectPromise) {
+      await this.connectPromise;
       return;
     }
 
-    this.setStatus('connecting', 'Realtime WebRTC session is starting...');
-    this.log('events', 'lifecycle', 'session', 'Session start is being prepared');
+    this.connectPromise = (async () => {
+      this.resetSessionMemory();
+      this.setStatus('connecting', 'Realtime voice session is starting...');
+      this.log('events', 'lifecycle', 'session', 'Session start is being prepared');
 
-    try {
-      this.session = await createVoiceAgentSession();
-      this.log('events', 'lifecycle', 'session bootstrap', this.session);
+      try {
+        this.recentMemory = await this.loadRecentMemory();
+        this.session = await createVoiceAgentSession();
+        this.log('events', 'lifecycle', 'session bootstrap', this.session);
 
-      const peerConnection = new RTCPeerConnection();
-      const audioElement = new Audio();
-      audioElement.autoplay = true;
-      peerConnection.ontrack = (event) => {
-        audioElement.srcObject = event.streams[0];
-      };
-      peerConnection.onconnectionstatechange = () => {
-        this.log('events', 'lifecycle', 'peer connection', peerConnection.connectionState);
-      };
+        const peerConnection = new RTCPeerConnection();
+        const audioElement = new Audio();
+        audioElement.autoplay = true;
+        peerConnection.ontrack = (event) => {
+          audioElement.srcObject = event.streams[0];
+        };
+        peerConnection.onconnectionstatechange = () => {
+          this.log('events', 'lifecycle', 'peer connection', peerConnection.connectionState);
+        };
 
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      });
-      mediaStream.getTracks().forEach((track) => peerConnection.addTrack(track, mediaStream));
+        const audioTransceiver = peerConnection.addTransceiver('audio', { direction: 'sendrecv' });
+        const dataChannel = peerConnection.createDataChannel('oai-events');
+        dataChannel.addEventListener('message', (event) => {
+          const rawPayload = typeof event.data === 'string' ? event.data : String(event.data);
+          void this.handleRealtimeMessage(rawPayload);
+        });
+        dataChannel.addEventListener('open', () => {
+          this.setStatus('online_muted', 'Realtime voice session connected. Microphone is muted.');
+          this.log('events', 'lifecycle', 'session', 'Realtime data channel opened');
+          void this.injectRecentMemoryContext();
+        });
+        dataChannel.addEventListener('close', () => {
+          this.log('events', 'lifecycle', 'session', 'Realtime data channel closed');
+        });
 
-      const dataChannel = peerConnection.createDataChannel('oai-events');
-      dataChannel.addEventListener('message', (event) => {
-        void this.handleRealtimeMessage(event.data);
-      });
-      dataChannel.addEventListener('open', () => {
-        this.setStatus(
-          'connected',
-          `Realtime voice session connected as ${this.session?.assistantState?.sourceAssistantName ?? 'assistant'}.`,
-        );
-        this.log('events', 'lifecycle', 'session', 'Realtime data channel opened');
-      });
-      dataChannel.addEventListener('close', () => {
-        this.log('events', 'lifecycle', 'session', 'Realtime data channel closed');
-      });
+        this.peerConnection = peerConnection;
+        this.dataChannel = dataChannel;
+        this.audioSender = audioTransceiver.sender;
+        this.audioElement = audioElement;
 
-      this.peerConnection = peerConnection;
-      this.dataChannel = dataChannel;
-      this.mediaStream = mediaStream;
-      this.audioElement = audioElement;
+        const unlistenTasks = await onVoiceAgentTask((event) => {
+          this.handleVoiceTask(event.task);
+        });
+        this.unlistenTaskEvents = unlistenTasks;
 
-      const unlistenTasks = await onVoiceAgentTask((event) => {
-        this.handleVoiceTask(event.task);
-      });
-      this.unlistenTaskEvents = unlistenTasks;
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
 
-      const offer = await peerConnection.createOffer();
-      await peerConnection.setLocalDescription(offer);
+        const sdpResponse = await fetch('https://api.openai.com/v1/realtime/calls', {
+          method: 'POST',
+          body: offer.sdp,
+          headers: {
+            Authorization: `Bearer ${this.session.clientSecret}`,
+            'Content-Type': 'application/sdp',
+          },
+        });
 
-      const sdpResponse = await fetch('https://api.openai.com/v1/realtime/calls', {
-        method: 'POST',
-        body: offer.sdp,
-        headers: {
-          Authorization: `Bearer ${this.session.clientSecret}`,
-          'Content-Type': 'application/sdp',
-        },
-      });
+        if (!sdpResponse.ok) {
+          const errorText = await sdpResponse.text();
+          throw new Error(errorText || 'Failed to connect to OpenAI Realtime');
+        }
 
-      if (!sdpResponse.ok) {
-        const errorText = await sdpResponse.text();
-        throw new Error(errorText || 'Failed to connect to OpenAI Realtime');
+        await peerConnection.setRemoteDescription({
+          type: 'answer',
+          sdp: await sdpResponse.text(),
+        });
+
+        await this.waitForDataChannelOpen();
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        this.log('events', 'error', 'session error', detail);
+        await this.disconnect('connect-error');
+        this.setStatus('error', detail);
+        throw error;
+      } finally {
+        this.connectPromise = null;
       }
+    })();
 
-      await peerConnection.setRemoteDescription({
-        type: 'answer',
-        sdp: await sdpResponse.text(),
-      });
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error);
-      this.log('events', 'error', 'session error', detail);
-      await this.disconnect();
-      this.setStatus('error', detail);
-      throw error;
-    }
+    await this.connectPromise;
   }
 
-  async disconnect(): Promise<void> {
+  async startListening(reason = 'activate'): Promise<void> {
+    if (this.state === 'idle' || this.state === 'error' || this.state === 'connecting') {
+      await this.connect();
+    }
+    if (this.state === 'online_listening') {
+      return;
+    }
+    if (!this.audioSender) {
+      throw new Error('Realtime audio sender is not ready.');
+    }
+
+    this.log('events', 'lifecycle', 'microphone', `Activating microphone (${reason})`);
+    const inputStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+    });
+    const inputTrack = inputStream.getAudioTracks()[0];
+    if (!inputTrack) {
+      throw new Error('No microphone audio track is available.');
+    }
+
+    await this.audioSender.replaceTrack(inputTrack);
+    this.inputStream = inputStream;
+    this.inputTrack = inputTrack;
+    this.setStatus('online_listening', `Realtime voice session connected. Microphone is live (${reason}).`);
+  }
+
+  async mute(reason = 'deactivate'): Promise<void> {
+    if (
+      this.state === 'idle' ||
+      this.state === 'disconnecting' ||
+      this.state === 'error'
+    ) {
+      return;
+    }
+
+    this.log('events', 'lifecycle', 'microphone', `Muting microphone (${reason})`);
+    await this.detachMicrophone();
+
+    try {
+      await this.persistSessionMemory(reason);
+    } catch (error) {
+      this.log('tasks', 'error', 'memory store failed', error instanceof Error ? error.message : String(error));
+    }
+    this.resetSessionMemory();
+    this.setStatus('online_muted', `Realtime voice session connected. Microphone is muted (${reason}).`);
+  }
+
+  async disconnect(reason = 'disconnect'): Promise<void> {
     if (this.state === 'disconnecting' || this.state === 'idle') {
       return;
     }
 
     this.state = 'disconnecting';
-    this.log('events', 'lifecycle', 'session', 'Closing realtime connection');
+    this.log('events', 'lifecycle', 'session', `Closing realtime connection (${reason})`);
 
     if (this.unlistenTaskEvents) {
       await this.unlistenTaskEvents();
       this.unlistenTaskEvents = null;
     }
+
+    await this.detachMicrophone();
 
     if (this.dataChannel) {
       this.dataChannel.close();
@@ -156,33 +234,49 @@ export class RealtimeVoiceAgentController {
     if (this.peerConnection) {
       this.peerConnection.close();
     }
-    if (this.mediaStream) {
-      for (const track of this.mediaStream.getTracks()) {
-        track.stop();
-      }
-    }
     if (this.audioElement) {
       this.audioElement.srcObject = null;
     }
 
+    try {
+      await this.persistSessionMemory(reason);
+    } catch (error) {
+      this.log('tasks', 'error', 'memory store failed', error instanceof Error ? error.message : String(error));
+    }
+
     this.peerConnection = null;
     this.dataChannel = null;
-    this.mediaStream = null;
+    this.audioSender = null;
     this.audioElement = null;
     this.session = null;
+    this.recentMemory = null;
     this.announcedFinalTasks.clear();
+    this.resetSessionMemory();
     this.setStatus('idle', 'Realtime voice session is disconnected.');
   }
 
+  observeExternalUserTranscript(transcript: string): void {
+    this.rememberUserTranscript(transcript);
+  }
+
   private async handleRealtimeMessage(rawPayload: string): Promise<void> {
-    const event = JSON.parse(rawPayload);
-    this.log('events', 'server', `server -> ${event.type}`, event);
+    let event: Record<string, unknown>;
+    try {
+      event = JSON.parse(rawPayload) as Record<string, unknown>;
+    } catch (error) {
+      this.log('events', 'error', 'invalid realtime payload', error instanceof Error ? error.message : String(error));
+      return;
+    }
+
+    this.log('events', 'server', `server -> ${String(event.type ?? 'unknown')}`, event);
+    this.captureMemoryFromEvent(event);
 
     if (event.type === 'response.done') {
-      const output = Array.isArray(event.response?.output) ? event.response.output : [];
+      const responseRecord = asRecord(event.response);
+      const output = Array.isArray(responseRecord?.output) ? responseRecord.output : [];
       for (const item of output) {
-        if (item?.type === 'function_call') {
-          await this.executeToolCall(item as ToolCallItem);
+        if (isToolCallItem(item)) {
+          await this.executeToolCall(item);
         }
       }
     }
@@ -191,47 +285,75 @@ export class RealtimeVoiceAgentController {
   private async executeToolCall(item: ToolCallItem): Promise<void> {
     let parsedArguments: Record<string, unknown> = {};
     try {
-      parsedArguments = item.arguments ? JSON.parse(item.arguments) as Record<string, unknown> : {};
+      parsedArguments = item.arguments ? (JSON.parse(item.arguments) as Record<string, unknown>) : {};
     } catch {
       parsedArguments = {};
     }
 
     this.log('tasks', 'task', `tool requested: ${item.name}`, parsedArguments);
-    const response = await runVoiceAgentTool(item.name, parsedArguments);
-    this.log('tasks', 'task', `tool result: ${item.name}`, response.result);
+    this.rememberToolEvent(this.describeToolRequest(item.name, parsedArguments));
 
-    if (item.name === 'update_assistant_state') {
-      const sessionUpdate = response.result?.sessionUpdate as
-        | { instructions?: string; voice?: string }
-        | undefined;
-      if (sessionUpdate?.instructions && sessionUpdate.voice) {
-        this.sendRealtimeEvent({
-          type: 'session.update',
-          session: {
-            instructions: sessionUpdate.instructions,
-            audio: {
-              output: {
-                voice: sessionUpdate.voice,
+    let toolResult: Record<string, unknown>;
+    try {
+      const response = await runVoiceAgentTool(item.name, parsedArguments);
+      toolResult = response.result;
+      this.log('tasks', 'task', `tool result: ${item.name}`, response.result);
+      this.rememberToolEvent(this.describeToolResult(item.name, response.result));
+
+      if (item.name === 'update_assistant_state') {
+        const sessionUpdate = response.result?.sessionUpdate as
+          | { instructions?: string; voice?: string }
+          | undefined;
+        if (sessionUpdate?.instructions && sessionUpdate.voice) {
+          this.sendRealtimeEvent({
+            type: 'session.update',
+            session: {
+              instructions: sessionUpdate.instructions,
+              audio: {
+                output: {
+                  voice: sessionUpdate.voice,
+                },
               },
             },
-          },
-        });
+          });
+        }
       }
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      toolResult = {
+        ok: false,
+        toolName: item.name,
+        message: detail,
+      };
+      this.log('tasks', 'error', `tool failed: ${item.name}`, detail);
+      this.rememberToolEvent(`Tool ${item.name} failed: ${detail}`);
     }
 
-    this.sendRealtimeEvent({
-      type: 'conversation.item.create',
-      item: {
-        type: 'function_call_output',
-        call_id: item.call_id,
-        output: JSON.stringify(response.result),
-      },
-    });
-    this.sendRealtimeEvent({ type: 'response.create' });
+    try {
+      this.sendRealtimeEvent({
+        type: 'conversation.item.create',
+        item: {
+          type: 'function_call_output',
+          call_id: item.call_id,
+          output: JSON.stringify(toolResult),
+        },
+      });
+      this.sendRealtimeEvent({ type: 'response.create' });
+    } catch (error) {
+      this.log('events', 'error', 'tool response dispatch failed', error instanceof Error ? error.message : String(error));
+    }
+
+    if (item.name === 'deactivate_voice_assistant') {
+      this.callbacks.onAssistantControlRequest?.({
+        action: 'deactivate',
+        reason: normalizeMemoryText(String(toolResult.reason ?? toolResult.message ?? 'assistant-requested')) || 'assistant-requested',
+      });
+    }
   }
 
   private handleVoiceTask(task: VoiceTask): void {
     this.log('tasks', 'task', `background task ${task.status}`, task);
+    this.rememberTaskEvent(this.describeTask(task));
 
     if (this.announcedFinalTasks.has(task.id)) {
       return;
@@ -240,7 +362,7 @@ export class RealtimeVoiceAgentController {
     if (task.status === 'completed') {
       this.announcedFinalTasks.add(task.id);
       this.announceSystemEvent(
-        `Der Hintergrundtask ${task.id} ist abgeschlossen. ${String((task.result as Record<string, unknown> | undefined)?.message ?? '')}`,
+        `Background task ${task.id} completed. ${String((task.result as Record<string, unknown> | undefined)?.message ?? '')}`,
       );
       return;
     }
@@ -249,7 +371,7 @@ export class RealtimeVoiceAgentController {
       this.announcedFinalTasks.add(task.id);
       const result = task.result as Record<string, unknown> | undefined;
       this.announceSystemEvent(
-        `Der Hintergrundtask ${task.id} braucht eine Rueckfrage. ${String(result?.question ?? result?.message ?? '')}`,
+        `Background task ${task.id} needs clarification. ${String(result?.question ?? result?.message ?? '')}`,
       );
       return;
     }
@@ -258,26 +380,32 @@ export class RealtimeVoiceAgentController {
       this.announcedFinalTasks.add(task.id);
       const result = task.result as Record<string, unknown> | undefined;
       this.announceSystemEvent(
-        `Der Hintergrundtask ${task.id} ist fehlgeschlagen. ${String(result?.message ?? 'Keine weiteren Details.')}`,
+        `Background task ${task.id} failed. ${String(result?.message ?? 'No further details.')}`,
       );
     }
   }
 
-  private announceSystemEvent(text: string): void {
-    this.sendRealtimeEvent({
-      type: 'conversation.item.create',
-      item: {
-        type: 'message',
-        role: 'user',
-        content: [
-          {
-            type: 'input_text',
-            text: `SYSTEM_EVENT: ${text}`,
-          },
-        ],
-      },
-    });
-    this.sendRealtimeEvent({ type: 'response.create' });
+  private announceSystemEvent(text: string, createResponse = true): void {
+    try {
+      this.sendRealtimeEvent({
+        type: 'conversation.item.create',
+        item: {
+          type: 'message',
+          role: 'user',
+          content: [
+            {
+              type: 'input_text',
+              text: `SYSTEM_EVENT: ${text}`,
+            },
+          ],
+        },
+      });
+      if (createResponse) {
+        this.sendRealtimeEvent({ type: 'response.create' });
+      }
+    } catch (error) {
+      this.log('events', 'error', 'system event dispatch failed', error instanceof Error ? error.message : String(error));
+    }
   }
 
   private sendRealtimeEvent(event: Record<string, unknown>): void {
@@ -308,4 +436,336 @@ export class RealtimeVoiceAgentController {
       timestampMs: Date.now(),
     });
   }
+
+  private async loadRecentMemory(): Promise<RecentVoiceMemoryResult | null> {
+    try {
+      const result = await getRecentVoiceMemory(5);
+      if (result.lines.length) {
+        this.log('tasks', 'task', 'memory preload', result);
+      }
+      return result;
+    } catch (error) {
+      this.log('tasks', 'error', 'memory preload failed', error instanceof Error ? error.message : String(error));
+      return null;
+    }
+  }
+
+  private async waitForDataChannelOpen(timeoutMs = 20000): Promise<void> {
+    if (this.dataChannel?.readyState === 'open') {
+      return;
+    }
+    const dataChannel = this.dataChannel;
+    const peerConnection = this.peerConnection;
+    if (!dataChannel || !peerConnection) {
+      throw new Error('Realtime transport is not ready.');
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      let settled = false;
+      const timer = window.setTimeout(() => {
+        cleanup();
+        reject(new Error('Timed out while waiting for the Realtime data channel.'));
+      }, timeoutMs);
+
+      const cleanup = (): void => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        window.clearTimeout(timer);
+        dataChannel.removeEventListener('open', handleOpen);
+        dataChannel.removeEventListener('close', handleClose);
+        dataChannel.removeEventListener('error', handleError);
+        peerConnection.removeEventListener('connectionstatechange', handleConnectionStateChange);
+      };
+
+      const handleOpen = (): void => {
+        cleanup();
+        resolve();
+      };
+
+      const handleClose = (): void => {
+        cleanup();
+        reject(new Error('Realtime data channel closed before it was ready.'));
+      };
+
+      const handleError = (): void => {
+        cleanup();
+        reject(new Error('Realtime data channel reported an error.'));
+      };
+
+      const handleConnectionStateChange = (): void => {
+        if (peerConnection.connectionState === 'failed' || peerConnection.connectionState === 'closed') {
+          cleanup();
+          reject(new Error(`Realtime peer connection ${peerConnection.connectionState}.`));
+        }
+      };
+
+      dataChannel.addEventListener('open', handleOpen);
+      dataChannel.addEventListener('close', handleClose);
+      dataChannel.addEventListener('error', handleError);
+      peerConnection.addEventListener('connectionstatechange', handleConnectionStateChange);
+
+      if (dataChannel.readyState === 'open') {
+        handleOpen();
+      } else {
+        handleConnectionStateChange();
+      }
+    });
+  }
+
+  private resetSessionMemory(): void {
+    this.userTranscripts = [];
+    this.assistantTranscripts = [];
+    this.toolEvents = [];
+    this.taskEvents = [];
+  }
+
+  private async injectRecentMemoryContext(): Promise<void> {
+    if (!this.recentMemory?.lines.length) {
+      return;
+    }
+
+    const summary = this.recentMemory.lines.map((line, index) => `${index + 1}. ${line}`).join(' ');
+    this.log('tasks', 'task', 'memory resume', {
+      date: this.recentMemory.date,
+      filePath: this.recentMemory.filePath,
+      lines: this.recentMemory.lines,
+    });
+    this.announceSystemEvent(
+      `Silent context from daily memory ${this.recentMemory.date}. Use these points only as background context for continuity after a restart and do not read them aloud: ${summary}`,
+      false,
+    );
+  }
+
+  private async persistSessionMemory(reason: string): Promise<void> {
+    const hasMaterial =
+      this.userTranscripts.length ||
+      this.assistantTranscripts.length ||
+      this.toolEvents.length ||
+      this.taskEvents.length;
+    if (!hasMaterial) {
+      return;
+    }
+
+    const result = await storeVoiceSessionMemory({
+      disconnectReason: reason,
+      userTranscripts: this.userTranscripts,
+      assistantTranscripts: this.assistantTranscripts,
+      toolEvents: this.toolEvents,
+      taskEvents: this.taskEvents,
+    });
+    this.log('tasks', 'task', 'memory stored', result);
+  }
+
+  private async detachMicrophone(): Promise<void> {
+    if (this.audioSender) {
+      await this.audioSender.replaceTrack(null);
+    }
+    if (this.inputTrack) {
+      this.inputTrack.stop();
+      this.inputTrack = null;
+    }
+    if (this.inputStream) {
+      for (const track of this.inputStream.getTracks()) {
+        track.stop();
+      }
+      this.inputStream = null;
+    }
+  }
+
+  private captureMemoryFromEvent(event: Record<string, unknown>): void {
+    const eventType = typeof event.type === 'string' ? event.type : '';
+
+    if (eventType === 'conversation.item.input_audio_transcription.completed') {
+      this.rememberUserTranscript(
+        firstString(event.transcript, asRecord(event.item)?.transcript, asRecord(event.item)?.text),
+      );
+      return;
+    }
+
+    if (eventType === 'response.audio_transcript.done' || eventType === 'response.audio_transcript.delta') {
+      this.rememberAssistantTranscript(firstString(event.transcript, event.delta, event.text));
+      return;
+    }
+
+    if (eventType === 'conversation.item.created' || eventType === 'response.output_item.done') {
+      this.captureTextsFromItem(event.item);
+      return;
+    }
+
+    if (eventType === 'response.done') {
+      const responseRecord = asRecord(event.response);
+      const output = Array.isArray(responseRecord?.output) ? responseRecord.output : [];
+      for (const item of output) {
+        this.captureTextsFromItem(item);
+      }
+    }
+  }
+
+  private captureTextsFromItem(item: unknown): void {
+    const record = asRecord(item);
+    if (!record) {
+      return;
+    }
+
+    const role = typeof record.role === 'string' ? record.role : '';
+    const texts = collectMessageTexts(record);
+    if (!texts.length) {
+      return;
+    }
+
+    if (role === 'assistant') {
+      texts.forEach((text) => this.rememberAssistantTranscript(text));
+      return;
+    }
+
+    if (role === 'user') {
+      texts.forEach((text) => this.rememberUserTranscript(text));
+    }
+  }
+
+  private rememberUserTranscript(text: string | null | undefined): void {
+    this.rememberLine(this.userTranscripts, text);
+  }
+
+  private rememberAssistantTranscript(text: string | null | undefined): void {
+    this.rememberLine(this.assistantTranscripts, text);
+  }
+
+  private rememberToolEvent(text: string | null | undefined): void {
+    this.rememberLine(this.toolEvents, text);
+  }
+
+  private rememberTaskEvent(text: string | null | undefined): void {
+    this.rememberLine(this.taskEvents, text);
+  }
+
+  private rememberLine(target: string[], text: string | null | undefined): void {
+    const normalized = normalizeMemoryText(text);
+    if (!normalized || normalized.startsWith('SYSTEM_EVENT:')) {
+      return;
+    }
+
+    const existingIndex = target.indexOf(normalized);
+    if (existingIndex >= 0) {
+      target.splice(existingIndex, 1);
+    }
+    target.push(normalized);
+    if (target.length > MAX_MEMORY_ITEMS) {
+      target.splice(0, target.length - MAX_MEMORY_ITEMS);
+    }
+  }
+
+  private describeToolRequest(toolName: string, args: Record<string, unknown>): string {
+    return `Tool ${toolName} requested: ${safeJson(args)}`;
+  }
+
+  private describeToolResult(toolName: string, result: Record<string, unknown>): string {
+    const parts = [
+      typeof result.message === 'string' ? result.message : '',
+      typeof result.question === 'string' ? result.question : '',
+      typeof result.path === 'string' ? `Path: ${result.path}` : '',
+      typeof result.taskId === 'string' ? `Task: ${result.taskId}` : '',
+      typeof result.status === 'string' ? `Status: ${result.status}` : '',
+    ].filter(Boolean);
+
+    if (!parts.length) {
+      parts.push(safeJson(result));
+    }
+
+    return `Tool ${toolName} result: ${parts.join(' | ')}`;
+  }
+
+  private describeTask(task: VoiceTask): string {
+    const result = task.result ?? {};
+    const parts = [
+      `Task ${task.id}`,
+      task.taskType,
+      task.status,
+      typeof result.message === 'string' ? result.message : '',
+      typeof result.question === 'string' ? result.question : '',
+      typeof result.path === 'string' ? `Path: ${result.path}` : '',
+    ].filter(Boolean);
+    return parts.join(' | ');
+  }
+}
+
+function normalizeMemoryText(text: string | null | undefined): string {
+  if (typeof text !== 'string') {
+    return '';
+  }
+
+  const normalized = text.replace(/\s+/g, ' ').trim();
+  if (!normalized) {
+    return '';
+  }
+  return normalized.length > 500 ? `${normalized.slice(0, 497)}...` : normalized;
+}
+
+function safeJson(value: unknown): string {
+  const raw = JSON.stringify(value);
+  if (!raw) {
+    return '';
+  }
+  return raw.length > 500 ? `${raw.slice(0, 497)}...` : raw;
+}
+
+function firstString(...values: unknown[]): string {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) {
+      return value;
+    }
+  }
+  return '';
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function collectMessageTexts(item: Record<string, unknown>): string[] {
+  const texts: string[] = [];
+  const content = Array.isArray(item.content) ? item.content : [];
+  for (const contentItem of content) {
+    const contentRecord = asRecord(contentItem);
+    if (!contentRecord) {
+      continue;
+    }
+
+    const contentType = typeof contentRecord.type === 'string' ? contentRecord.type : '';
+    if (
+      contentType === 'input_text' ||
+      contentType === 'text' ||
+      contentType === 'output_text' ||
+      contentType === 'audio'
+    ) {
+      const text = firstString(contentRecord.transcript, contentRecord.text);
+      if (text) {
+        texts.push(text);
+      }
+    }
+  }
+
+  if (!texts.length) {
+    const direct = firstString(item.transcript, item.text);
+    if (direct) {
+      texts.push(direct);
+    }
+  }
+
+  return texts.map((text) => normalizeMemoryText(text)).filter(Boolean);
+}
+
+function isToolCallItem(value: unknown): value is ToolCallItem {
+  const record = asRecord(value);
+  return Boolean(
+    record &&
+      record.type === 'function_call' &&
+      typeof record.name === 'string' &&
+      typeof record.call_id === 'string',
+  );
 }
