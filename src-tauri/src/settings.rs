@@ -1,3 +1,4 @@
+use crate::background;
 use serde::{Deserialize, Serialize};
 use std::{
     env, fs,
@@ -15,19 +16,30 @@ const DEFAULT_PLAYBACK_SPEED: f32 = 1.0;
 const DEFAULT_ASSISTANT_WAKE_THRESHOLD: u8 = 68;
 const DEFAULT_ASSISTANT_CLOSE_THRESHOLD: u8 = 64;
 const DEFAULT_ASSISTANT_CUE_COOLDOWN_MS: u32 = 1200;
+const DEFAULT_VOICE_AGENT_PERSONALITY: &str = "Composed, technically precise, friendly, and concise.";
+const DEFAULT_VOICE_AGENT_BEHAVIOR: &str =
+    "If a PC task is unclear, ask immediately. If something takes longer, acknowledge it briefly and follow up with the result.";
+const DEFAULT_VOICE_AGENT_EXTRA_INSTRUCTIONS: &str =
+    "Keep using the stored assistant name unchanged and do not rename yourself.";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
 pub struct AppSettings {
-    pub tts_mode: String,
-    pub realtime_allow_live_fallback: bool,
-    pub tts_format: String,
-    pub first_chunk_leading_silence_ms: u32,
     pub translation_target_language: String,
     pub playback_speed: f32,
     pub openai_api_key: String,
     pub stt_language: String,
+    pub launch_at_login: bool,
+    pub start_hidden_on_launch: bool,
     pub assistant_name: String,
+    pub voice_agent_model: String,
+    pub voice_agent_voice: String,
+    pub voice_agent_personality: String,
+    pub voice_agent_behavior: String,
+    pub voice_agent_extra_instructions: String,
+    pub voice_agent_preferred_language: String,
+    pub voice_agent_tone_notes: String,
+    pub voice_agent_onboarding_complete: bool,
     pub assistant_wake_samples: Vec<String>,
     pub assistant_close_samples: Vec<String>,
     pub assistant_name_samples: Vec<String>,
@@ -40,15 +52,21 @@ pub struct AppSettings {
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
-            tts_mode: "classic".to_string(),
-            realtime_allow_live_fallback: false,
-            tts_format: "wav".to_string(),
-            first_chunk_leading_silence_ms: 180,
             translation_target_language: "en".to_string(),
             playback_speed: DEFAULT_PLAYBACK_SPEED,
             openai_api_key: String::new(),
             stt_language: "de".to_string(),
+            launch_at_login: false,
+            start_hidden_on_launch: true,
             assistant_name: "AIVA".to_string(),
+            voice_agent_model: "gpt-realtime".to_string(),
+            voice_agent_voice: "marin".to_string(),
+            voice_agent_personality: DEFAULT_VOICE_AGENT_PERSONALITY.to_string(),
+            voice_agent_behavior: DEFAULT_VOICE_AGENT_BEHAVIOR.to_string(),
+            voice_agent_extra_instructions: DEFAULT_VOICE_AGENT_EXTRA_INSTRUCTIONS.to_string(),
+            voice_agent_preferred_language: default_voice_agent_preferred_language("de"),
+            voice_agent_tone_notes: String::new(),
+            voice_agent_onboarding_complete: true,
             assistant_wake_samples: Vec::new(),
             assistant_close_samples: Vec::new(),
             assistant_name_samples: Vec::new(),
@@ -68,7 +86,7 @@ pub struct LanguageOption {
 }
 
 pub const LANGUAGE_OPTIONS: &[LanguageOption] = &[
-    LanguageOption { code: "de", label: "Deutsch" },
+    LanguageOption { code: "de", label: "German" },
     LanguageOption { code: "en", label: "English" },
     LanguageOption { code: "fr", label: "Français" },
     LanguageOption { code: "es", label: "Español" },
@@ -108,6 +126,7 @@ impl SettingsState {
         };
 
         write_settings_file(&config_path, &loaded)?;
+        background::sync_startup_entry(&loaded)?;
 
         Ok(Self {
             settings: Mutex::new(loaded),
@@ -119,8 +138,13 @@ impl SettingsState {
     }
 
     pub fn update(&self, next: AppSettings) -> Result<AppSettings, String> {
+        let previous = self.get();
         let next = sanitize_settings(next);
-        write_settings_file(&self.config_path, &next)?;
+        background::sync_startup_entry(&next)?;
+        if let Err(error) = write_settings_file(&self.config_path, &next) {
+            let _ = background::sync_startup_entry(&previous);
+            return Err(error);
+        }
 
         let mut guard = self.settings.lock().expect("settings poisoned");
         *guard = next;
@@ -137,19 +161,6 @@ impl SettingsState {
 }
 
 pub fn sanitize_settings(mut settings: AppSettings) -> AppSettings {
-    settings.tts_mode = match settings.tts_mode.trim().to_lowercase().as_str() {
-        "live" | "low_latency" | "low-latency" => "live".to_string(),
-        "realtime" | "realtime_experimental" | "realtime-experimental" => "realtime".to_string(),
-        _ => "classic".to_string(),
-    };
-
-    settings.tts_format = match settings.tts_format.trim().to_lowercase().as_str() {
-        "mp3" => "mp3".to_string(),
-        _ => "wav".to_string(),
-    };
-
-    settings.first_chunk_leading_silence_ms = settings.first_chunk_leading_silence_ms.clamp(0, 1000);
-
     let language = settings.translation_target_language.trim().to_lowercase();
     settings.translation_target_language = if LANGUAGE_OPTIONS.iter().any(|item| item.code == language) {
         language
@@ -169,6 +180,28 @@ pub fn sanitize_settings(mut settings: AppSettings) -> AppSettings {
     } else {
         settings.assistant_name.trim().to_string()
     };
+    settings.voice_agent_model = sanitize_non_empty_line(
+        settings.voice_agent_model,
+        AppSettings::default().voice_agent_model,
+    );
+    settings.voice_agent_voice = sanitize_non_empty_line(
+        settings.voice_agent_voice.to_lowercase(),
+        AppSettings::default().voice_agent_voice,
+    );
+    settings.voice_agent_personality = sanitize_multiline(
+        settings.voice_agent_personality,
+        DEFAULT_VOICE_AGENT_PERSONALITY.to_string(),
+    );
+    settings.voice_agent_behavior = sanitize_multiline(
+        settings.voice_agent_behavior,
+        DEFAULT_VOICE_AGENT_BEHAVIOR.to_string(),
+    );
+    settings.voice_agent_extra_instructions = sanitize_multiline(
+        settings.voice_agent_extra_instructions,
+        DEFAULT_VOICE_AGENT_EXTRA_INSTRUCTIONS.to_string(),
+    );
+    settings.voice_agent_preferred_language = default_voice_agent_preferred_language(&settings.stt_language);
+    settings.voice_agent_tone_notes = sanitize_multiline(settings.voice_agent_tone_notes, String::new());
     settings.assistant_sample_language = if settings.assistant_sample_language.trim().is_empty() {
         settings.stt_language.clone()
     } else {
@@ -234,6 +267,29 @@ fn sanitize_phrase_samples(samples: Vec<String>, max_len: usize) -> Vec<String> 
         .collect()
 }
 
+fn sanitize_non_empty_line(value: String, fallback: String) -> String {
+    let normalized = value.split_whitespace().collect::<Vec<_>>().join(" ");
+    if normalized.is_empty() {
+        fallback
+    } else {
+        normalized
+    }
+}
+
+fn sanitize_multiline(value: String, fallback: String) -> String {
+    let normalized = value
+        .lines()
+        .map(|line| line.trim())
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n");
+    if normalized.is_empty() {
+        fallback
+    } else {
+        normalized
+    }
+}
+
 fn sanitize_playback_speed(value: f32) -> f32 {
     if !value.is_finite() {
         return DEFAULT_PLAYBACK_SPEED;
@@ -248,6 +304,26 @@ fn sanitize_assistant_threshold(value: u8) -> u8 {
 
 fn sanitize_assistant_cooldown_ms(value: u32) -> u32 {
     value.clamp(0, 5_000)
+}
+
+pub fn default_voice_agent_preferred_language(language_code: &str) -> String {
+    language_label_for_code(language_code).to_string()
+}
+
+pub fn language_label_for_code(language_code: &str) -> &'static str {
+    match language_code.trim().to_lowercase().as_str() {
+        "de" => "German",
+        "en" => "English",
+        "fr" => "French",
+        "es" => "Spanish",
+        "it" => "Italian",
+        "pt" => "Portuguese",
+        "pl" => "Polish",
+        "nl" => "Dutch",
+        "tr" => "Turkish",
+        "ja" => "Japanese",
+        _ => "English",
+    }
 }
 
 fn load_env_file_if_present() {
