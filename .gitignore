@@ -15,3 +15,11 @@ codex-worktrees/
 data/brain/
 data/openclaw-specialists/
 **/.openclaw/
+scripts/check-hardcoded-paths.mjs
+scripts/draft-status.mjs
+scripts/github-issues.mjs
+scripts/openclaw_gateway_watchdog.ps1
+scripts/start-next-issue-draft.mjs
+scripts/start-parallel-guards.mjs
+scripts/validate-active-drafts.mjs
+scripts/validate-branch.mjs
