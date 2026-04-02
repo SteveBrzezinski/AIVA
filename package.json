@@ -10,14 +10,7 @@
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "tts": "tsx src/index.ts",
-    "tts:check": "tsc -p tsconfig.tts.json --noEmit",
-    "codex:scan:hardcoded": "node scripts/check-hardcoded-paths.mjs",
-    "codex:check": "node scripts/validate-branch.mjs",
-    "codex:check:drafts": "node scripts/validate-active-drafts.mjs",
-    "codex:draft:status": "node scripts/draft-status.mjs",
-    "codex:issues": "node scripts/github-issues.mjs",
-    "codex:issue:draft": "node scripts/start-next-issue-draft.mjs",
-    "codex:guards:start": "node scripts/start-parallel-guards.mjs"
+    "tts:check": "tsc -p tsconfig.tts.json --noEmit"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",

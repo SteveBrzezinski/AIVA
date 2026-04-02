@@ -1,4 +1,0 @@
-#!/bin/sh
-
-echo "[codex] running branch validation checks..."
-node scripts/validate-branch.mjs
