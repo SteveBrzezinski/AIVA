@@ -20,6 +20,8 @@ fn main() {
         .setup(|app| {
             background::setup_background(&app.handle())
                 .expect("failed to initialize background tray support");
+            background::setup_overlay_windows(&app.handle())
+                .expect("failed to initialize overlay windows");
             hotkey::init_hotkey(&app.handle());
             let settings = app.state::<settings::SettingsState>().get();
             background::apply_launch_behavior(&app.handle(), &settings);

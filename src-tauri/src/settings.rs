@@ -53,7 +53,7 @@ impl Default for AppSettings {
             playback_speed: DEFAULT_PLAYBACK_SPEED,
             openai_api_key: String::new(),
             stt_language: "de".to_string(),
-            assistant_name: "AIVA".to_string(),
+            assistant_name: "Ava".to_string(),
             assistant_wake_samples: Vec::new(),
             assistant_close_samples: Vec::new(),
             assistant_name_samples: Vec::new(),
@@ -174,10 +174,12 @@ pub fn sanitize_settings(mut settings: AppSettings) -> AppSettings {
     } else {
         settings.stt_language.trim().to_lowercase()
     };
-    settings.assistant_name = if settings.assistant_name.trim().is_empty() {
-        "AIVA".to_string()
+    let trimmed_assistant_name = settings.assistant_name.trim();
+    let migrate_default_name = trimmed_assistant_name.eq_ignore_ascii_case("AIVA");
+    settings.assistant_name = if trimmed_assistant_name.is_empty() || migrate_default_name {
+        "Ava".to_string()
     } else {
-        settings.assistant_name.trim().to_string()
+        trimmed_assistant_name.to_string()
     };
     settings.assistant_sample_language = if settings.assistant_sample_language.trim().is_empty() {
         settings.stt_language.clone()
@@ -187,6 +189,11 @@ pub fn sanitize_settings(mut settings: AppSettings) -> AppSettings {
     settings.assistant_wake_samples = sanitize_phrase_samples(settings.assistant_wake_samples, 4);
     settings.assistant_close_samples = sanitize_phrase_samples(settings.assistant_close_samples, 4);
     settings.assistant_name_samples = sanitize_phrase_samples(settings.assistant_name_samples, 2);
+    if migrate_default_name {
+        settings.assistant_wake_samples.clear();
+        settings.assistant_close_samples.clear();
+        settings.assistant_name_samples.clear();
+    }
     settings.assistant_wake_threshold = sanitize_assistant_threshold(settings.assistant_wake_threshold);
     settings.assistant_close_threshold = sanitize_assistant_threshold(settings.assistant_close_threshold);
     settings.assistant_cue_cooldown_ms = sanitize_assistant_cooldown_ms(settings.assistant_cue_cooldown_ms);

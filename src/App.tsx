@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Window, getCurrentWindow } from '@tauri-apps/api/window';
 
  type RunHistoryEntry = {
   id: string;
@@ -33,6 +34,15 @@ import {
   type SttDebugEntry,
 } from './lib/voiceOverlay';
 import {
+  ACTION_BAR_WINDOW_LABEL,
+  OVERLAY_ACTION_EVENT,
+  OVERLAY_COMPOSER_WINDOW_LABEL,
+  OVERLAY_STATE_EVENT,
+  VOICE_OVERLAY_WINDOW_LABEL,
+  type OverlayAction,
+  type OverlayState,
+} from './lib/overlayBridge';
+import {
   ASSISTANT_CUE_COOLDOWN_MS_MAX,
   ASSISTANT_MATCH_THRESHOLD_MAX,
   ASSISTANT_MATCH_THRESHOLD_MIN,
@@ -48,6 +58,7 @@ import {
 type UiState = 'idle' | 'working' | 'success' | 'error';
 type ProviderSnapshotMap = Partial<Record<SttProviderId, ProviderSnapshot>>;
 type CalibrationTarget = 'wake' | 'close' | 'name';
+type VoiceOverlayCommand = 'open-chat' | 'open-settings';
 type CalibrationStep = {
   id: string;
   target: CalibrationTarget;
@@ -81,7 +92,7 @@ const fallbackSettings: AppSettings = {
   playbackSpeed: 1,
   openaiApiKey: '',
   sttLanguage: 'de',
-  assistantName: 'AIVA',
+  assistantName: 'Ava',
   assistantWakeSamples: [],
   assistantCloseSamples: [],
   assistantNameSamples: [],
@@ -140,8 +151,8 @@ function getAssistantNameError(value: string): string | null {
   if (!trimmed) {
     return 'Please enter an assistant name.';
   }
-  if (trimmed.length < 4 || trimmed.length > 8) {
-    return 'The assistant name must be 4 to 8 characters long.';
+  if (trimmed.length < 3 || trimmed.length > 8) {
+    return 'The assistant name must be 3 to 8 characters long.';
   }
   if (!/^[A-Za-z0-9]+$/.test(trimmed)) {
     return 'Use one single word without spaces or special characters.';
@@ -154,6 +165,41 @@ function normalizeLanguageCode(language: string): string {
   return trimmed || 'de';
 }
 
+function normalizeCommandText(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function includesAny(value: string, candidates: string[]): boolean {
+  return candidates.some((candidate) => value.includes(candidate));
+}
+
+function detectVoiceOverlayCommand(value: string): VoiceOverlayCommand | null {
+  const normalized = normalizeCommandText(value);
+  if (!normalized) {
+    return null;
+  }
+
+  if (!includesAny(normalized, ['open', 'show', 'offne', 'oeffne', 'zeige'])) {
+    return null;
+  }
+
+  if (includesAny(normalized, ['chat', 'chatfenster', 'chat window', 'textfenster', 'text window'])) {
+    return 'open-chat';
+  }
+
+  if (includesAny(normalized, ['settings', 'einstellungen', 'preferences'])) {
+    return 'open-settings';
+  }
+
+  return null;
+}
+
 function isAssistantCalibrationComplete(settings: AppSettings): boolean {
   return settings.assistantWakeSamples.length === 4 &&
     settings.assistantCloseSamples.length === 4 &&
@@ -162,7 +208,7 @@ function isAssistantCalibrationComplete(settings: AppSettings): boolean {
 }
 
 function buildCalibrationSteps(name: string, language: string): CalibrationStep[] {
-  const safeName = name.trim() || 'AIVA';
+  const safeName = name.trim() || 'Ava';
   const recognitionLanguage = mapRecognitionLanguage(language);
   return [
     ...Array.from({ length: 4 }, (_, index) => ({
@@ -277,15 +323,27 @@ export default function App() {
   const [liveTranscriptionStatus, setLiveTranscriptionStatus] = useState('Live transcription is stopped.');
   const [assistantActive, setAssistantActive] = useState(false);
   const [assistantStateDetail, setAssistantStateDetail] = useState('Listening is stopped.');
-  const [assistantWakePhrase, setAssistantWakePhrase] = useState('Hey AIVA');
-  const [assistantClosePhrase, setAssistantClosePhrase] = useState('Bye AIVA');
+  const [assistantWakePhrase, setAssistantWakePhrase] = useState('Hey Ava');
+  const [assistantClosePhrase, setAssistantClosePhrase] = useState('Bye Ava');
   const [liveTranscript, setLiveTranscript] = useState('');
   const [sttProviderSnapshots, setSttProviderSnapshots] = useState<ProviderSnapshotMap>({});
   const [liveTranscriptionSessionId, setLiveTranscriptionSessionId] = useState('');
+  const [voiceOrbPinned, setVoiceOrbPinned] = useState(false);
+  const [composerVisible, setComposerVisible] = useState(false);
+  const [didLoadInitialData, setDidLoadInitialData] = useState(false);
   const liveSttControllerRef = useRef<LiveSttController | null>(null);
+  const composerVisibleRef = useRef(false);
+  const settingsVisibleRef = useRef(false);
+  const liveTranscribingRef = useRef(false);
+  const listenerDesiredRunningRef = useRef(false);
+  const listenerTransitionRef = useRef<Promise<void> | null>(null);
+  const settingsTransitionRef = useRef<Promise<void> | null>(null);
+  const composerTransitionRef = useRef<Promise<void> | null>(null);
   const startLiveTranscriptionRef = useRef<(options?: { activateImmediately?: boolean }) => Promise<void>>(async () => undefined);
   const assistantTrainingRecognitionRef = useRef<{ stop: () => void } | null>(null);
   const sttDebugWriteTimerRef = useRef<number | null>(null);
+  const hasAutoStartedLiveRef = useRef(false);
+  const lastHandledVoiceCommandRef = useRef<{ command: VoiceOverlayCommand; text: string; handledAtMs: number } | null>(null);
 
   useEffect(() => {
     void Promise.all([getAppStatus(), getHotkeyStatus(), getSettings(), getLanguageOptions()])
@@ -325,10 +383,12 @@ export default function App() {
         setCaptureToTtsStartMs(hotkey.captureToTtsStartMs ?? null);
         setTtsToFirstAudioMs(hotkey.ttsToFirstAudioMs ?? null);
         setFirstAudioToPlaybackMs(hotkey.firstAudioToPlaybackMs ?? null);
+        setDidLoadInitialData(true);
       })
       .catch((error: unknown) => {
         const text = error instanceof Error ? error.message : String(error);
         setAppStatus(`Failed to load status: ${text}`);
+        setDidLoadInitialData(true);
       });
 
     let unlisten: (() => void | Promise<void>) | undefined;
@@ -420,8 +480,8 @@ export default function App() {
 
   useEffect(() => {
     if (!isLiveTranscribing) {
-      setAssistantWakePhrase(`Hey ${settings.assistantName || 'AIVA'}`);
-      setAssistantClosePhrase(`Bye ${settings.assistantName || 'AIVA'}`);
+      setAssistantWakePhrase(`Hey ${settings.assistantName || 'Ava'}`);
+      setAssistantClosePhrase(`Bye ${settings.assistantName || 'Ava'}`);
     }
   }, [isLiveTranscribing, settings.assistantName]);
 
@@ -478,7 +538,7 @@ export default function App() {
   const assistantCalibrationRequired = settings.assistantName !== savedSettings.assistantName ||
     normalizeLanguageCode(settings.sttLanguage) !== normalizeLanguageCode(savedSettings.assistantSampleLanguage);
   const assistantCalibrationComplete = isAssistantCalibrationComplete(settings);
-  const canSaveSettings = !assistantNameError && (!assistantCalibrationRequired || assistantCalibrationComplete);
+  const canSaveSettings = !assistantNameError;
   const assistantCalibrationSteps = useMemo(
     () => buildCalibrationSteps(settings.assistantName, settings.sttLanguage),
     [settings.assistantName, settings.sttLanguage],
@@ -494,16 +554,6 @@ export default function App() {
       setUiState('error');
       setMessage(validationError);
       throw new Error(validationError);
-    }
-    if (
-      (next.assistantName !== savedSettings.assistantName ||
-        normalizeLanguageCode(next.sttLanguage) !== normalizeLanguageCode(savedSettings.assistantSampleLanguage)) &&
-      !isAssistantCalibrationComplete(next)
-    ) {
-      const calibrationError = 'Please finish the assistant wake-word calibration for the current name and language before saving.';
-      setUiState('error');
-      setMessage(calibrationError);
-      throw new Error(calibrationError);
     }
 
     setIsSavingSettings(true);
@@ -542,6 +592,188 @@ export default function App() {
       setLiveTranscript('');
       setLastSttActiveTranscript('');
     }
+  };
+
+  const processSettingsWindowTransition = async (): Promise<void> => {
+    if (settingsTransitionRef.current) {
+      await settingsTransitionRef.current;
+      return;
+    }
+
+    settingsTransitionRef.current = (async () => {
+      try {
+        while (true) {
+          const targetVisible = settingsVisibleRef.current;
+          const mainWindow = await Window.getByLabel('main');
+          if (!mainWindow) {
+            throw new Error('The main dashboard window is not available right now.');
+          }
+
+          const isVisible = await mainWindow.isVisible();
+          if (isVisible !== targetVisible) {
+            if (targetVisible) {
+              await mainWindow.show();
+              await mainWindow.setFocus();
+            } else {
+              await mainWindow.hide();
+            }
+          }
+
+          if (targetVisible === settingsVisibleRef.current) {
+            break;
+          }
+        }
+      } finally {
+        settingsTransitionRef.current = null;
+        if (settingsVisibleRef.current !== false && settingsVisibleRef.current !== true) {
+          settingsVisibleRef.current = false;
+        }
+      }
+    })();
+
+    await settingsTransitionRef.current;
+  };
+
+  const openSettingsWindow = async (): Promise<void> => {
+    if (!settingsTransitionRef.current) {
+      const mainWindow = await Window.getByLabel('main');
+      settingsVisibleRef.current = Boolean(mainWindow && await mainWindow.isVisible());
+    }
+
+    settingsVisibleRef.current = !settingsVisibleRef.current;
+    await processSettingsWindowTransition();
+  };
+
+  const processComposerWindowTransition = async (): Promise<void> => {
+    if (composerTransitionRef.current) {
+      await composerTransitionRef.current;
+      return;
+    }
+
+    composerTransitionRef.current = (async () => {
+      try {
+        while (true) {
+          const targetVisible = composerVisibleRef.current;
+          const composerWindow = await Window.getByLabel(OVERLAY_COMPOSER_WINDOW_LABEL);
+
+          setVoiceOrbPinned(targetVisible);
+          setComposerVisible(targetVisible);
+
+          if (composerWindow) {
+            const isVisible = await composerWindow.isVisible();
+            if (isVisible !== targetVisible) {
+              if (targetVisible) {
+                await composerWindow.show();
+                await composerWindow.setFocus();
+              } else {
+                await composerWindow.hide();
+              }
+            }
+          }
+
+          if (targetVisible === composerVisibleRef.current) {
+            break;
+          }
+        }
+      } finally {
+        composerTransitionRef.current = null;
+      }
+    })();
+
+    await composerTransitionRef.current;
+  };
+
+  const openComposerWindow = async (): Promise<void> => {
+    composerVisibleRef.current = true;
+    await processComposerWindowTransition();
+  };
+
+  const closeComposerWindow = async (): Promise<void> => {
+    composerVisibleRef.current = false;
+    await processComposerWindowTransition();
+  };
+
+  const toggleComposerWindow = async (): Promise<void> => {
+    composerVisibleRef.current = !composerVisibleRef.current;
+    await processComposerWindowTransition();
+  };
+
+  const processListenerTransition = async (): Promise<void> => {
+    if (listenerTransitionRef.current) {
+      await listenerTransitionRef.current;
+      return;
+    }
+
+    listenerTransitionRef.current = (async () => {
+      try {
+        while (true) {
+          const shouldRun = listenerDesiredRunningRef.current;
+          const isRunning = liveTranscribingRef.current;
+
+          if (shouldRun !== isRunning) {
+            if (shouldRun) {
+              await startLiveTranscription();
+            } else {
+              await stopLiveTranscription();
+            }
+          }
+
+          if (shouldRun === listenerDesiredRunningRef.current && liveTranscribingRef.current === shouldRun) {
+            break;
+          }
+        }
+      } finally {
+        listenerTransitionRef.current = null;
+        if (listenerDesiredRunningRef.current !== liveTranscribingRef.current) {
+          void processListenerTransition();
+        }
+      }
+    })();
+
+    await listenerTransitionRef.current;
+  };
+
+  const toggleListenerRunning = async (): Promise<void> => {
+    listenerDesiredRunningRef.current = !listenerDesiredRunningRef.current;
+    await processListenerTransition();
+  };
+
+  const handleVoiceOverlayCommand = async (transcript: string): Promise<boolean> => {
+    const command = detectVoiceOverlayCommand(transcript);
+    if (!command) {
+      return false;
+    }
+
+    const normalized = normalizeCommandText(transcript);
+    const lastHandled = lastHandledVoiceCommandRef.current;
+    if (
+      lastHandled &&
+      lastHandled.command === command &&
+      lastHandled.text === normalized &&
+      Date.now() - lastHandled.handledAtMs < 2000
+    ) {
+      return true;
+    }
+
+    lastHandledVoiceCommandRef.current = {
+      command,
+      text: normalized,
+      handledAtMs: Date.now(),
+    };
+
+    if (command === 'open-chat') {
+      await openComposerWindow();
+      setMessage('Voice command recognised: opened the chat window.');
+      return true;
+    }
+
+    if (command === 'open-settings') {
+      await openSettingsWindow();
+      setMessage('Voice command recognised: opened settings.');
+      return true;
+    }
+
+    return false;
   };
 
   const stopAssistantTrainingRecognition = (): void => {
@@ -792,6 +1024,7 @@ export default function App() {
     setAssistantClosePhrase(`Bye ${activeSettings.assistantName}`);
     setAssistantStateDetail('Starting wake-word listener...');
     setIsLiveTranscribing(true);
+    liveTranscribingRef.current = true;
 
     try {
       await controller.start(
@@ -822,6 +1055,10 @@ export default function App() {
               !snapshot.detail?.includes('wake-word') &&
               !snapshot.detail?.includes('close-word')
             ) {
+              void handleVoiceOverlayCommand(snapshot.transcript).catch((error: unknown) => {
+                const text = error instanceof Error ? error.message : String(error);
+                setMessage(text);
+              });
               setLiveTranscript(snapshot.transcript);
               setLastSttActiveTranscript(snapshot.transcript);
             }
@@ -831,11 +1068,23 @@ export default function App() {
     } catch (error: unknown) {
       const text = error instanceof Error ? error.message : String(error);
       setIsLiveTranscribing(false);
+      liveTranscribingRef.current = false;
       setLiveTranscriptionStatus(`Failed to start live transcription: ${text}`);
     }
   };
 
   startLiveTranscriptionRef.current = startLiveTranscription;
+
+  useEffect(() => {
+    if (!didLoadInitialData || hasAutoStartedLiveRef.current || isLiveTranscribing) {
+      return;
+    }
+
+    hasAutoStartedLiveRef.current = true;
+    void startLiveTranscription().catch(() => {
+      hasAutoStartedLiveRef.current = false;
+    });
+  }, [didLoadInitialData, isLiveTranscribing, savedSettings, startLiveTranscription]);
 
   const stopLiveTranscription = async (): Promise<void> => {
     if (liveSttControllerRef.current) {
@@ -843,6 +1092,7 @@ export default function App() {
       liveSttControllerRef.current = null;
     }
     setIsLiveTranscribing(false);
+    liveTranscribingRef.current = false;
     setAssistantActive(false);
     setAssistantStateDetail('Listening is stopped.');
     setLiveTranscript('');
@@ -894,6 +1144,150 @@ export default function App() {
       settings,
     ],
   );
+
+  const overlayBridgeState: OverlayState = {
+    assistantActive,
+    isLiveTranscribing,
+    voiceOrbPinned,
+    composerVisible,
+    assistantStateDetail,
+    liveTranscriptionStatus,
+    assistantWakePhrase,
+    assistantClosePhrase,
+    statusMessage: message,
+    uiState,
+  };
+
+  useEffect(() => {
+    composerVisibleRef.current = composerVisible;
+  }, [composerVisible]);
+
+  useEffect(() => {
+    liveTranscribingRef.current = isLiveTranscribing;
+    if (!listenerTransitionRef.current) {
+      listenerDesiredRunningRef.current = isLiveTranscribing;
+    }
+  }, [isLiveTranscribing]);
+
+  useEffect(() => {
+    const appWindow = getCurrentWindow();
+    [ACTION_BAR_WINDOW_LABEL, VOICE_OVERLAY_WINDOW_LABEL, OVERLAY_COMPOSER_WINDOW_LABEL].forEach((label) => {
+      void appWindow.emitTo<OverlayState>(label, OVERLAY_STATE_EVENT, overlayBridgeState).catch(() => undefined);
+    });
+  }, [
+    assistantActive,
+    assistantClosePhrase,
+    assistantStateDetail,
+    assistantWakePhrase,
+    composerVisible,
+    isLiveTranscribing,
+    liveTranscriptionStatus,
+    message,
+    voiceOrbPinned,
+    uiState,
+  ]);
+
+  useEffect(() => {
+    void Window.getByLabel(ACTION_BAR_WINDOW_LABEL)
+      .then((window) => window?.show())
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    void Window.getByLabel(VOICE_OVERLAY_WINDOW_LABEL)
+      .then(async (window) => {
+        if (!window) {
+          return;
+        }
+
+        if (assistantActive || voiceOrbPinned) {
+          await window.show();
+        } else {
+          await window.hide();
+        }
+      })
+      .catch(() => undefined);
+  }, [assistantActive, voiceOrbPinned]);
+
+  useEffect(() => {
+    const appWindow = getCurrentWindow();
+    let unlisten: (() => void | Promise<void>) | undefined;
+
+    void appWindow.listen<OverlayAction>(OVERLAY_ACTION_EVENT, (event) => {
+      switch (event.payload.type) {
+        case 'request-state':
+          [ACTION_BAR_WINDOW_LABEL, VOICE_OVERLAY_WINDOW_LABEL, OVERLAY_COMPOSER_WINDOW_LABEL].forEach((label) => {
+            void appWindow.emitTo<OverlayState>(label, OVERLAY_STATE_EVENT, overlayBridgeState).catch(() => undefined);
+          });
+          break;
+        case 'toggle-live':
+          listenerDesiredRunningRef.current = !listenerDesiredRunningRef.current;
+          void processListenerTransition();
+          break;
+        case 'toggle-listener':
+          void toggleListenerRunning();
+          break;
+        case 'activate':
+          if (liveSttControllerRef.current) {
+            liveSttControllerRef.current.manualActivate('manual');
+          } else {
+            void startLiveTranscription({ activateImmediately: true });
+          }
+          break;
+        case 'deactivate':
+          if (liveSttControllerRef.current) {
+            liveSttControllerRef.current.manualDeactivate('manual');
+          }
+          break;
+        case 'toggle-composer':
+          void toggleComposerWindow().catch((error: unknown) => {
+            const text = error instanceof Error ? error.message : String(error);
+            setMessage(text);
+          });
+          break;
+        case 'close-composer':
+          void closeComposerWindow().catch((error: unknown) => {
+            const text = error instanceof Error ? error.message : String(error);
+            setMessage(text);
+          });
+          break;
+        case 'open-settings':
+          void openSettingsWindow().catch((error: unknown) => {
+            const text = error instanceof Error ? error.message : String(error);
+            setMessage(text);
+          });
+          break;
+        case 'pin-voice-orb':
+          setVoiceOrbPinned(true);
+          break;
+        case 'unpin-voice-orb':
+          setVoiceOrbPinned(false);
+          break;
+      }
+    }).then((cleanup) => {
+      unlisten = cleanup;
+    });
+
+    return () => {
+      void unlisten?.();
+    };
+  }, [
+    assistantActive,
+    assistantClosePhrase,
+    assistantStateDetail,
+    assistantWakePhrase,
+    closeComposerWindow,
+    composerVisible,
+    isLiveTranscribing,
+    liveTranscriptionStatus,
+    message,
+    openSettingsWindow,
+    startLiveTranscription,
+    stopLiveTranscription,
+    toggleComposerWindow,
+    voiceOrbPinned,
+    uiState,
+  ]);
 
   return (
     <>
@@ -1101,7 +1495,7 @@ export default function App() {
               <div className="inline-field-row">
                 <input
                   type="text"
-                  placeholder="AIVA"
+                  placeholder="Ava"
                   value={settings.assistantName}
                   onChange={(event) => {
                     const nextName = event.target.value;
@@ -1128,12 +1522,12 @@ export default function App() {
               </div>
               {assistantNameError ? <span className="field-note field-note--error">{assistantNameError}</span> : null}
               {!assistantNameError && assistantCalibrationRequired && !assistantCalibrationComplete ? (
-                <span className="field-note field-note--warning">Please train the current name and language before saving.</span>
+                <span className="field-note field-note--warning">Wake-word training is optional right now. You can save immediately, but training still improves matching.</span>
               ) : null}
               {!assistantNameError && assistantCalibrationComplete && assistantTrainingReadyName === settings.assistantName ? (
                 <span className="field-note field-note--success">Wake-/close-word calibration is ready for this name and language.</span>
               ) : null}
-              <span className="field-note">Use 4-8 characters, one single word. Wake and close phrases stay in English: <code>Hey {settings.assistantName || 'AIVA'}</code> activates, <code>Bye {settings.assistantName || 'AIVA'}</code> deactivates.</span>
+              <span className="field-note">Use 3-8 characters, one single word. Wake and close phrases stay in English: <code>Hey {settings.assistantName || 'Ava'}</code> activates, <code>Bye {settings.assistantName || 'Ava'}</code> deactivates.</span>
             </label>
 
             <label className="settings-field">

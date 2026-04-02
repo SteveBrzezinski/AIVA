@@ -2,6 +2,13 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Default desktop capability for the MVP shell",
-  "windows": ["main"],
-  "permissions": ["core:default"]
+  "windows": ["main", "action-bar", "voice-overlay", "overlay-composer"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-set-position",
+    "core:window:allow-set-size",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-set-focus"
+  ]
 }

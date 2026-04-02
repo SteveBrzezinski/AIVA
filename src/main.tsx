@@ -1,10 +1,63 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom/client';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import App from './App';
+import OverlayDock from './OverlayDock';
+import OverlayComposer from './OverlayComposer';
+import VoiceOrbOverlay from './VoiceOrbOverlay';
 import './styles.css';
+
+function WindowRoot() {
+  const [windowLabel, setWindowLabel] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    let retryTimer: number | null = null;
+
+    const resolveWindowLabel = (): void => {
+      try {
+        const nextLabel = getCurrentWindow().label;
+        if (isMounted) {
+          setWindowLabel(nextLabel);
+        }
+        return;
+      } catch {
+        if (!isMounted) {
+          return;
+        }
+      }
+
+      retryTimer = window.setTimeout(resolveWindowLabel, 60);
+    };
+
+    resolveWindowLabel();
+
+    return () => {
+      isMounted = false;
+      if (retryTimer !== null) {
+        window.clearTimeout(retryTimer);
+      }
+    };
+  }, []);
+
+  if (windowLabel === null) {
+    return null;
+  }
+
+  switch (windowLabel) {
+    case 'action-bar':
+      return <OverlayDock />;
+    case 'voice-overlay':
+      return <VoiceOrbOverlay />;
+    case 'overlay-composer':
+      return <OverlayComposer />;
+    default:
+      return <App />;
+  }
+}
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <App />
+    <WindowRoot />
   </React.StrictMode>,
 );

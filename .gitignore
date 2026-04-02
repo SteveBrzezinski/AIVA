@@ -10,3 +10,5 @@ Cargo.lock
 tts-output
 .voice-overlay-assistant.config.json
 .venv-whisper/
+.codex-worktrees/
+codex-worktrees/

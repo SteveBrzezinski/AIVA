@@ -222,6 +222,25 @@ export async function captureAndSpeak(
   });
 }
 
+export async function speakText(
+  text: string,
+  speakOptions: SpeakOptions = {},
+): Promise<CaptureAndSpeakResult['speech']> {
+  return invoke<CaptureAndSpeakResult['speech']>('speak_text_command', {
+    options: {
+      text,
+      autoplay: speakOptions.autoplay ?? true,
+      format: speakOptions.format,
+      mode: speakOptions.mode,
+      maxChunkChars: speakOptions.maxChunkChars,
+      maxParallelRequests: speakOptions.maxParallelRequests,
+      model: speakOptions.model,
+      voice: speakOptions.voice ?? 'alloy',
+      firstChunkLeadingSilenceMs: speakOptions.firstChunkLeadingSilenceMs,
+    },
+  });
+}
+
 export async function captureAndTranslate(
   captureOptions: CaptureOptions = {},
   translateOptions: TranslateOptions = {},

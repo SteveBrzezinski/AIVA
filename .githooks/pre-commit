@@ -1,0 +1,4 @@
+#!/bin/sh
+
+echo "[codex] scanning staged files for hardcoded user paths..."
+node scripts/check-hardcoded-paths.mjs --staged

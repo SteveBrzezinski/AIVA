@@ -380,6 +380,10 @@ export class LiveSttController {
   }
 
   private currentRecognitionLanguage(): string {
+    if (!this.assistantActive) {
+      return 'en-US';
+    }
+
     return mapSpeechRecognitionLanguage(this.config?.language ?? 'de');
   }
 
@@ -398,7 +402,7 @@ export class LiveSttController {
 
 function sanitizeAssistantName(value?: string | null): string {
   const trimmed = value?.trim();
-  return trimmed ? trimmed : 'AIVA';
+  return trimmed ? trimmed : 'Ava';
 }
 
 function sanitizeSamples(samples?: string[] | null, max: number = Number.MAX_SAFE_INTEGER): string[] {
@@ -438,10 +442,14 @@ function evaluateCuePhrase(options: {
   cooldownRemainingMs: number;
 }): CueEvaluation {
   const normalized = normalizeForMatch(options.transcript);
-  const threshold = Math.min(
-    ASSISTANT_MATCH_THRESHOLD_MAX,
+  const hasTrainingSamples = options.trainedPhrases.length > 0 || options.trainedNameSamples.length > 0;
+  const trainingThresholdAdjustment = hasTrainingSamples ? 0 : -10;
+  const threshold = clamp(
     sanitizeThreshold(options.baseThreshold, options.kind === 'wake' ? DEFAULT_ASSISTANT_WAKE_THRESHOLD : DEFAULT_ASSISTANT_CLOSE_THRESHOLD) +
-      (options.isFinal ? 0 : INTERIM_THRESHOLD_BONUS),
+      (options.isFinal ? 0 : INTERIM_THRESHOLD_BONUS) +
+      trainingThresholdAdjustment,
+    ASSISTANT_MATCH_THRESHOLD_MIN,
+    ASSISTANT_MATCH_THRESHOLD_MAX,
   );
 
   const fallbackEvaluation: CueEvaluation = {
