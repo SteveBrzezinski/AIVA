@@ -1,11 +1,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use tauri::Manager;
-use voice_overlay_assistant::{background, hotkey, run_controller, settings};
+use voice_overlay_assistant::{background, hotkey, run_controller, settings, voice_tasks};
 
 #[tauri::command]
 fn app_status() -> &'static str {
-    "Voice Overlay Assistant is ready: global hotkeys keep running in the background, the tray can reopen the UI, and the settings can manage Windows autostart for hidden startup."
+    "Voice Overlay Assistant is ready: the tray keeps the app alive in the background, overlay windows stay available, WebView2 handles wake-word listening, and the voice assistant uses OpenAI Realtime over WebRTC."
 }
 
 fn main() {
@@ -17,6 +17,7 @@ fn main() {
         .manage(hotkey::HotkeyState::default())
         .manage(run_controller::RunController::default())
         .manage(settings_state)
+        .manage(voice_tasks::VoiceTaskState::default())
         .setup(|app| {
             background::setup_background(&app.handle())
                 .expect("failed to initialize background tray support");
@@ -42,7 +43,13 @@ fn main() {
             voice_overlay_assistant::get_language_options,
             voice_overlay_assistant::append_stt_debug_log_command,
             voice_overlay_assistant::pause_resume_current_run,
-            voice_overlay_assistant::cancel_current_run
+            voice_overlay_assistant::cancel_current_run,
+            voice_overlay_assistant::create_voice_agent_session_command,
+            voice_overlay_assistant::run_voice_agent_tool_command,
+            voice_overlay_assistant::get_voice_agent_task_command,
+            voice_overlay_assistant::store_voice_session_memory_command,
+            voice_overlay_assistant::recall_voice_memory_command,
+            voice_overlay_assistant::get_recent_voice_memory_command
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

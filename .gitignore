@@ -12,3 +12,6 @@ tts-output
 .venv-whisper/
 .codex-worktrees/
 codex-worktrees/
+data/brain/
+data/openclaw-specialists/
+**/.openclaw/

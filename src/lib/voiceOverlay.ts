@@ -26,15 +26,23 @@ export type TranslateOptions = {
 export type AppSettings = {
   ttsMode: 'classic' | 'live' | 'realtime';
   realtimeAllowLiveFallback: boolean;
-  launchAtLogin: boolean;
-  startHiddenOnLaunch: boolean;
   ttsFormat: 'wav' | 'mp3';
   firstChunkLeadingSilenceMs: number;
   translationTargetLanguage: string;
   playbackSpeed: number;
   openaiApiKey: string;
   sttLanguage: string;
+  launchAtLogin: boolean;
+  startHiddenOnLaunch: boolean;
   assistantName: string;
+  voiceAgentModel: string;
+  voiceAgentVoice: string;
+  voiceAgentPersonality: string;
+  voiceAgentBehavior: string;
+  voiceAgentExtraInstructions: string;
+  voiceAgentPreferredLanguage: string;
+  voiceAgentToneNotes: string;
+  voiceAgentOnboardingComplete: boolean;
   assistantWakeSamples: string[];
   assistantCloseSamples: string[];
   assistantNameSamples: string[];
@@ -59,6 +67,96 @@ export type SttDebugEntry = {
 
 export type AppendSttDebugLogResult = {
   debugLogPath: string;
+};
+
+export type VoiceAgentProfile = {
+  name: string;
+  voice: string;
+  model: string;
+  personality: string;
+  behavior: string;
+  extraInstructions: string;
+};
+
+export type VoiceAgentIdentity = {
+  preferredLanguage: string;
+  toneNotes: string;
+};
+
+export type VoiceAgentState = {
+  profile: VoiceAgentProfile;
+  identity: VoiceAgentIdentity;
+  onboardingComplete: boolean;
+  sourceAssistantName: string;
+};
+
+export type CreateVoiceAgentSessionResult = {
+  clientSecret: string;
+  profile: VoiceAgentProfile;
+  assistantState: VoiceAgentState;
+  bootstrapAction: string;
+};
+
+export type RunVoiceAgentToolResult = {
+  ok: boolean;
+  toolName: string;
+  result: Record<string, unknown>;
+};
+
+export type VoiceTask = {
+  id: string;
+  taskType: string;
+  payload: Record<string, unknown>;
+  status: string;
+  createdAtMs: number;
+  updatedAtMs: number;
+  result?: Record<string, unknown> | null;
+};
+
+export type VoiceTaskEvent = {
+  task: VoiceTask;
+};
+
+export type StoreVoiceSessionMemoryRequest = {
+  disconnectReason: string;
+  userTranscripts: string[];
+  assistantTranscripts: string[];
+  toolEvents: string[];
+  taskEvents: string[];
+};
+
+export type StoreVoiceSessionMemoryResult = {
+  ok: boolean;
+  skipped: boolean;
+  filePath: string;
+  lines: string[];
+};
+
+export type RecallVoiceMemoryRequest = {
+  query: string;
+  date?: string | null;
+  limit?: number;
+  daysBackLimit?: number;
+};
+
+export type RecallVoiceMemoryMatch = {
+  date: string;
+  line: string;
+  score: number;
+  filePath: string;
+};
+
+export type RecallVoiceMemoryResult = {
+  ok: boolean;
+  matches: RecallVoiceMemoryMatch[];
+  searchedFiles: string[];
+};
+
+export type RecentVoiceMemoryResult = {
+  ok: boolean;
+  date: string;
+  filePath: string;
+  lines: string[];
 };
 
 export type CaptureAndSpeakResult = {
@@ -167,6 +265,7 @@ export type LiveSttControlEvent = {
 
 const HOTKEY_STATUS_EVENT = 'hotkey-status';
 const LIVE_STT_CONTROL_EVENT = 'live-stt-control';
+const VOICE_AGENT_TASK_EVENT = 'voice-agent-task';
 
 export async function getAppStatus(): Promise<string> {
   return invoke<string>('app_status');
@@ -198,6 +297,10 @@ export async function onHotkeyStatus(callback: (status: HotkeyStatus) => void): 
 
 export async function onLiveSttControl(callback: (event: LiveSttControlEvent) => void): Promise<UnlistenFn> {
   return listen<LiveSttControlEvent>(LIVE_STT_CONTROL_EVENT, (event) => callback(event.payload));
+}
+
+export async function onVoiceAgentTask(callback: (event: VoiceTaskEvent) => void): Promise<UnlistenFn> {
+  return listen<VoiceTaskEvent>(VOICE_AGENT_TASK_EVENT, (event) => callback(event.payload));
 }
 
 export async function captureAndSpeak(
@@ -272,6 +375,40 @@ export async function appendSttDebugLog(options: {
       entries: options.entries,
     },
   });
+}
+
+export async function createVoiceAgentSession(): Promise<CreateVoiceAgentSessionResult> {
+  return invoke<CreateVoiceAgentSessionResult>('create_voice_agent_session_command');
+}
+
+export async function runVoiceAgentTool(
+  toolName: string,
+  args: Record<string, unknown>,
+): Promise<RunVoiceAgentToolResult> {
+  return invoke<RunVoiceAgentToolResult>('run_voice_agent_tool_command', {
+    toolName,
+    args,
+  });
+}
+
+export async function getVoiceAgentTask(taskId: string): Promise<VoiceTask> {
+  return invoke<VoiceTask>('get_voice_agent_task_command', { taskId });
+}
+
+export async function storeVoiceSessionMemory(
+  request: StoreVoiceSessionMemoryRequest,
+): Promise<StoreVoiceSessionMemoryResult> {
+  return invoke<StoreVoiceSessionMemoryResult>('store_voice_session_memory_command', { request });
+}
+
+export async function recallVoiceMemory(
+  request: RecallVoiceMemoryRequest,
+): Promise<RecallVoiceMemoryResult> {
+  return invoke<RecallVoiceMemoryResult>('recall_voice_memory_command', { request });
+}
+
+export async function getRecentVoiceMemory(limit = 5): Promise<RecentVoiceMemoryResult> {
+  return invoke<RecentVoiceMemoryResult>('get_recent_voice_memory_command', { limit });
 }
 
 export async function pauseResumeCurrentRun(): Promise<string> {

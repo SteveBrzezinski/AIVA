@@ -5,8 +5,8 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 use tauri::{
-    menu::MenuEvent,
     menu::MenuBuilder,
+    menu::MenuEvent,
     tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent},
     AppHandle, Manager, Runtime, WebviewUrl, WebviewWindowBuilder, Window, WindowEvent,
 };
@@ -154,10 +154,6 @@ pub fn sync_startup_entry(settings: &AppSettings) -> Result<(), String> {
 
 fn should_start_hidden(settings: &AppSettings) -> bool {
     settings.start_hidden_on_launch
-}
-
-fn launched_via_autostart() -> bool {
-    env::args().any(|arg| matches!(arg.as_str(), "--autostart" | "--background" | "--hidden"))
 }
 
 fn request_exit<R: Runtime>(app: &AppHandle<R>) {
