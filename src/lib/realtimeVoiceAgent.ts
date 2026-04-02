@@ -7,7 +7,8 @@ import {
   type CreateVoiceAgentSessionResult,
   type RecentVoiceMemoryResult,
   type VoiceTask,
-} from './voiceOverlay';
+  type VoiceTaskEvent,
+} from './voiceOverlay.js';
 
 const MAX_MEMORY_ITEMS = 32;
 const FALLBACK_SESSION_DURATION_MS = 60 * 60 * 1000;
@@ -139,7 +140,7 @@ export class RealtimeVoiceAgentController {
         this.audioSender = audioTransceiver.sender;
         this.audioElement = audioElement;
 
-        const unlistenTasks = await onVoiceAgentTask((event) => {
+        const unlistenTasks = await onVoiceAgentTask((event: VoiceTaskEvent) => {
           this.handleVoiceTask(event.task);
         });
         this.unlistenTaskEvents = unlistenTasks;
@@ -667,7 +668,7 @@ export class RealtimeVoiceAgentController {
       return;
     }
 
-    const summary = this.recentMemory.lines.map((line, index) => `${index + 1}. ${line}`).join(' ');
+    const summary = this.recentMemory.lines.map((line: string, index: number) => `${index + 1}. ${line}`).join(' ');
     this.log('tasks', 'task', 'memory resume', {
       date: this.recentMemory.date,
       filePath: this.recentMemory.filePath,
