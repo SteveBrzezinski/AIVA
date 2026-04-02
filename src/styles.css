@@ -609,6 +609,7 @@ body.overlay-body #root {
 
 .overlay-composer-panel {
   display: grid;
+  grid-template-rows: auto 1fr auto;
   gap: 12px;
   width: 100%;
   height: 100%;
@@ -625,7 +626,7 @@ body.overlay-body #root {
 
 .overlay-composer-panel__header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   align-items: center;
 }
@@ -656,13 +657,15 @@ body.overlay-body #root {
 }
 
 .overlay-composer-panel__send {
+  min-width: 92px;
   border-color: rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.1);
   box-shadow: 0 0 16px rgba(255, 255, 255, 0.06);
 }
 
 .overlay-composer-panel textarea {
-  min-height: 74px;
+  width: 100%;
+  min-height: 94px;
   resize: none;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
@@ -677,9 +680,10 @@ body.overlay-body #root {
 
 .overlay-composer-panel__footer {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px;
   align-items: center;
+  padding: 2px 4px 10px 0;
 }
 
 .overlay-composer-panel__footer span {

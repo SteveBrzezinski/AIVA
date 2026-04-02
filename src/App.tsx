@@ -363,6 +363,7 @@ export default function App() {
   const [voiceTaskFeed, setVoiceTaskFeed] = useState<VoiceFeedItem[]>([]);
   const [initialStateLoaded, setInitialStateLoaded] = useState(false);
   const liveSttControllerRef = useRef<LiveSttController | null>(null);
+  const assistantActiveRef = useRef(false);
   const composerVisibleRef = useRef(false);
   const settingsVisibleRef = useRef(false);
   const liveTranscribingRef = useRef(false);
@@ -473,11 +474,7 @@ export default function App() {
 
     void onLiveSttControl((event) => {
       if (event.action === 'activate') {
-        if (liveSttControllerRef.current) {
-          liveSttControllerRef.current.manualActivate('hotkey');
-        } else {
-          void activateAssistantVoice('hotkey');
-        }
+        void activateAssistantVoice('hotkey');
         return;
       }
 
@@ -884,6 +881,7 @@ export default function App() {
           ? source
           : 'system',
       );
+      await realtimeVoiceAgentRef.current?.mute(source);
       return;
     }
 
@@ -1290,6 +1288,10 @@ export default function App() {
   };
 
   useEffect(() => {
+    assistantActiveRef.current = assistantActive;
+  }, [assistantActive]);
+
+  useEffect(() => {
     composerVisibleRef.current = composerVisible;
   }, [composerVisible]);
 
@@ -1359,16 +1361,16 @@ export default function App() {
           void toggleListenerRunning();
           break;
         case 'activate':
-          if (liveSttControllerRef.current) {
-            liveSttControllerRef.current.manualActivate('manual');
-          } else {
-            void startLiveTranscription({ activateImmediately: true });
-          }
+          void activateAssistantVoice('manual').catch((error: unknown) => {
+            const text = error instanceof Error ? error.message : String(error);
+            setMessage(text);
+          });
           break;
         case 'deactivate':
-          if (liveSttControllerRef.current) {
-            liveSttControllerRef.current.manualDeactivate('manual');
-          }
+          void deactivateAssistantVoice('manual').catch((error: unknown) => {
+            const text = error instanceof Error ? error.message : String(error);
+            setMessage(text);
+          });
           break;
         case 'toggle-composer':
           void toggleComposerWindow().catch((error: unknown) => {

@@ -74,6 +74,8 @@ export class RealtimeVoiceAgentController {
   private sessionRotationTimer: number | null = null;
   private sessionExpiresAtMs: number | null = null;
   private rotateAfterMute = false;
+  private microphoneDesired = false;
+  private microphoneRequestVersion = 0;
 
   constructor(callbacks: RealtimeVoiceAgentCallbacks) {
     this.callbacks = callbacks;
@@ -183,6 +185,10 @@ export class RealtimeVoiceAgentController {
   }
 
   async startListening(reason = 'activate'): Promise<void> {
+    this.microphoneDesired = true;
+    this.microphoneRequestVersion += 1;
+    const requestVersion = this.microphoneRequestVersion;
+
     if (this.reconnectPromise) {
       await this.reconnectPromise;
       if (this.state === 'online_listening') {
@@ -197,11 +203,11 @@ export class RealtimeVoiceAgentController {
       await this.recoverSession(`${reason}-recover`, true);
       return;
     }
-    await this.attachMicrophone(reason);
+    await this.attachMicrophone(reason, requestVersion);
   }
 
-  private async attachMicrophone(reason: string): Promise<void> {
-    if (this.state === 'online_listening') {
+  private async attachMicrophone(reason: string, requestVersion = this.microphoneRequestVersion): Promise<void> {
+    if (this.state === 'online_listening' && this.microphoneDesired) {
       return;
     }
     if (!this.audioSender) {
@@ -221,6 +227,15 @@ export class RealtimeVoiceAgentController {
       throw new Error('No microphone audio track is available.');
     }
 
+    if (!this.microphoneDesired || requestVersion !== this.microphoneRequestVersion) {
+      inputTrack.stop();
+      for (const track of inputStream.getTracks()) {
+        track.stop();
+      }
+      this.log('events', 'lifecycle', 'microphone', `Discarded stale microphone activation (${reason})`);
+      return;
+    }
+
     await this.audioSender.replaceTrack(inputTrack);
     this.inputStream = inputStream;
     this.inputTrack = inputTrack;
@@ -236,8 +251,11 @@ export class RealtimeVoiceAgentController {
       return;
     }
 
+    this.microphoneDesired = false;
+    this.microphoneRequestVersion += 1;
     this.log('events', 'lifecycle', 'microphone', `Muting microphone (${reason})`);
     await this.detachMicrophone();
+    this.setStatus('online_muted', `Realtime voice session connected. Microphone is muted (${reason}).`);
 
     try {
       await this.persistSessionMemory(reason);
@@ -245,7 +263,6 @@ export class RealtimeVoiceAgentController {
       this.log('tasks', 'error', 'memory store failed', error instanceof Error ? error.message : String(error));
     }
     this.resetSessionMemory();
-    this.setStatus('online_muted', `Realtime voice session connected. Microphone is muted (${reason}).`);
 
     if (this.rotateAfterMute) {
       this.rotateAfterMute = false;
@@ -259,6 +276,8 @@ export class RealtimeVoiceAgentController {
     }
 
     this.state = 'disconnecting';
+    this.microphoneDesired = false;
+    this.microphoneRequestVersion += 1;
     this.log('events', 'lifecycle', 'session', `Closing realtime connection (${reason})`);
     this.clearSessionRotationTimer();
     this.rotateAfterMute = false;
@@ -581,7 +600,9 @@ export class RealtimeVoiceAgentController {
       await this.disconnect(reason);
       await this.connect();
       if (resumeListening) {
-        await this.attachMicrophone(reason);
+        this.microphoneDesired = true;
+        this.microphoneRequestVersion += 1;
+        await this.attachMicrophone(reason, this.microphoneRequestVersion);
       }
     })();
 

@@ -113,8 +113,6 @@ export default function OverlayDock() {
       });
   }, [isExpanded]);
 
-  const muteButtonLabel = overlayState.isLiveTranscribing ? 'Mute' : 'Unmute';
-
   const clearCollapseTimer = (): void => {
     if (collapseTimerRef.current !== null) {
       window.clearTimeout(collapseTimerRef.current);
@@ -167,17 +165,6 @@ export default function OverlayDock() {
     } catch (error: unknown) {
       const text = error instanceof Error ? error.message : String(error);
       setStatusNote(`Speak trigger failed: ${text}`);
-    }
-  };
-
-  const handleMute = async (): Promise<void> => {
-    setIsExpanded(true);
-    try {
-      await requestOverlayAction({ type: 'toggle-listener' });
-      setStatusNote(overlayState.isLiveTranscribing ? 'Voice listener muted.' : 'Voice listener resumed.');
-    } catch (error: unknown) {
-      const text = error instanceof Error ? error.message : String(error);
-      setStatusNote(text);
     }
   };
 
@@ -240,25 +227,6 @@ export default function OverlayDock() {
               </svg>
             </span>
             <span className="edge-nav-label">Speak</span>
-          </button>
-
-          <button
-            type="button"
-            className="edge-nav-btn"
-            onPointerDown={() => armAction('mute')}
-            onPointerLeave={clearArmedAction}
-            onPointerUp={() => handleArmedAction('mute', handleMute)}
-          >
-            <span className="edge-nav-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z" />
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                <line x1="12" y1="19" x2="12" y2="22" />
-                <line x1="8" y1="22" x2="16" y2="22" />
-                {!overlayState.isLiveTranscribing ? <line x1="4" y1="4" x2="20" y2="20" /> : null}
-              </svg>
-            </span>
-            <span className="edge-nav-label">{muteButtonLabel}</span>
           </button>
 
           <button

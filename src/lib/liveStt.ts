@@ -153,7 +153,7 @@ export class LiveSttController {
     this.assistantActive = true;
     this.applyCueCooldown();
     this.reportAssistantState(true, 'Assistant active.', source);
-    this.restartRecognitionForCurrentMode();
+    this.resumeRecognitionForCurrentMode();
   }
 
   manualDeactivate(source: AssistantControlSource = 'hotkey'): void {
@@ -164,7 +164,7 @@ export class LiveSttController {
     this.assistantActive = false;
     this.applyCueCooldown();
     this.reportAssistantState(false, `Assistant inactive. Listening for "${this.currentWakePhrase()}".`, source);
-    this.restartRecognitionForCurrentMode();
+    this.resumeRecognitionForCurrentMode();
   }
 
   private startWebSpeechRecognition(): void {
@@ -263,7 +263,7 @@ export class LiveSttController {
           trimmed,
           formatCueEvaluationSummary(wakeEvaluation),
         );
-        this.restartRecognitionForCurrentMode();
+        this.resumeRecognitionForCurrentMode();
         return;
       }
 
@@ -313,8 +313,13 @@ export class LiveSttController {
     });
   }
 
-  private restartRecognitionForCurrentMode(): void {
+  private resumeRecognitionForCurrentMode(): void {
+    if (!this.running) {
+      return;
+    }
+
     if (!this.speechRecognition) {
+      this.startWebSpeechRecognition();
       return;
     }
 

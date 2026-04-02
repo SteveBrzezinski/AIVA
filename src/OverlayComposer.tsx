@@ -5,7 +5,7 @@ import { getSettings, speakText, type AppSettings } from './lib/voiceOverlay';
 
 const SCREEN_EDGE_INSET = 12;
 const COMPOSER_PADDING = 8;
-const COMPOSER_PANEL_LAYOUT = { width: 304, height: 192 };
+const COMPOSER_PANEL_LAYOUT = { width: 304, height: 224 };
 const COMPOSER_LAYOUT = {
   width: COMPOSER_PANEL_LAYOUT.width + (COMPOSER_PADDING * 2),
   height: COMPOSER_PANEL_LAYOUT.height + (COMPOSER_PADDING * 2),
@@ -107,9 +107,6 @@ export default function OverlayComposer() {
 
     void overlayWindowRef.current.listen<OverlayState>(OVERLAY_STATE_EVENT, (event) => {
       setOverlayState(event.payload);
-      if (event.payload.assistantActive) {
-        setStatusNote('Ava is listening.');
-      }
     }).then((cleanup) => {
       unlistenOverlayState = cleanup;
     });
@@ -192,16 +189,6 @@ export default function OverlayComposer() {
             <span className="overlay-composer-panel__eyebrow">Text</span>
             <strong>{overlayState.assistantActive ? 'Assistant active' : 'Speech composer'}</strong>
           </div>
-          <button
-            type="button"
-            className="overlay-composer-panel__close"
-            aria-label="Close text composer"
-            onClick={() => {
-              void overlayWindowRef.current.emitTo<OverlayAction>('main', OVERLAY_ACTION_EVENT, { type: 'close-composer' });
-            }}
-          >
-            Close
-          </button>
         </div>
 
         <textarea
@@ -212,9 +199,13 @@ export default function OverlayComposer() {
         />
 
         <div className="overlay-composer-panel__footer">
-          <span>{statusNote}</span>
-          <button type="submit" className="overlay-composer-panel__send" disabled={!draftText.trim() || isSubmitting}>
-            {isSubmitting ? 'Sending...' : 'Speak'}
+          <button
+            type="submit"
+            className="overlay-composer-panel__send"
+            disabled={!draftText.trim() || isSubmitting}
+            title={statusNote}
+          >
+            {isSubmitting ? 'Sending...' : 'Send'}
           </button>
         </div>
       </form>
