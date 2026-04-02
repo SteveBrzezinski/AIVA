@@ -14,7 +14,6 @@ pub const SETTINGS_EVENT: &str = "settings-updated";
 pub const CONFIG_FILE_NAME: &str = ".voice-overlay-assistant.config.json";
 const DEFAULT_PLAYBACK_SPEED: f32 = 1.0;
 const DEFAULT_ASSISTANT_WAKE_THRESHOLD: u8 = 68;
-const DEFAULT_ASSISTANT_CLOSE_THRESHOLD: u8 = 64;
 const DEFAULT_ASSISTANT_CUE_COOLDOWN_MS: u32 = 1200;
 const DEFAULT_VOICE_AGENT_PERSONALITY: &str = "Composed, technically precise, friendly, and concise.";
 const DEFAULT_VOICE_AGENT_BEHAVIOR: &str =
@@ -45,11 +44,9 @@ pub struct AppSettings {
     pub voice_agent_tone_notes: String,
     pub voice_agent_onboarding_complete: bool,
     pub assistant_wake_samples: Vec<String>,
-    pub assistant_close_samples: Vec<String>,
     pub assistant_name_samples: Vec<String>,
     pub assistant_sample_language: String,
     pub assistant_wake_threshold: u8,
-    pub assistant_close_threshold: u8,
     pub assistant_cue_cooldown_ms: u32,
 }
 
@@ -76,11 +73,9 @@ impl Default for AppSettings {
             voice_agent_tone_notes: String::new(),
             voice_agent_onboarding_complete: true,
             assistant_wake_samples: Vec::new(),
-            assistant_close_samples: Vec::new(),
             assistant_name_samples: Vec::new(),
             assistant_sample_language: "de".to_string(),
             assistant_wake_threshold: DEFAULT_ASSISTANT_WAKE_THRESHOLD,
-            assistant_close_threshold: DEFAULT_ASSISTANT_CLOSE_THRESHOLD,
             assistant_cue_cooldown_ms: DEFAULT_ASSISTANT_CUE_COOLDOWN_MS,
         }
     }
@@ -229,15 +224,12 @@ pub fn sanitize_settings(mut settings: AppSettings) -> AppSettings {
         settings.assistant_sample_language.trim().to_lowercase()
     };
     settings.assistant_wake_samples = sanitize_phrase_samples(settings.assistant_wake_samples, 4);
-    settings.assistant_close_samples = sanitize_phrase_samples(settings.assistant_close_samples, 4);
     settings.assistant_name_samples = sanitize_phrase_samples(settings.assistant_name_samples, 2);
     if migrate_default_name {
         settings.assistant_wake_samples.clear();
-        settings.assistant_close_samples.clear();
         settings.assistant_name_samples.clear();
     }
     settings.assistant_wake_threshold = sanitize_assistant_threshold(settings.assistant_wake_threshold);
-    settings.assistant_close_threshold = sanitize_assistant_threshold(settings.assistant_close_threshold);
     settings.assistant_cue_cooldown_ms = sanitize_assistant_cooldown_ms(settings.assistant_cue_cooldown_ms);
 
     settings

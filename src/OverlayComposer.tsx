@@ -34,11 +34,9 @@ const fallbackSettings: AppSettings = {
   voiceAgentToneNotes: '',
   voiceAgentOnboardingComplete: true,
   assistantWakeSamples: [],
-  assistantCloseSamples: [],
   assistantNameSamples: [],
   assistantSampleLanguage: 'de',
   assistantWakeThreshold: 74,
-  assistantCloseThreshold: 64,
   assistantCueCooldownMs: 1000,
 };
 
