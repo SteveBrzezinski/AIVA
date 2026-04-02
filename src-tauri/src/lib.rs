@@ -1,3 +1,4 @@
+pub mod app_icon;
 pub mod background;
 pub mod hotkey;
 pub mod run_controller;

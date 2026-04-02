@@ -1,4 +1,4 @@
-use crate::settings::AppSettings;
+use crate::{app_icon, settings::AppSettings};
 use std::{
     env, fs,
     path::{Path, PathBuf},
@@ -33,10 +33,18 @@ impl AppLifecycleState {
 }
 
 pub fn setup_background<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
-    let icon = app
-        .default_window_icon()
-        .cloned()
-        .ok_or_else(|| "Default application icon is missing, so the tray icon cannot be created.".to_string())?;
+    let icon = match app_icon::load_aiva_icon() {
+        Ok(icon) => icon,
+        Err(custom_icon_error) => app
+            .default_window_icon()
+            .cloned()
+            .ok_or_else(|| {
+                format!(
+                    "Failed to load the AIVA tray icon ({custom_icon_error}) and the default application icon is missing."
+                )
+            })?
+            .into(),
+    };
 
     let menu = MenuBuilder::new(app)
         .text(TRAY_OPEN_MENU_ID, "Open Voice Overlay Assistant")
