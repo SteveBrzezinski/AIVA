@@ -37,7 +37,6 @@ import {
   ASSISTANT_CUE_COOLDOWN_MS_MAX,
   ASSISTANT_MATCH_THRESHOLD_MAX,
   ASSISTANT_MATCH_THRESHOLD_MIN,
-  DEFAULT_ASSISTANT_CLOSE_THRESHOLD,
   DEFAULT_ASSISTANT_CUE_COOLDOWN_MS,
   DEFAULT_ASSISTANT_WAKE_THRESHOLD,
   LiveSttController,
@@ -53,7 +52,7 @@ import {
 
 type UiState = 'idle' | 'working' | 'success' | 'error';
 type ProviderSnapshotMap = Partial<Record<SttProviderId, ProviderSnapshot>>;
-type CalibrationTarget = 'wake' | 'close' | 'name';
+type CalibrationTarget = 'wake' | 'name';
 type CalibrationStep = {
   id: string;
   target: CalibrationTarget;
@@ -113,11 +112,9 @@ const fallbackSettings: AppSettings = {
   voiceAgentToneNotes: '',
   voiceAgentOnboardingComplete: true,
   assistantWakeSamples: [],
-  assistantCloseSamples: [],
   assistantNameSamples: [],
   assistantSampleLanguage: 'de',
   assistantWakeThreshold: DEFAULT_ASSISTANT_WAKE_THRESHOLD,
-  assistantCloseThreshold: DEFAULT_ASSISTANT_CLOSE_THRESHOLD,
   assistantCueCooldownMs: DEFAULT_ASSISTANT_CUE_COOLDOWN_MS,
 };
 
@@ -186,7 +183,6 @@ function normalizeLanguageCode(language: string): string {
 
 function isAssistantCalibrationComplete(settings: AppSettings): boolean {
   return settings.assistantWakeSamples.length === 4 &&
-    settings.assistantCloseSamples.length === 4 &&
     settings.assistantNameSamples.length === 2 &&
     normalizeLanguageCode(settings.assistantSampleLanguage) === normalizeLanguageCode(settings.sttLanguage);
 }
@@ -200,7 +196,7 @@ function buildCalibrationSteps(name: string, language: string): CalibrationStep[
       target: 'wake' as const,
       prompt: `Hey ${safeName}`,
       headline: 'Please say:',
-      progress: `${index + 1}/4`,
+      progress: `${index + 1}/6`,
       recognitionLanguage,
     })),
     {
@@ -208,23 +204,15 @@ function buildCalibrationSteps(name: string, language: string): CalibrationStep[
       target: 'name',
       prompt: safeName,
       headline: 'Please say only the name:',
-      progress: '1/2',
+      progress: '5/6',
       recognitionLanguage,
     },
-    ...Array.from({ length: 4 }, (_, index) => ({
-      id: `close-${index + 1}`,
-      target: 'close' as const,
-      prompt: `Bye ${safeName}`,
-      headline: 'Please say:',
-      progress: `${index + 1}/4`,
-      recognitionLanguage,
-    })),
     {
       id: 'name-2',
       target: 'name',
       prompt: safeName,
       headline: 'Please say only the name again:',
-      progress: '2/2',
+      progress: '6/6',
       recognitionLanguage,
     },
   ];
@@ -303,7 +291,6 @@ export default function App() {
   const [assistantTrainingStatus, setAssistantTrainingStatus] = useState('');
   const [assistantTrainingError, setAssistantTrainingError] = useState('');
   const [assistantTrainingWakeSamples, setAssistantTrainingWakeSamples] = useState<string[]>([]);
-  const [assistantTrainingCloseSamples, setAssistantTrainingCloseSamples] = useState<string[]>([]);
   const [assistantTrainingNameSamples, setAssistantTrainingNameSamples] = useState<string[]>([]);
   const [isAssistantTrainingRecording, setIsAssistantTrainingRecording] = useState(false);
   const [assistantTrainingReadyName, setAssistantTrainingReadyName] = useState<string | null>(null);
@@ -312,7 +299,6 @@ export default function App() {
   const [assistantActive, setAssistantActive] = useState(false);
   const [assistantStateDetail, setAssistantStateDetail] = useState('Listening is stopped.');
   const [assistantWakePhrase, setAssistantWakePhrase] = useState('Hey AIVA');
-  const [assistantClosePhrase, setAssistantClosePhrase] = useState('Bye AIVA');
   const [liveTranscript, setLiveTranscript] = useState('');
   const [sttProviderSnapshots, setSttProviderSnapshots] = useState<ProviderSnapshotMap>({});
   const [liveTranscriptionSessionId, setLiveTranscriptionSessionId] = useState('');
@@ -337,7 +323,6 @@ export default function App() {
         setSavedSettings(appSettings);
         setAssistantTrainingReadyName(isAssistantCalibrationComplete(appSettings) ? appSettings.assistantName : null);
         setAssistantWakePhrase(`Hey ${appSettings.assistantName}`);
-        setAssistantClosePhrase(`Bye ${appSettings.assistantName}`);
         setLanguageOptions(languages);
         setMessage(hotkey.message);
         setCapturedPreview(hotkey.lastCapturedText ?? '');
@@ -472,7 +457,6 @@ export default function App() {
   useEffect(() => {
     if (!isLiveTranscribing) {
       setAssistantWakePhrase(`Hey ${settings.assistantName || 'AIVA'}`);
-      setAssistantClosePhrase(`Bye ${settings.assistantName || 'AIVA'}`);
     }
   }, [isLiveTranscribing, settings.assistantName]);
 
@@ -591,7 +575,6 @@ export default function App() {
   const applyAssistantState = (snapshot: AssistantStateSnapshot): void => {
     setAssistantActive(snapshot.active);
     setAssistantWakePhrase(snapshot.wakePhrase);
-    setAssistantClosePhrase(snapshot.closePhrase);
     setAssistantStateDetail(snapshot.reason);
     setLiveTranscriptionStatus(snapshot.reason);
     if (!snapshot.active) {
@@ -657,10 +640,10 @@ export default function App() {
     setLiveTranscriptionStatus(`Assistant active. Microphone is live (${source}).`);
   };
 
-  const deactivateAssistantVoice = async (source: 'manual' | 'hotkey' | 'close-word' | 'system' | string = 'manual'): Promise<void> => {
+  const deactivateAssistantVoice = async (source: 'manual' | 'hotkey' | 'system' | string = 'manual'): Promise<void> => {
     if (liveSttControllerRef.current) {
       liveSttControllerRef.current.manualDeactivate(
-        source === 'manual' || source === 'hotkey' || source === 'close-word' || source === 'system'
+        source === 'manual' || source === 'hotkey' || source === 'system'
           ? source
           : 'system',
       );
@@ -711,7 +694,6 @@ export default function App() {
     setAssistantTrainingStatus('Click Start, speak the shown phrase, then click Stop.');
     setAssistantTrainingError('');
     setAssistantTrainingWakeSamples([]);
-    setAssistantTrainingCloseSamples([]);
     setAssistantTrainingNameSamples([]);
     setShowAssistantTrainingDialog(true);
   };
@@ -786,8 +768,6 @@ export default function App() {
 
     if (currentAssistantTrainingStep.target === 'wake') {
       setAssistantTrainingWakeSamples((current) => [...current, assistantTrainingCapturedTranscript.trim()]);
-    } else if (currentAssistantTrainingStep.target === 'close') {
-      setAssistantTrainingCloseSamples((current) => [...current, assistantTrainingCapturedTranscript.trim()]);
     } else {
       setAssistantTrainingNameSamples((current) => [...current, assistantTrainingCapturedTranscript.trim()]);
     }
@@ -796,13 +776,12 @@ export default function App() {
       const nextSettings: AppSettings = {
         ...settings,
         assistantWakeSamples: [...assistantTrainingWakeSamples, ...(currentAssistantTrainingStep.target === 'wake' ? [assistantTrainingCapturedTranscript.trim()] : [])],
-        assistantCloseSamples: [...assistantTrainingCloseSamples, ...(currentAssistantTrainingStep.target === 'close' ? [assistantTrainingCapturedTranscript.trim()] : [])],
         assistantNameSamples: [...assistantTrainingNameSamples, ...(currentAssistantTrainingStep.target === 'name' ? [assistantTrainingCapturedTranscript.trim()] : [])],
         assistantSampleLanguage: normalizeLanguageCode(settings.sttLanguage),
       };
       setSettings(nextSettings);
       setAssistantTrainingReadyName(nextSettings.assistantName);
-      setAssistantTrainingStatus('Calibration completed. Save settings to persist the trained wake phrases.');
+      setAssistantTrainingStatus('Wake-word calibration completed. Save settings to persist the recorded samples.');
       setMessage('Assistant calibration captured. Save settings to persist it.');
       closeAssistantTrainingDialog();
       return;
@@ -928,7 +907,6 @@ export default function App() {
     setLastSttProvider('webview2');
     setLastSttActiveTranscript('');
     setAssistantWakePhrase(`Hey ${activeSettings.assistantName}`);
-    setAssistantClosePhrase(`Bye ${activeSettings.assistantName}`);
     setAssistantStateDetail('Starting wake-word listener...');
     setIsLiveTranscribing(true);
 
@@ -939,10 +917,8 @@ export default function App() {
           assistantName: activeSettings.assistantName,
           activateImmediately: options?.activateImmediately,
           wakeSamples: activeSettings.assistantWakeSamples,
-          closeSamples: activeSettings.assistantCloseSamples,
           nameSamples: activeSettings.assistantNameSamples,
           assistantWakeThreshold: activeSettings.assistantWakeThreshold,
-          assistantCloseThreshold: activeSettings.assistantCloseThreshold,
           assistantCueCooldownMs: activeSettings.assistantCueCooldownMs,
         },
         {
@@ -966,8 +942,7 @@ export default function App() {
             if (
               snapshot.transcript &&
               snapshot.detail?.startsWith('assistant-active') &&
-              !snapshot.detail?.includes('wake-word') &&
-              !snapshot.detail?.includes('close-word')
+              !snapshot.detail?.includes('wake-word')
             ) {
               setLiveTranscript(snapshot.transcript);
               setLastSttActiveTranscript(snapshot.transcript);
@@ -1195,7 +1170,6 @@ export default function App() {
                       ...settings,
                       assistantName: nextName,
                       assistantWakeSamples: [],
-                      assistantCloseSamples: [],
                       assistantNameSamples: [],
                       assistantSampleLanguage: normalizeLanguageCode(settings.sttLanguage),
                     });
@@ -1217,9 +1191,9 @@ export default function App() {
                 <span className="field-note field-note--warning">Please train the current name and language before saving.</span>
               ) : null}
               {!assistantNameError && assistantCalibrationComplete && assistantTrainingReadyName === settings.assistantName ? (
-                <span className="field-note field-note--success">Wake-/close-word calibration is ready for this name and language.</span>
+                <span className="field-note field-note--success">Wake-word calibration is ready for this name and language.</span>
               ) : null}
-              <span className="field-note">Use 4-8 characters, one single word. Wake and close phrases stay in English: <code>Hey {settings.assistantName || 'AIVA'}</code> activates, <code>Bye {settings.assistantName || 'AIVA'}</code> deactivates.</span>
+              <span className="field-note">Use 4-8 characters, one single word. The wake phrase stays in English: <code>Hey {settings.assistantName || 'AIVA'}</code> activates the assistant.</span>
             </label>
 
             <label className="settings-field">
@@ -1233,14 +1207,13 @@ export default function App() {
                     ...settings,
                     sttLanguage: event.target.value,
                     assistantWakeSamples: [],
-                    assistantCloseSamples: [],
                     assistantNameSamples: [],
                     assistantSampleLanguage: normalizeLanguageCode(event.target.value),
                   });
                   setAssistantTrainingReadyName(null);
                 }}
               />
-              <span className="field-note">This language is now also used while training and listening for wake/close phrases. If you change it, you need to record the training samples again, e.g. <code>de</code> or <code>en</code>.</span>
+              <span className="field-note">This language is now also used while training and listening for the wake phrase. If you change it, you need to record the training samples again, e.g. <code>de</code> or <code>en</code>.</span>
             </label>
 
             <label className="settings-field">
@@ -1268,30 +1241,6 @@ export default function App() {
             </label>
 
             <label className="settings-field">
-              <span className="info-label">Close match threshold</span>
-              <div className="slider-row">
-                <input
-                  type="range"
-                  min={ASSISTANT_MATCH_THRESHOLD_MIN}
-                  max={ASSISTANT_MATCH_THRESHOLD_MAX}
-                  step="1"
-                  value={settings.assistantCloseThreshold}
-                  onChange={(event) => setSettings({
-                    ...settings,
-                    assistantCloseThreshold: parseBoundedInteger(
-                      event.target.value,
-                      settings.assistantCloseThreshold,
-                      ASSISTANT_MATCH_THRESHOLD_MIN,
-                      ASSISTANT_MATCH_THRESHOLD_MAX,
-                    ),
-                  })}
-                />
-                <output>{settings.assistantCloseThreshold}</output>
-              </div>
-              <span className="field-note">Lower reacts easier, higher is stricter.</span>
-            </label>
-
-            <label className="settings-field">
               <span className="info-label">Cue cooldown</span>
               <input
                 type="number"
@@ -1309,7 +1258,7 @@ export default function App() {
                   ),
                 })}
               />
-              <span className="field-note">Milliseconds to ignore repeated cue hits right after a wake/close toggle so one utterance cannot bounce the state back.</span>
+              <span className="field-note">Milliseconds to ignore repeated wake hits right after activation so one utterance cannot retrigger the assistant.</span>
             </label>
 
             <label className="settings-field settings-field--wide">
@@ -1369,14 +1318,14 @@ export default function App() {
             ) : null}
           </div>
           <div className="result-block">
-            <span className="info-label">Wake / close phrases</span>
-            <p><strong>{assistantWakePhrase}</strong> · <strong>{assistantClosePhrase}</strong></p>
-            <span className="field-note">WebView2 can listen for wake and close phrases. The Realtime WebRTC session stays connected in the background, and only the microphone uplink is toggled on activation.</span>
+            <span className="info-label">Wake phrase</span>
+            <p><strong>{assistantWakePhrase}</strong></p>
+            <span className="field-note">WebView2 listens only for the wake phrase. The Realtime WebRTC session stays connected in the background, and only the microphone uplink is toggled on activation.</span>
           </div>
           <div className="result-block">
             <span className="info-label">Cue matching</span>
-            <p>Wake {settings.assistantWakeThreshold}/100 · Close {settings.assistantCloseThreshold}/100 · Cooldown {settings.assistantCueCooldownMs} ms</p>
-            <span className="field-note">Recognition status shows the current fuzzy score, component hints, and best matching fragment for tuning.</span>
+            <p>Wake {settings.assistantWakeThreshold}/100 · Cooldown {settings.assistantCueCooldownMs} ms</p>
+            <span className="field-note">Recognition status shows the current fuzzy wake score, component hints, and best matching fragment for tuning.</span>
           </div>
           <div className="result-block">
             <span className="info-label">Active transcript</span>
@@ -1513,7 +1462,7 @@ export default function App() {
             <li>Keep the app running in the background.</li>
             <li>Use <strong>Start live transcription</strong> when you want continuous local wake-word listening via WebView2.</li>
             <li>Say <strong>{assistantWakePhrase}</strong> or click <strong>Activate assistant</strong> to switch the Realtime session to <strong>online_listening</strong> and enable the microphone uplink.</li>
-            <li>Say <strong>{assistantClosePhrase}</strong>, let the assistant close itself naturally, or use <strong>{hotkeyStatus.activateAccelerator}</strong> / <strong>{hotkeyStatus.deactivateAccelerator}</strong> or the buttons to return to <strong>online_muted</strong>.</li>
+            <li>Let the assistant close itself naturally after the current turn, or use <strong>{hotkeyStatus.activateAccelerator}</strong> / <strong>{hotkeyStatus.deactivateAccelerator}</strong> or the buttons to return to <strong>online_muted</strong>.</li>
             <li>Select text in another Windows app when you want to test the separate read-aloud or translate+read flows.</li>
             <li><strong>{hotkeyStatus.accelerator}</strong> reads it aloud, while <strong>{hotkeyStatus.translateAccelerator}</strong> translates it and speaks the translation.</li>
           </ol>

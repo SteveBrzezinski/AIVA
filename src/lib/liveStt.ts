@@ -1,11 +1,10 @@
 export type SttProviderId = 'webview2';
 
-type AssistantControlSource = 'wake-word' | 'close-word' | 'hotkey' | 'manual' | 'system';
-type CueKind = 'wake' | 'close';
-type CueWord = 'hey' | 'bye';
+type AssistantControlSource = 'wake-word' | 'hotkey' | 'manual' | 'system';
+type CueKind = 'wake';
+type CueWord = 'hey';
 
 export const DEFAULT_ASSISTANT_WAKE_THRESHOLD = 68;
-export const DEFAULT_ASSISTANT_CLOSE_THRESHOLD = 64;
 export const DEFAULT_ASSISTANT_CUE_COOLDOWN_MS = 1200;
 export const ASSISTANT_MATCH_THRESHOLD_MIN = 45;
 export const ASSISTANT_MATCH_THRESHOLD_MAX = 95;
@@ -30,7 +29,6 @@ export type AssistantStateSnapshot = {
   source: AssistantControlSource;
   aiName: string;
   wakePhrase: string;
-  closePhrase: string;
 };
 
 export type LiveSttConfig = {
@@ -38,10 +36,8 @@ export type LiveSttConfig = {
   assistantName: string;
   activateImmediately?: boolean;
   wakeSamples?: string[];
-  closeSamples?: string[];
   nameSamples?: string[];
   assistantWakeThreshold?: number;
-  assistantCloseThreshold?: number;
   assistantCueCooldownMs?: number;
 };
 
@@ -111,10 +107,8 @@ export class LiveSttController {
       assistantName: sanitizeAssistantName(config.assistantName),
       activateImmediately: config.activateImmediately ?? false,
       wakeSamples: sanitizeSamples(config.wakeSamples, 4),
-      closeSamples: sanitizeSamples(config.closeSamples, 4),
       nameSamples: sanitizeSamples(config.nameSamples, 2),
       assistantWakeThreshold: sanitizeThreshold(config.assistantWakeThreshold, DEFAULT_ASSISTANT_WAKE_THRESHOLD),
-      assistantCloseThreshold: sanitizeThreshold(config.assistantCloseThreshold, DEFAULT_ASSISTANT_CLOSE_THRESHOLD),
       assistantCueCooldownMs: sanitizeCooldownMs(config.assistantCueCooldownMs, DEFAULT_ASSISTANT_CUE_COOLDOWN_MS),
     };
     this.callbacks = callbacks;
@@ -129,7 +123,7 @@ export class LiveSttController {
     this.startWebSpeechRecognition();
 
     if (this.assistantActive) {
-      this.reportAssistantState(true, `Assistant activated manually. Say "${this.currentClosePhrase()}" to deactivate.`, 'manual');
+      this.reportAssistantState(true, 'Assistant activated manually.', 'manual');
     } else {
       this.reportAssistantState(false, `Listening for wake phrase "${this.currentWakePhrase()}".`, 'system');
     }
@@ -158,7 +152,7 @@ export class LiveSttController {
 
     this.assistantActive = true;
     this.applyCueCooldown();
-    this.reportAssistantState(true, `Assistant active. Say "${this.currentClosePhrase()}" to deactivate.`, source);
+    this.reportAssistantState(true, 'Assistant active.', source);
     this.restartRecognitionForCurrentMode();
   }
 
@@ -284,38 +278,12 @@ export class LiveSttController {
       return;
     }
 
-    const closeEvaluation = evaluateCuePhrase({
-      transcript: trimmed,
-      kind: 'close',
-      cueWord: 'bye',
-      aiName: this.currentAssistantName(),
-      trainedPhrases: this.config?.closeSamples ?? [],
-      trainedNameSamples: this.config?.nameSamples ?? [],
-      baseThreshold: this.currentCloseThreshold(),
-      isFinal,
-      cooldownRemainingMs: this.cooldownRemainingMs(),
-    });
-
-    if (closeEvaluation.matched) {
-      this.assistantActive = false;
-      this.applyCueCooldown();
-      this.reportAssistantState(
-        false,
-        `Close phrase detected (${closeEvaluation.score}/${closeEvaluation.threshold}): ${this.currentClosePhrase()}.`,
-        'close-word',
-        trimmed,
-        formatCueEvaluationSummary(closeEvaluation),
-      );
-      this.restartRecognitionForCurrentMode();
-      return;
-    }
-
     this.callbacks?.onProviderSnapshot({
       provider: 'webview2',
       transcript: trimmed,
       latencyMs: 0,
       ok: true,
-      detail: buildCueSnapshotDetail('assistant-active', closeEvaluation, isFinal),
+      detail: ['assistant-active', isFinal ? 'final' : 'interim'].join(' Â· '),
       updatedAtMs: Date.now(),
     });
   }
@@ -333,7 +301,6 @@ export class LiveSttController {
       source,
       aiName: this.currentAssistantName(),
       wakePhrase: this.currentWakePhrase(),
-      closePhrase: this.currentClosePhrase(),
     });
     this.callbacks?.onStatus(reason);
     this.callbacks?.onProviderSnapshot({
@@ -375,20 +342,12 @@ export class LiveSttController {
     return `Hey ${this.currentAssistantName()}`;
   }
 
-  private currentClosePhrase(): string {
-    return `Bye ${this.currentAssistantName()}`;
-  }
-
   private currentRecognitionLanguage(): string {
     return mapSpeechRecognitionLanguage(this.config?.language ?? 'de');
   }
 
   private currentWakeThreshold(): number {
     return sanitizeThreshold(this.config?.assistantWakeThreshold, DEFAULT_ASSISTANT_WAKE_THRESHOLD);
-  }
-
-  private currentCloseThreshold(): number {
-    return sanitizeThreshold(this.config?.assistantCloseThreshold, DEFAULT_ASSISTANT_CLOSE_THRESHOLD);
   }
 
   private currentCueCooldownMs(): number {
@@ -440,7 +399,7 @@ function evaluateCuePhrase(options: {
   const normalized = normalizeForMatch(options.transcript);
   const threshold = Math.min(
     ASSISTANT_MATCH_THRESHOLD_MAX,
-    sanitizeThreshold(options.baseThreshold, options.kind === 'wake' ? DEFAULT_ASSISTANT_WAKE_THRESHOLD : DEFAULT_ASSISTANT_CLOSE_THRESHOLD) +
+    sanitizeThreshold(options.baseThreshold, DEFAULT_ASSISTANT_WAKE_THRESHOLD) +
       (options.isFinal ? 0 : INTERIM_THRESHOLD_BONUS),
   );
 
