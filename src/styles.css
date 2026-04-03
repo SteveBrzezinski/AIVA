@@ -162,6 +162,8 @@ h1 {
 
 .secondary-button--icon {
   min-width: 110px;
+  width: auto;
+  white-space: nowrap;
 }
 
 .panel-grid {
@@ -366,9 +368,17 @@ h1 {
 
 .inline-field-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) max-content;
   gap: 10px;
-  align-items: center;
+  align-items: stretch;
+}
+
+.inline-field-row > input {
+  min-width: 0;
+}
+
+.inline-field-row > button {
+  justify-self: start;
 }
 
 .checkbox-row {
@@ -517,6 +527,15 @@ h1 {
   .settings-actions,
   .modal-actions {
     width: 100%;
+  }
+
+  .inline-field-row {
+    grid-template-columns: 1fr;
+  }
+
+  .inline-field-row > button {
+    width: 100%;
+    justify-self: stretch;
   }
 
   .settings-actions button,

@@ -33,7 +33,9 @@ pub struct AppendSttDebugLogResult {
     pub debug_log_path: String,
 }
 
-pub fn append_stt_debug_log(options: AppendSttDebugLogOptions) -> Result<AppendSttDebugLogResult, String> {
+pub fn append_stt_debug_log(
+    options: AppendSttDebugLogOptions,
+) -> Result<AppendSttDebugLogResult, String> {
     let path = debug_log_path_for_session(&options.session_id)?;
     let payload = json!({
         "timestampMs": system_time_ms(),
@@ -50,17 +52,16 @@ pub fn append_stt_debug_log(options: AppendSttDebugLogOptions) -> Result<AppendS
     writeln!(file, "{}", payload)
         .map_err(|err| format!("Failed to append STT debug log '{}': {err}", path.display()))?;
 
-    Ok(AppendSttDebugLogResult {
-        debug_log_path: path.to_string_lossy().to_string(),
-    })
+    Ok(AppendSttDebugLogResult { debug_log_path: path.to_string_lossy().to_string() })
 }
 
 fn debug_log_path_for_session(session_id: &str) -> Result<PathBuf, String> {
     let mut dir = env::temp_dir();
     dir.push("voice-overlay-assistant");
     dir.push("stt-debug");
-    fs::create_dir_all(&dir)
-        .map_err(|err| format!("Failed to create STT debug directory '{}': {err}", dir.display()))?;
+    fs::create_dir_all(&dir).map_err(|err| {
+        format!("Failed to create STT debug directory '{}': {err}", dir.display())
+    })?;
     Ok(dir.join(format!("{session_id}.jsonl")))
 }
 

@@ -21,6 +21,7 @@ export type TranslateOptions = {
 };
 
 export type AppSettings = {
+  uiLanguage: string;
   translationTargetLanguage: string;
   playbackSpeed: number;
   openaiApiKey: string;

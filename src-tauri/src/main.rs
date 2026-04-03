@@ -1,7 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use tauri::Manager;
-use voice_overlay_assistant::{app_icon, background, hotkey, run_controller, settings, voice_tasks};
+use voice_overlay_assistant::{
+    app_icon, background, hotkey, run_controller, settings, voice_tasks,
+};
 
 #[tauri::command]
 fn app_status() -> &'static str {
@@ -19,13 +21,13 @@ fn main() {
         .manage(settings_state)
         .manage(voice_tasks::VoiceTaskState::default())
         .setup(|app| {
-            app_icon::apply_main_window_icon(&app.handle())
+            app_icon::apply_main_window_icon(app.handle())
                 .expect("failed to apply the AIVA window icon");
-            background::setup_background(&app.handle())
+            background::setup_background(app.handle())
                 .expect("failed to initialize background tray support");
-            hotkey::init_hotkey(&app.handle());
+            hotkey::init_hotkey(app.handle());
             let settings = app.state::<settings::SettingsState>().get();
-            background::apply_launch_behavior(&app.handle(), &settings);
+            background::apply_launch_behavior(app.handle(), &settings);
             Ok(())
         })
         .on_window_event(background::handle_window_event)

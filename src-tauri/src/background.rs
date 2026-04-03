@@ -42,8 +42,7 @@ pub fn setup_background<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
                 format!(
                     "Failed to load the AIVA tray icon ({custom_icon_error}) and the default application icon is missing."
                 )
-            })?
-            .into(),
+            })?,
     };
 
     let menu = MenuBuilder::new(app)
@@ -69,10 +68,9 @@ pub fn setup_background<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
                 button_state: MouseButtonState::Up,
                 ..
             }
-            | TrayIconEvent::DoubleClick {
-                button: MouseButton::Left,
-                ..
-            } => show_main_window(tray.app_handle()),
+            | TrayIconEvent::DoubleClick { button: MouseButton::Left, .. } => {
+                show_main_window(tray.app_handle())
+            }
             _ => {}
         })
         .build(app)
@@ -189,17 +187,17 @@ mod windows_impl {
     }
 
     fn startup_script_path() -> Result<PathBuf, String> {
-        let app_data = env::var_os("APPDATA")
-            .ok_or_else(|| "APPDATA is missing, so the Windows Startup folder cannot be resolved.".to_string())?;
+        let app_data = env::var_os("APPDATA").ok_or_else(|| {
+            "APPDATA is missing, so the Windows Startup folder cannot be resolved.".to_string()
+        })?;
 
-        Ok(PathBuf::from(app_data)
-            .join(WINDOWS_STARTUP_FOLDER)
-            .join(STARTUP_SCRIPT_NAME))
+        Ok(PathBuf::from(app_data).join(WINDOWS_STARTUP_FOLDER).join(STARTUP_SCRIPT_NAME))
     }
 
     fn current_executable_path() -> Result<PathBuf, String> {
-        env::current_exe()
-            .map_err(|error| format!("Failed to resolve the current executable for autostart: {error}"))
+        env::current_exe().map_err(|error| {
+            format!("Failed to resolve the current executable for autostart: {error}")
+        })
     }
 
     fn build_startup_script(executable_path: &Path) -> String {
