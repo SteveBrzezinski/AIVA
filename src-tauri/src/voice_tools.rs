@@ -15,42 +15,6 @@ use std::{
 };
 use tauri::{AppHandle, Manager};
 
-const BLOCKED_EXECUTABLE_EXTENSIONS: &[&str] = &[
-    ".appinstaller",
-    ".bat",
-    ".cmd",
-    ".com",
-    ".cpl",
-    ".exe",
-    ".hta",
-    ".js",
-    ".jse",
-    ".lnk",
-    ".msi",
-    ".msc",
-    ".ps1",
-    ".psm1",
-    ".scr",
-    ".vbe",
-    ".vbs",
-    ".wsf",
-];
-
-const IGNORED_DIRECTORIES: &[&str] = &[
-    "$recycle.bin",
-    ".git",
-    ".hg",
-    ".next",
-    ".nuxt",
-    ".venv",
-    "appdata",
-    "dist",
-    "node_modules",
-    "temp",
-    "tmp",
-    "target",
-];
-
 struct SearchPathItem {
     path: String,
     kind: &'static str,
@@ -1329,7 +1293,7 @@ fn search_paths(
                 }
             }
 
-            if metadata.is_dir() && !is_ignored_directory(&file_name) {
+            if metadata.is_dir() {
                 queue.push_back(full_path);
             }
         }
@@ -1630,15 +1594,6 @@ fn open_path(raw_path: &str) -> Result<Value, String> {
             }));
         }
     };
-
-    if !metadata.is_dir() && is_blocked_executable(&resolved) {
-        return Ok(json!({
-            "ok": false,
-            "reason": "blocked_executable",
-            "message": format!("For safety reasons this file will not be opened directly: {}", resolved.to_string_lossy()),
-            "path": resolved.to_string_lossy(),
-        }));
-    }
 
     let script = format!(
         "Start-Process -LiteralPath '{}'",
@@ -2022,18 +1977,6 @@ fn ensure_file(path: &Path, content: &str) -> Result<(), String> {
         }
     }
     fs::write(path, content).map_err(|error| format!("Failed to write {}: {error}", path.to_string_lossy()))
-}
-
-fn is_ignored_directory(name: &str) -> bool {
-    IGNORED_DIRECTORIES.iter().any(|item| item.eq_ignore_ascii_case(name.trim()))
-}
-
-fn is_blocked_executable(path: &Path) -> bool {
-    path.extension()
-        .and_then(|value| value.to_str())
-        .map(|extension| format!(".{}", extension).to_lowercase())
-        .map(|extension| BLOCKED_EXECUTABLE_EXTENSIONS.contains(&extension.as_str()))
-        .unwrap_or(false)
 }
 
 fn common_location_paths() -> Vec<PathBuf> {

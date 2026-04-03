@@ -295,9 +295,9 @@ export default function App() {
   const [isAssistantTrainingRecording, setIsAssistantTrainingRecording] = useState(false);
   const [assistantTrainingReadyName, setAssistantTrainingReadyName] = useState<string | null>(null);
   const [isLiveTranscribing, setIsLiveTranscribing] = useState(false);
-  const [liveTranscriptionStatus, setLiveTranscriptionStatus] = useState('Live transcription is stopped.');
+  const [liveTranscriptionStatus, setLiveTranscriptionStatus] = useState('Live transcription starts automatically when the app launches.');
   const [assistantActive, setAssistantActive] = useState(false);
-  const [assistantStateDetail, setAssistantStateDetail] = useState('Listening is stopped.');
+  const [assistantStateDetail, setAssistantStateDetail] = useState('Initializing wake-word listener...');
   const [assistantWakePhrase, setAssistantWakePhrase] = useState('Hey AIVA');
   const [liveTranscript, setLiveTranscript] = useState('');
   const [sttProviderSnapshots, setSttProviderSnapshots] = useState<ProviderSnapshotMap>({});
@@ -310,6 +310,8 @@ export default function App() {
   const liveSttControllerRef = useRef<LiveSttController | null>(null);
   const realtimeVoiceAgentRef = useRef<RealtimeVoiceAgentController | null>(null);
   const startLiveTranscriptionRef = useRef<(options?: { activateImmediately?: boolean }) => Promise<void>>(async () => undefined);
+  const autoStartLiveTranscriptionRef = useRef(false);
+  const resumeLiveTranscriptionAfterTrainingRef = useRef(false);
   const assistantTrainingRecognitionRef = useRef<{ stop: () => void } | null>(null);
   const sttDebugWriteTimerRef = useRef<number | null>(null);
   const [initialStateLoaded, setInitialStateLoaded] = useState(false);
@@ -426,13 +428,6 @@ export default function App() {
       void unlistenLiveSttControl?.();
     };
   }, []);
-
-  useEffect(() => {
-    if (!initialStateLoaded) {
-      return;
-    }
-    void startVoiceAgent();
-  }, [initialStateLoaded]);
 
   useEffect(() => {
     return () => {
@@ -684,6 +679,7 @@ export default function App() {
       return;
     }
 
+    resumeLiveTranscriptionAfterTrainingRef.current = isLiveTranscribing;
     if (isLiveTranscribing) {
       await stopLiveTranscription();
     }
@@ -699,12 +695,19 @@ export default function App() {
   };
 
   const closeAssistantTrainingDialog = (): void => {
+    const shouldResumeLiveTranscription = resumeLiveTranscriptionAfterTrainingRef.current;
+    resumeLiveTranscriptionAfterTrainingRef.current = false;
     stopAssistantTrainingRecognition();
     setShowAssistantTrainingDialog(false);
     setAssistantTrainingTranscript('');
     setAssistantTrainingCapturedTranscript('');
     setAssistantTrainingStatus('');
     setAssistantTrainingError('');
+    if (shouldResumeLiveTranscription) {
+      window.setTimeout(() => {
+        void startLiveTranscriptionRef.current();
+      }, 0);
+    }
   };
 
   const startAssistantTrainingRecording = (): void => {
@@ -960,6 +963,15 @@ export default function App() {
 
   startLiveTranscriptionRef.current = startLiveTranscription;
 
+  useEffect(() => {
+    if (!initialStateLoaded || autoStartLiveTranscriptionRef.current) {
+      return;
+    }
+
+    autoStartLiveTranscriptionRef.current = true;
+    void startLiveTranscriptionRef.current();
+  }, [initialStateLoaded]);
+
   const stopLiveTranscription = async (): Promise<void> => {
     await realtimeVoiceAgentRef.current?.mute('stop-live-transcription');
     if (liveSttControllerRef.current) {
@@ -1050,14 +1062,6 @@ export default function App() {
               onClick={() => void runTranslateSelectedText()}
             >
               Local translation test
-            </button>
-            <button
-              type="button"
-              className="secondary-button"
-              disabled={isSavingSettings}
-              onClick={() => void (isLiveTranscribing ? stopLiveTranscription() : startLiveTranscription())}
-            >
-              {isLiveTranscribing ? 'Stop live transcription' : 'Start live transcription'}
             </button>
             <button
               type="button"
@@ -1329,7 +1333,7 @@ export default function App() {
           </div>
           <div className="result-block">
             <span className="info-label">Active transcript</span>
-            <p>{liveTranscript || (assistantActive ? 'No transcript yet.' : isLiveTranscribing ? 'Waiting for wake phrase...' : 'Microphone muted. Start live transcription for wake-word listening or activate the assistant manually.')}</p>
+            <p>{liveTranscript || (assistantActive ? 'No transcript yet.' : isLiveTranscribing ? 'Waiting for wake phrase...' : 'Wake-word listener is currently unavailable.')}</p>
           </div>
           {Object.values(sttProviderSnapshots).length ? (
             <div className="result-block">
@@ -1460,7 +1464,7 @@ export default function App() {
           <span className="info-label">Usage</span>
           <ol>
             <li>Keep the app running in the background.</li>
-            <li>Use <strong>Start live transcription</strong> when you want continuous local wake-word listening via WebView2.</li>
+            <li>Live transcription starts automatically with the app and keeps local wake-word listening active via WebView2.</li>
             <li>Say <strong>{assistantWakePhrase}</strong> or click <strong>Activate assistant</strong> to switch the Realtime session to <strong>online_listening</strong> and enable the microphone uplink.</li>
             <li>Let the assistant close itself naturally after the current turn, or use <strong>{hotkeyStatus.activateAccelerator}</strong> / <strong>{hotkeyStatus.deactivateAccelerator}</strong> or the buttons to return to <strong>online_muted</strong>.</li>
             <li>Select text in another Windows app when you want to test the separate read-aloud or translate+read flows.</li>
