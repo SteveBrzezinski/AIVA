@@ -94,8 +94,7 @@ pub fn setup_background<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
                 format!(
                     "Failed to load the AIVA tray icon ({custom_icon_error}) and the default application icon is missing."
                 )
-            })?
-            .into(),
+            })?,
     };
 
     let menu = MenuBuilder::new(app)
@@ -356,7 +355,7 @@ fn show_main_window<R: Runtime, M: Manager<R>>(manager: &M) -> Result<bool, Stri
     window.set_focus().map_err(|error| format!("Failed to focus the main window: {error}"))?;
 
     let app = manager.app_handle();
-    emit_main_window_visibility(&app, true);
+    emit_main_window_visibility(app, true);
     Ok(true)
 }
 
@@ -387,7 +386,7 @@ fn hide_main_window<R: Runtime, M: Manager<R>>(manager: &M) -> Result<bool, Stri
     window.hide().map_err(|error| format!("Failed to hide the main window: {error}"))?;
 
     let app = manager.app_handle();
-    emit_main_window_visibility(&app, false);
+    emit_main_window_visibility(app, false);
     Ok(false)
 }
 
