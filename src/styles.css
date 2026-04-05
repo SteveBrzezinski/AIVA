@@ -55,6 +55,20 @@
   --overlay-shell-active: rgba(255, 255, 255, 0.12);
   --overlay-panel-bg: rgba(8, 8, 10, 0.95);
   --overlay-panel-shadow: rgba(255, 255, 255, 0.1);
+  --edge-trigger-border: rgba(255, 255, 255, 0.2);
+  --edge-trigger-ready-border: rgba(255, 255, 255, 0.24);
+  --edge-trigger-active-border: rgba(255, 255, 255, 0.28);
+  --edge-trigger-surface-top: rgba(255, 255, 255, 0.12);
+  --edge-trigger-surface-mid: rgba(255, 255, 255, 0.03);
+  --edge-trigger-surface-core: rgba(7, 7, 9, 0.98);
+  --edge-trigger-surface-lower: rgba(255, 255, 255, 0.04);
+  --edge-trigger-surface-bottom: rgba(255, 255, 255, 0.12);
+  --edge-trigger-base-top: rgba(5, 5, 7, 0.98);
+  --edge-trigger-base-bottom: rgba(21, 22, 26, 0.94);
+  --edge-trigger-inner-highlight: rgba(255, 255, 255, 0.1);
+  --edge-button-primary-text: var(--text-primary);
+  --edge-button-primary-text-shadow: none;
+  --edge-button-hover-text: var(--text-primary);
   --orb-stop-outer-1: rgba(255, 255, 255, 0);
   --orb-stop-outer-2: rgba(255, 255, 255, 0.06);
   --orb-stop-outer-3: rgba(255, 255, 255, 0.18);
@@ -132,6 +146,24 @@ body[data-theme='shadow-satin'] {
   --overlay-shell: rgba(19, 21, 25, 0.94);
   --overlay-panel-bg: rgba(21, 23, 27, 0.96);
   --overlay-panel-shadow: rgba(229, 233, 241, 0.08);
+  --edge-trigger-border: rgba(220, 226, 237, 0.18);
+  --edge-trigger-ready-border: rgba(229, 233, 241, 0.24);
+  --edge-trigger-active-border: rgba(241, 243, 247, 0.3);
+  --edge-trigger-surface-top: rgba(240, 243, 248, 0.14);
+  --edge-trigger-surface-mid: rgba(240, 243, 248, 0.04);
+  --edge-trigger-surface-core: rgba(20, 22, 26, 0.98);
+  --edge-trigger-surface-lower: rgba(240, 243, 248, 0.05);
+  --edge-trigger-surface-bottom: rgba(240, 243, 248, 0.14);
+  --edge-trigger-base-top: rgba(17, 18, 20, 0.98);
+  --edge-trigger-base-bottom: rgba(28, 30, 35, 0.96);
+  --orb-visual-primary: #f2f6fb;
+  --orb-visual-secondary: #b8c2d4;
+  --orb-visual-tertiary: #dde5f1;
+  --orb-visual-surface: rgba(22, 24, 30, 0.96);
+  --orb-visual-highlight: #ffffff;
+  --orb-visual-shadow: rgba(3, 5, 8, 0.74);
+  --orb-visual-grid: rgba(221, 229, 241, 0.12);
+  --orb-visual-trace: rgba(206, 214, 226, 0.4);
   --orb-ring-main-mid-b: rgba(245, 246, 248, 0.88);
   --orb-ring-glow-mid-b: rgba(255, 255, 255, 0.74);
   --window-mark-shadow: 0 0 12px rgba(235, 239, 247, 0.2), 0 0 24px rgba(235, 239, 247, 0.08);
@@ -191,6 +223,27 @@ body[data-theme='olympian-marble'] {
   --overlay-shell-active: rgba(220, 191, 126, 0.2);
   --overlay-panel-bg: rgba(249, 244, 237, 0.96);
   --overlay-panel-shadow: rgba(203, 169, 104, 0.16);
+  --edge-trigger-border: rgba(162, 135, 96, 0.3);
+  --edge-trigger-ready-border: rgba(186, 156, 104, 0.44);
+  --edge-trigger-active-border: rgba(202, 170, 110, 0.58);
+  --edge-trigger-surface-top: rgba(255, 255, 255, 0.62);
+  --edge-trigger-surface-mid: rgba(220, 191, 126, 0.18);
+  --edge-trigger-surface-core: rgba(248, 242, 232, 0.98);
+  --edge-trigger-surface-lower: rgba(189, 198, 208, 0.14);
+  --edge-trigger-surface-bottom: rgba(255, 255, 255, 0.54);
+  --edge-trigger-base-top: rgba(250, 245, 238, 0.98);
+  --edge-trigger-base-bottom: rgba(236, 226, 212, 0.96);
+  --edge-trigger-inner-highlight: rgba(255, 255, 255, 0.56);
+  --edge-button-primary-text: var(--text-primary);
+  --edge-button-primary-text-shadow: none;
+  --orb-visual-primary: #d7b980;
+  --orb-visual-secondary: #b7c4d3;
+  --orb-visual-tertiary: #f3e5c2;
+  --orb-visual-surface: rgba(247, 240, 229, 0.96);
+  --orb-visual-highlight: #fff8ef;
+  --orb-visual-shadow: rgba(104, 82, 50, 0.24);
+  --orb-visual-grid: rgba(214, 184, 128, 0.16);
+  --orb-visual-trace: rgba(176, 186, 198, 0.34);
   --orb-stop-outer-1: rgba(209, 174, 107, 0);
   --orb-stop-outer-2: rgba(209, 174, 107, 0.08);
   --orb-stop-outer-3: rgba(212, 176, 106, 0.26);
@@ -293,6 +346,24 @@ body[data-theme='retro-signal'] {
   --overlay-shell-active: rgba(89, 237, 214, 0.14);
   --overlay-panel-bg: rgba(17, 10, 14, 0.96);
   --overlay-panel-shadow: rgba(255, 149, 92, 0.12);
+  --edge-trigger-border: rgba(255, 162, 92, 0.24);
+  --edge-trigger-ready-border: rgba(98, 235, 212, 0.26);
+  --edge-trigger-active-border: rgba(255, 184, 88, 0.34);
+  --edge-trigger-surface-top: rgba(255, 184, 88, 0.16);
+  --edge-trigger-surface-mid: rgba(98, 235, 212, 0.08);
+  --edge-trigger-surface-core: rgba(18, 11, 15, 0.98);
+  --edge-trigger-surface-lower: rgba(255, 144, 90, 0.08);
+  --edge-trigger-surface-bottom: rgba(255, 184, 88, 0.16);
+  --edge-trigger-base-top: rgba(28, 16, 22, 0.98);
+  --edge-trigger-base-bottom: rgba(11, 8, 11, 0.96);
+  --orb-visual-primary: #ffd08d;
+  --orb-visual-secondary: #7ff7eb;
+  --orb-visual-tertiary: #ff9862;
+  --orb-visual-surface: rgba(14, 9, 16, 0.96);
+  --orb-visual-highlight: #fff0cb;
+  --orb-visual-shadow: rgba(7, 5, 7, 0.82);
+  --orb-visual-grid: rgba(127, 247, 235, 0.16);
+  --orb-visual-trace: rgba(255, 152, 98, 0.42);
   --orb-stop-outer-1: rgba(255, 159, 92, 0);
   --orb-stop-outer-2: rgba(255, 159, 92, 0.08);
   --orb-stop-outer-3: rgba(255, 159, 92, 0.24);
@@ -340,6 +411,769 @@ body[data-theme='retro-signal'] {
   --window-control-close-hover-border: rgba(255, 160, 160, 0.22);
   --status-dot-fill: #62e2bd;
   --status-dot-shadow: 0 0 16px rgba(98, 226, 189, 0.52);
+}
+
+html[data-theme='fantasy-relic'],
+body[data-theme='fantasy-relic'] {
+  --text-primary: #f8ecff;
+  --text-secondary: #d6c0ea;
+  --text-muted: #9ab5ab;
+  --text-faint: rgba(248, 236, 255, 0.64);
+  --app-bg-pattern:
+    radial-gradient(circle at 16% 18%, rgba(193, 123, 255, 0.2) 0%, transparent 28%),
+    radial-gradient(circle at 84% 72%, rgba(84, 255, 214, 0.14) 0%, transparent 26%),
+    linear-gradient(140deg, rgba(255, 226, 168, 0.04) 0%, transparent 20%, rgba(255, 226, 168, 0.04) 32%, transparent 56%);
+  --app-bg-aurora: rgba(185, 124, 255, 0.28);
+  --app-bg-aurora-secondary: rgba(84, 255, 214, 0.16);
+  --app-bg-start: #12081c;
+  --app-bg-end: #060910;
+  --panel-texture:
+    radial-gradient(circle at 18% 16%, rgba(255, 224, 169, 0.08) 0%, transparent 20%),
+    linear-gradient(135deg, rgba(194, 124, 255, 0.06) 0%, transparent 24%, rgba(84, 255, 214, 0.04) 64%, transparent 100%);
+  --panel-bg: linear-gradient(180deg, rgba(28, 16, 40, 0.96) 0%, rgba(13, 10, 24, 0.94) 100%);
+  --panel-bg-muted: rgba(24, 14, 36, 0.92);
+  --panel-bg-deep: rgba(17, 10, 29, 0.96);
+  --panel-bg-soft: rgba(194, 124, 255, 0.06);
+  --panel-border: rgba(200, 156, 255, 0.22);
+  --panel-border-strong: rgba(228, 204, 255, 0.32);
+  --panel-border-active: rgba(103, 255, 216, 0.34);
+  --panel-shadow: 0 24px 58px rgba(0, 0, 0, 0.44), 0 0 30px rgba(185, 124, 255, 0.18);
+  --panel-glow-soft: rgba(185, 124, 255, 0.1);
+  --panel-glow-medium: rgba(103, 255, 216, 0.14);
+  --panel-glow-strong: rgba(255, 226, 168, 0.18);
+  --button-primary-bg: linear-gradient(180deg, rgba(194, 124, 255, 0.32) 0%, rgba(88, 255, 214, 0.16) 100%);
+  --button-primary-bg-hover: linear-gradient(180deg, rgba(204, 146, 255, 0.4) 0%, rgba(116, 255, 219, 0.24) 100%);
+  --button-primary-border: rgba(214, 186, 255, 0.28);
+  --button-primary-shadow: 0 0 24px rgba(187, 128, 255, 0.18);
+  --button-secondary-bg: rgba(255, 255, 255, 0.04);
+  --button-secondary-bg-hover: rgba(255, 255, 255, 0.08);
+  --button-secondary-border: rgba(203, 166, 255, 0.16);
+  --button-secondary-border-hover: rgba(255, 230, 188, 0.22);
+  --danger-bg: rgba(118, 26, 58, 0.34);
+  --danger-border: rgba(213, 102, 141, 0.24);
+  --status-chip-bg: rgba(194, 124, 255, 0.08);
+  --status-chip-border: rgba(203, 166, 255, 0.18);
+  --status-chip-text: #f8ecff;
+  --input-bg: rgba(16, 10, 28, 0.88);
+  --input-border: rgba(200, 156, 255, 0.18);
+  --input-border-focus: rgba(104, 255, 216, 0.34);
+  --scrollbar-track: rgba(194, 124, 255, 0.04);
+  --scrollbar-thumb: rgba(204, 170, 255, 0.2);
+  --scrollbar-thumb-hover: rgba(255, 224, 169, 0.3);
+  --overlay-shell: rgba(16, 10, 27, 0.94);
+  --overlay-shell-border: rgba(210, 178, 255, 0.16);
+  --overlay-shell-highlight: rgba(255, 245, 255, 0.08);
+  --overlay-shell-active: rgba(103, 255, 216, 0.12);
+  --overlay-panel-bg: rgba(18, 11, 31, 0.96);
+  --overlay-panel-shadow: rgba(187, 128, 255, 0.14);
+  --edge-trigger-border: rgba(208, 173, 255, 0.24);
+  --edge-trigger-ready-border: rgba(103, 255, 216, 0.26);
+  --edge-trigger-active-border: rgba(255, 226, 168, 0.34);
+  --edge-trigger-surface-top: rgba(255, 230, 188, 0.16);
+  --edge-trigger-surface-mid: rgba(194, 124, 255, 0.08);
+  --edge-trigger-surface-core: rgba(17, 10, 29, 0.98);
+  --edge-trigger-surface-lower: rgba(103, 255, 216, 0.08);
+  --edge-trigger-surface-bottom: rgba(255, 230, 188, 0.16);
+  --edge-trigger-base-top: rgba(26, 15, 37, 0.98);
+  --edge-trigger-base-bottom: rgba(9, 8, 15, 0.96);
+  --orb-visual-primary: #f0d6ff;
+  --orb-visual-secondary: #74ffd6;
+  --orb-visual-tertiary: #c49aff;
+  --orb-visual-surface: rgba(24, 14, 36, 0.96);
+  --orb-visual-highlight: #ffe8be;
+  --orb-visual-shadow: rgba(8, 3, 18, 0.78);
+  --orb-visual-grid: rgba(116, 255, 214, 0.16);
+  --orb-visual-trace: rgba(245, 224, 255, 0.62);
+  --window-mark-border: rgba(214, 184, 255, 0.42);
+  --window-mark-bg: radial-gradient(circle, rgba(255, 226, 168, 0.92) 0%, rgba(194, 124, 255, 0.22) 54%, rgba(255, 255, 255, 0) 100%);
+  --window-mark-shadow: 0 0 12px rgba(194, 124, 255, 0.24), 0 0 24px rgba(103, 255, 216, 0.12);
+  --window-title-shadow: 0 0 14px rgba(194, 124, 255, 0.16);
+  --window-control-hover-bg: rgba(194, 124, 255, 0.08);
+  --window-control-hover-border: rgba(214, 184, 255, 0.18);
+  --window-control-hover-shadow: 0 0 16px rgba(194, 124, 255, 0.12);
+  --window-control-close-hover-color: #ffe7e7;
+  --window-control-close-hover-bg: rgba(144, 41, 54, 0.42);
+  --window-control-close-hover-border: rgba(255, 160, 160, 0.22);
+  --status-dot-fill: #74ffd6;
+  --status-dot-shadow: 0 0 16px rgba(116, 255, 214, 0.5);
+}
+
+html[data-theme='retro-arcade'],
+body[data-theme='retro-arcade'] {
+  --text-primary: #ffe7b0;
+  --text-secondary: #f3b5df;
+  --text-muted: #87dce8;
+  --text-faint: rgba(255, 231, 176, 0.64);
+  --app-bg-pattern:
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0 1px, transparent 1px 5px),
+    linear-gradient(90deg, rgba(43, 240, 255, 0.08) 0%, transparent 28%, transparent 72%, rgba(255, 80, 219, 0.08) 100%);
+  --app-bg-aurora: rgba(255, 80, 219, 0.18);
+  --app-bg-aurora-secondary: rgba(43, 240, 255, 0.14);
+  --app-bg-start: #120616;
+  --app-bg-end: #050811;
+  --panel-texture:
+    linear-gradient(180deg, rgba(255, 80, 219, 0.05) 0%, transparent 26%, rgba(43, 240, 255, 0.03) 100%),
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0 1px, transparent 1px 6px);
+  --panel-bg: linear-gradient(180deg, rgba(28, 11, 35, 0.96) 0%, rgba(10, 8, 18, 0.94) 100%);
+  --panel-bg-muted: rgba(24, 9, 30, 0.92);
+  --panel-bg-deep: rgba(14, 9, 20, 0.96);
+  --panel-bg-soft: rgba(255, 80, 219, 0.05);
+  --panel-border: rgba(255, 108, 230, 0.2);
+  --panel-border-strong: rgba(255, 178, 240, 0.28);
+  --panel-border-active: rgba(43, 240, 255, 0.32);
+  --panel-shadow: 0 24px 56px rgba(0, 0, 0, 0.46), 0 0 28px rgba(255, 80, 219, 0.16);
+  --panel-glow-soft: rgba(255, 80, 219, 0.1);
+  --panel-glow-medium: rgba(43, 240, 255, 0.14);
+  --panel-glow-strong: rgba(255, 230, 127, 0.18);
+  --button-primary-bg: linear-gradient(180deg, rgba(255, 80, 219, 0.28) 0%, rgba(43, 240, 255, 0.16) 100%);
+  --button-primary-bg-hover: linear-gradient(180deg, rgba(255, 106, 226, 0.36) 0%, rgba(82, 244, 255, 0.24) 100%);
+  --button-primary-border: rgba(255, 173, 241, 0.24);
+  --button-primary-shadow: 0 0 24px rgba(255, 80, 219, 0.18);
+  --button-secondary-bg: rgba(255, 255, 255, 0.03);
+  --button-secondary-bg-hover: rgba(255, 255, 255, 0.07);
+  --button-secondary-border: rgba(255, 108, 230, 0.14);
+  --button-secondary-border-hover: rgba(43, 240, 255, 0.22);
+  --danger-bg: rgba(134, 24, 47, 0.34);
+  --danger-border: rgba(228, 103, 141, 0.22);
+  --status-chip-bg: rgba(255, 80, 219, 0.08);
+  --status-chip-border: rgba(255, 176, 241, 0.16);
+  --status-chip-text: #ffe7b0;
+  --input-bg: rgba(12, 9, 20, 0.88);
+  --input-border: rgba(255, 108, 230, 0.16);
+  --input-border-focus: rgba(43, 240, 255, 0.34);
+  --scrollbar-track: rgba(255, 80, 219, 0.04);
+  --scrollbar-thumb: rgba(255, 108, 230, 0.22);
+  --scrollbar-thumb-hover: rgba(43, 240, 255, 0.32);
+  --overlay-shell: rgba(12, 8, 20, 0.94);
+  --overlay-shell-border: rgba(255, 108, 230, 0.16);
+  --overlay-shell-highlight: rgba(255, 196, 249, 0.08);
+  --overlay-shell-active: rgba(43, 240, 255, 0.14);
+  --overlay-panel-bg: rgba(11, 8, 19, 0.96);
+  --overlay-panel-shadow: rgba(255, 80, 219, 0.14);
+  --edge-trigger-border: rgba(255, 108, 230, 0.22);
+  --edge-trigger-ready-border: rgba(43, 240, 255, 0.26);
+  --edge-trigger-active-border: rgba(255, 226, 127, 0.34);
+  --edge-trigger-surface-top: rgba(255, 226, 127, 0.16);
+  --edge-trigger-surface-mid: rgba(255, 80, 219, 0.08);
+  --edge-trigger-surface-core: rgba(12, 8, 20, 0.98);
+  --edge-trigger-surface-lower: rgba(43, 240, 255, 0.08);
+  --edge-trigger-surface-bottom: rgba(255, 80, 219, 0.16);
+  --edge-trigger-base-top: rgba(23, 11, 29, 0.98);
+  --edge-trigger-base-bottom: rgba(7, 6, 12, 0.96);
+  --orb-visual-primary: #ffe27d;
+  --orb-visual-secondary: #33f0ff;
+  --orb-visual-tertiary: #ff4fd8;
+  --orb-visual-surface: rgba(11, 6, 18, 0.96);
+  --orb-visual-highlight: #fff7d8;
+  --orb-visual-shadow: rgba(2, 3, 8, 0.8);
+  --orb-visual-grid: rgba(51, 240, 255, 0.18);
+  --orb-visual-trace: rgba(255, 79, 216, 0.64);
+  --window-mark-border: rgba(255, 164, 238, 0.42);
+  --window-mark-bg: radial-gradient(circle, rgba(255, 226, 127, 0.94) 0%, rgba(43, 240, 255, 0.22) 54%, rgba(255, 255, 255, 0) 100%);
+  --window-mark-shadow: 0 0 12px rgba(255, 80, 219, 0.24), 0 0 24px rgba(43, 240, 255, 0.12);
+  --window-title-shadow: 0 0 14px rgba(255, 80, 219, 0.14);
+  --window-control-hover-bg: rgba(255, 80, 219, 0.08);
+  --window-control-hover-border: rgba(255, 176, 241, 0.18);
+  --window-control-hover-shadow: 0 0 16px rgba(255, 80, 219, 0.12);
+  --window-control-close-hover-color: #ffe7e7;
+  --window-control-close-hover-bg: rgba(144, 41, 54, 0.42);
+  --window-control-close-hover-border: rgba(255, 160, 160, 0.22);
+  --status-dot-fill: #33f0ff;
+  --status-dot-shadow: 0 0 16px rgba(51, 240, 255, 0.54);
+}
+
+html[data-theme='modern-glass'],
+body[data-theme='modern-glass'] {
+  --text-primary: #132132;
+  --text-secondary: #51657b;
+  --text-muted: #7c91a7;
+  --text-faint: rgba(19, 33, 50, 0.62);
+  --app-bg-pattern:
+    radial-gradient(circle at 18% 18%, rgba(111, 213, 255, 0.22) 0%, transparent 28%),
+    radial-gradient(circle at 82% 72%, rgba(93, 119, 255, 0.14) 0%, transparent 28%);
+  --app-bg-aurora: rgba(111, 213, 255, 0.22);
+  --app-bg-aurora-secondary: rgba(93, 119, 255, 0.14);
+  --app-bg-start: #eef4f8;
+  --app-bg-end: #d9e4ec;
+  --panel-texture:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0.08) 100%),
+    radial-gradient(circle at top left, rgba(111, 213, 255, 0.12) 0%, transparent 28%);
+  --panel-bg: linear-gradient(180deg, rgba(250, 252, 255, 0.96) 0%, rgba(232, 239, 245, 0.94) 100%);
+  --panel-bg-muted: rgba(242, 247, 252, 0.94);
+  --panel-bg-deep: rgba(245, 249, 253, 0.96);
+  --panel-bg-soft: rgba(255, 255, 255, 0.58);
+  --panel-border: rgba(117, 144, 171, 0.22);
+  --panel-border-strong: rgba(103, 130, 157, 0.32);
+  --panel-border-active: rgba(93, 119, 255, 0.28);
+  --panel-shadow: 0 24px 56px rgba(99, 124, 154, 0.12), 0 0 26px rgba(111, 213, 255, 0.14);
+  --panel-glow-soft: rgba(111, 213, 255, 0.1);
+  --panel-glow-medium: rgba(93, 119, 255, 0.12);
+  --panel-glow-strong: rgba(134, 245, 228, 0.18);
+  --button-primary-bg: linear-gradient(180deg, rgba(111, 213, 255, 0.3) 0%, rgba(93, 119, 255, 0.16) 100%);
+  --button-primary-bg-hover: linear-gradient(180deg, rgba(128, 220, 255, 0.4) 0%, rgba(111, 134, 255, 0.24) 100%);
+  --button-primary-border: rgba(87, 119, 173, 0.22);
+  --button-primary-shadow: 0 0 22px rgba(111, 213, 255, 0.14);
+  --button-secondary-bg: rgba(255, 255, 255, 0.48);
+  --button-secondary-bg-hover: rgba(255, 255, 255, 0.72);
+  --button-secondary-border: rgba(121, 146, 173, 0.18);
+  --button-secondary-border-hover: rgba(95, 124, 181, 0.28);
+  --danger-bg: rgba(185, 77, 97, 0.14);
+  --danger-border: rgba(180, 82, 100, 0.22);
+  --status-chip-bg: rgba(255, 255, 255, 0.62);
+  --status-chip-border: rgba(117, 144, 171, 0.16);
+  --status-chip-text: #132132;
+  --input-bg: rgba(255, 255, 255, 0.82);
+  --input-border: rgba(117, 144, 171, 0.2);
+  --input-border-focus: rgba(93, 119, 255, 0.32);
+  --scrollbar-track: rgba(121, 146, 173, 0.06);
+  --scrollbar-thumb: rgba(111, 139, 168, 0.22);
+  --scrollbar-thumb-hover: rgba(95, 124, 181, 0.34);
+  --overlay-shell: rgba(245, 249, 253, 0.94);
+  --overlay-shell-border: rgba(117, 144, 171, 0.18);
+  --overlay-shell-highlight: rgba(255, 255, 255, 0.68);
+  --overlay-shell-active: rgba(111, 213, 255, 0.18);
+  --overlay-panel-bg: rgba(247, 251, 255, 0.96);
+  --overlay-panel-shadow: rgba(111, 213, 255, 0.12);
+  --edge-trigger-border: rgba(117, 144, 171, 0.22);
+  --edge-trigger-ready-border: rgba(93, 119, 255, 0.26);
+  --edge-trigger-active-border: rgba(107, 224, 255, 0.3);
+  --edge-trigger-surface-top: rgba(255, 255, 255, 0.74);
+  --edge-trigger-surface-mid: rgba(111, 213, 255, 0.12);
+  --edge-trigger-surface-core: rgba(243, 248, 252, 0.98);
+  --edge-trigger-surface-lower: rgba(93, 119, 255, 0.08);
+  --edge-trigger-surface-bottom: rgba(255, 255, 255, 0.66);
+  --edge-trigger-base-top: rgba(250, 252, 255, 0.98);
+  --edge-trigger-base-bottom: rgba(229, 237, 244, 0.96);
+  --orb-visual-primary: #6be0ff;
+  --orb-visual-secondary: #4263ff;
+  --orb-visual-tertiary: #86f5e4;
+  --orb-visual-surface: rgba(242, 247, 252, 0.94);
+  --orb-visual-highlight: #ffffff;
+  --orb-visual-shadow: rgba(79, 108, 145, 0.22);
+  --orb-visual-grid: rgba(66, 99, 255, 0.08);
+  --orb-visual-trace: rgba(66, 99, 255, 0.4);
+  --window-mark-border: rgba(93, 119, 255, 0.32);
+  --window-mark-bg: radial-gradient(circle, rgba(111, 213, 255, 0.94) 0%, rgba(93, 119, 255, 0.18) 56%, rgba(255, 255, 255, 0) 100%);
+  --window-mark-shadow: 0 0 12px rgba(111, 213, 255, 0.18), 0 0 24px rgba(93, 119, 255, 0.1);
+  --window-title-shadow: 0 0 14px rgba(111, 213, 255, 0.1);
+  --window-control-hover-bg: rgba(255, 255, 255, 0.72);
+  --window-control-hover-border: rgba(117, 144, 171, 0.2);
+  --window-control-hover-shadow: 0 0 14px rgba(111, 213, 255, 0.08);
+  --window-control-close-hover-color: #6e1822;
+  --window-control-close-hover-bg: rgba(199, 117, 128, 0.16);
+  --window-control-close-hover-border: rgba(167, 78, 90, 0.22);
+  --status-dot-fill: #4fa2be;
+  --status-dot-shadow: 0 0 14px rgba(79, 162, 190, 0.34);
+}
+
+html[data-theme='universe-drift'],
+body[data-theme='universe-drift'] {
+  --text-primary: #eef1ff;
+  --text-secondary: #cad0f6;
+  --text-muted: #92a1ca;
+  --text-faint: rgba(238, 241, 255, 0.64);
+  --app-bg-pattern:
+    radial-gradient(circle at 20% 20%, rgba(171, 109, 255, 0.18) 0%, transparent 28%),
+    radial-gradient(circle at 80% 70%, rgba(82, 244, 255, 0.12) 0%, transparent 24%),
+    linear-gradient(140deg, rgba(255, 255, 255, 0.03) 0%, transparent 28%, rgba(255, 255, 255, 0.02) 64%, transparent 100%);
+  --app-bg-aurora: rgba(171, 109, 255, 0.2);
+  --app-bg-aurora-secondary: rgba(82, 244, 255, 0.12);
+  --app-bg-start: #070b18;
+  --app-bg-end: #02050e;
+  --panel-texture:
+    radial-gradient(circle at 18% 16%, rgba(171, 109, 255, 0.08) 0%, transparent 22%),
+    linear-gradient(135deg, rgba(82, 244, 255, 0.04) 0%, transparent 28%, rgba(147, 179, 255, 0.04) 100%);
+  --panel-bg: linear-gradient(180deg, rgba(13, 16, 33, 0.96) 0%, rgba(7, 10, 24, 0.94) 100%);
+  --panel-bg-muted: rgba(11, 13, 28, 0.92);
+  --panel-bg-deep: rgba(8, 11, 24, 0.96);
+  --panel-bg-soft: rgba(171, 109, 255, 0.05);
+  --panel-border: rgba(147, 179, 255, 0.2);
+  --panel-border-strong: rgba(194, 205, 255, 0.28);
+  --panel-border-active: rgba(82, 244, 255, 0.28);
+  --panel-shadow: 0 24px 58px rgba(0, 0, 0, 0.48), 0 0 30px rgba(171, 109, 255, 0.16);
+  --panel-glow-soft: rgba(171, 109, 255, 0.1);
+  --panel-glow-medium: rgba(82, 244, 255, 0.12);
+  --panel-glow-strong: rgba(147, 179, 255, 0.18);
+  --button-primary-bg: linear-gradient(180deg, rgba(147, 179, 255, 0.26) 0%, rgba(171, 109, 255, 0.14) 100%);
+  --button-primary-bg-hover: linear-gradient(180deg, rgba(165, 193, 255, 0.34) 0%, rgba(188, 133, 255, 0.22) 100%);
+  --button-primary-border: rgba(176, 197, 255, 0.22);
+  --button-primary-shadow: 0 0 24px rgba(171, 109, 255, 0.16);
+  --button-secondary-bg: rgba(255, 255, 255, 0.03);
+  --button-secondary-bg-hover: rgba(255, 255, 255, 0.07);
+  --button-secondary-border: rgba(147, 179, 255, 0.14);
+  --button-secondary-border-hover: rgba(82, 244, 255, 0.22);
+  --danger-bg: rgba(120, 25, 52, 0.34);
+  --danger-border: rgba(220, 99, 134, 0.22);
+  --status-chip-bg: rgba(147, 179, 255, 0.08);
+  --status-chip-border: rgba(147, 179, 255, 0.16);
+  --status-chip-text: #eef1ff;
+  --input-bg: rgba(9, 11, 22, 0.88);
+  --input-border: rgba(147, 179, 255, 0.16);
+  --input-border-focus: rgba(82, 244, 255, 0.3);
+  --scrollbar-track: rgba(147, 179, 255, 0.04);
+  --scrollbar-thumb: rgba(147, 179, 255, 0.18);
+  --scrollbar-thumb-hover: rgba(82, 244, 255, 0.28);
+  --overlay-shell: rgba(8, 11, 24, 0.94);
+  --overlay-shell-border: rgba(147, 179, 255, 0.16);
+  --overlay-shell-highlight: rgba(255, 255, 255, 0.08);
+  --overlay-shell-active: rgba(171, 109, 255, 0.12);
+  --overlay-panel-bg: rgba(9, 12, 27, 0.96);
+  --overlay-panel-shadow: rgba(171, 109, 255, 0.14);
+  --edge-trigger-border: rgba(147, 179, 255, 0.2);
+  --edge-trigger-ready-border: rgba(82, 244, 255, 0.24);
+  --edge-trigger-active-border: rgba(171, 109, 255, 0.32);
+  --edge-trigger-surface-top: rgba(147, 179, 255, 0.14);
+  --edge-trigger-surface-mid: rgba(171, 109, 255, 0.08);
+  --edge-trigger-surface-core: rgba(8, 11, 24, 0.98);
+  --edge-trigger-surface-lower: rgba(82, 244, 255, 0.08);
+  --edge-trigger-surface-bottom: rgba(147, 179, 255, 0.14);
+  --edge-trigger-base-top: rgba(12, 15, 31, 0.98);
+  --edge-trigger-base-bottom: rgba(4, 6, 13, 0.96);
+  --orb-visual-primary: #93b3ff;
+  --orb-visual-secondary: #b06cff;
+  --orb-visual-tertiary: #52f4ff;
+  --orb-visual-surface: rgba(9, 12, 25, 0.96);
+  --orb-visual-highlight: #ffffff;
+  --orb-visual-shadow: rgba(4, 6, 18, 0.8);
+  --orb-visual-grid: rgba(176, 108, 255, 0.16);
+  --orb-visual-trace: rgba(82, 244, 255, 0.56);
+  --window-mark-border: rgba(147, 179, 255, 0.36);
+  --window-mark-bg: radial-gradient(circle, rgba(147, 179, 255, 0.9) 0%, rgba(171, 109, 255, 0.18) 54%, rgba(255, 255, 255, 0) 100%);
+  --window-mark-shadow: 0 0 12px rgba(147, 179, 255, 0.2), 0 0 24px rgba(171, 109, 255, 0.12);
+  --window-title-shadow: 0 0 14px rgba(147, 179, 255, 0.12);
+  --window-control-hover-bg: rgba(147, 179, 255, 0.08);
+  --window-control-hover-border: rgba(147, 179, 255, 0.16);
+  --window-control-hover-shadow: 0 0 16px rgba(171, 109, 255, 0.1);
+  --window-control-close-hover-color: #ffe7e7;
+  --window-control-close-hover-bg: rgba(144, 41, 54, 0.42);
+  --window-control-close-hover-border: rgba(255, 160, 160, 0.22);
+  --status-dot-fill: #7dc8ff;
+  --status-dot-shadow: 0 0 16px rgba(125, 200, 255, 0.42);
+}
+
+html[data-theme='creed-eclipse'],
+body[data-theme='creed-eclipse'] {
+  --text-primary: #eaf9ff;
+  --text-secondary: #a5d8ec;
+  --text-muted: #6fa7bd;
+  --text-faint: rgba(234, 249, 255, 0.64);
+  --app-bg-pattern:
+    repeating-linear-gradient(180deg, rgba(133, 240, 255, 0.04) 0 1px, transparent 1px 8px),
+    linear-gradient(90deg, rgba(133, 240, 255, 0.08) 0%, transparent 18%, transparent 82%, rgba(103, 182, 255, 0.08) 100%),
+    radial-gradient(circle at 50% 50%, rgba(133, 240, 255, 0.08) 0%, transparent 40%);
+  --app-bg-aurora: rgba(133, 240, 255, 0.16);
+  --app-bg-aurora-secondary: rgba(103, 182, 255, 0.14);
+  --app-bg-start: #041018;
+  --app-bg-end: #081a25;
+  --panel-texture:
+    linear-gradient(180deg, rgba(133, 240, 255, 0.05) 0%, transparent 24%, rgba(103, 182, 255, 0.04) 100%),
+    repeating-linear-gradient(90deg, rgba(133, 240, 255, 0.04) 0 1px, transparent 1px 16px);
+  --panel-bg: linear-gradient(180deg, rgba(10, 20, 30, 0.96) 0%, rgba(6, 13, 20, 0.94) 100%);
+  --panel-bg-muted: rgba(8, 18, 27, 0.92);
+  --panel-bg-deep: rgba(6, 14, 22, 0.96);
+  --panel-bg-soft: rgba(133, 240, 255, 0.05);
+  --panel-border: rgba(133, 240, 255, 0.18);
+  --panel-border-strong: rgba(200, 248, 255, 0.32);
+  --panel-border-active: rgba(103, 182, 255, 0.38);
+  --panel-shadow: 0 24px 56px rgba(0, 0, 0, 0.48), 0 0 34px rgba(133, 240, 255, 0.14);
+  --panel-glow-soft: rgba(133, 240, 255, 0.08);
+  --panel-glow-medium: rgba(103, 182, 255, 0.16);
+  --panel-glow-strong: rgba(200, 248, 255, 0.18);
+  --button-primary-bg: linear-gradient(180deg, rgba(200, 248, 255, 0.24) 0%, rgba(103, 182, 255, 0.18) 100%);
+  --button-primary-bg-hover: linear-gradient(180deg, rgba(215, 251, 255, 0.34) 0%, rgba(118, 198, 255, 0.24) 100%);
+  --button-primary-border: rgba(164, 240, 255, 0.32);
+  --button-primary-shadow: 0 0 24px rgba(133, 240, 255, 0.18);
+  --button-secondary-bg: rgba(133, 240, 255, 0.04);
+  --button-secondary-bg-hover: rgba(133, 240, 255, 0.08);
+  --button-secondary-border: rgba(133, 240, 255, 0.14);
+  --button-secondary-border-hover: rgba(200, 248, 255, 0.24);
+  --danger-bg: rgba(85, 28, 44, 0.34);
+  --danger-border: rgba(205, 114, 130, 0.24);
+  --status-chip-bg: rgba(133, 240, 255, 0.08);
+  --status-chip-border: rgba(133, 240, 255, 0.14);
+  --status-chip-text: #eaf9ff;
+  --input-bg: rgba(6, 14, 22, 0.9);
+  --input-border: rgba(133, 240, 255, 0.16);
+  --input-border-focus: rgba(133, 240, 255, 0.34);
+  --scrollbar-track: rgba(133, 240, 255, 0.04);
+  --scrollbar-thumb: rgba(133, 240, 255, 0.2);
+  --scrollbar-thumb-hover: rgba(200, 248, 255, 0.3);
+  --overlay-shell: rgba(6, 15, 23, 0.94);
+  --overlay-shell-border: rgba(133, 240, 255, 0.16);
+  --overlay-shell-highlight: rgba(255, 255, 255, 0.08);
+  --overlay-shell-active: rgba(103, 182, 255, 0.14);
+  --overlay-panel-bg: rgba(6, 15, 23, 0.96);
+  --overlay-panel-shadow: rgba(133, 240, 255, 0.14);
+  --edge-trigger-border: rgba(133, 240, 255, 0.22);
+  --edge-trigger-ready-border: rgba(200, 248, 255, 0.28);
+  --edge-trigger-active-border: rgba(103, 182, 255, 0.34);
+  --edge-trigger-surface-top: rgba(200, 248, 255, 0.14);
+  --edge-trigger-surface-mid: rgba(103, 182, 255, 0.1);
+  --edge-trigger-surface-core: rgba(6, 15, 23, 0.98);
+  --edge-trigger-surface-lower: rgba(133, 240, 255, 0.05);
+  --edge-trigger-surface-bottom: rgba(200, 248, 255, 0.14);
+  --edge-trigger-base-top: rgba(10, 22, 32, 0.98);
+  --edge-trigger-base-bottom: rgba(4, 12, 19, 0.96);
+  --orb-visual-primary: #f6fdff;
+  --orb-visual-secondary: #85f0ff;
+  --orb-visual-tertiary: #67b6ff;
+  --orb-visual-surface: rgba(7, 19, 27, 0.96);
+  --orb-visual-highlight: #ffffff;
+  --orb-visual-shadow: rgba(2, 8, 13, 0.82);
+  --orb-visual-grid: rgba(133, 240, 255, 0.18);
+  --orb-visual-trace: rgba(103, 182, 255, 0.36);
+  --window-mark-border: rgba(164, 240, 255, 0.34);
+  --window-mark-bg: radial-gradient(circle, rgba(246, 253, 255, 0.94) 0%, rgba(133, 240, 255, 0.3) 58%, rgba(255, 255, 255, 0) 100%);
+  --window-mark-shadow: 0 0 12px rgba(246, 253, 255, 0.18), 0 0 24px rgba(133, 240, 255, 0.18);
+  --window-title-shadow: 0 0 14px rgba(133, 240, 255, 0.14);
+  --window-control-hover-bg: rgba(133, 240, 255, 0.08);
+  --window-control-hover-border: rgba(133, 240, 255, 0.16);
+  --window-control-hover-shadow: 0 0 16px rgba(133, 240, 255, 0.1);
+  --window-control-close-hover-color: #ffe7e7;
+  --window-control-close-hover-bg: rgba(144, 41, 54, 0.42);
+  --window-control-close-hover-border: rgba(255, 160, 160, 0.22);
+  --status-dot-fill: #85f0ff;
+  --status-dot-shadow: 0 0 16px rgba(133, 240, 255, 0.42);
+}
+
+html[data-theme='volt-forge'],
+body[data-theme='volt-forge'] {
+  --text-primary: #effff2;
+  --text-secondary: #bed4c5;
+  --text-muted: #738a7e;
+  --text-faint: rgba(239, 255, 242, 0.66);
+  --app-bg-pattern:
+    linear-gradient(135deg, rgba(125, 255, 79, 0.08) 0%, transparent 20%, rgba(125, 255, 79, 0.03) 48%, transparent 100%),
+    repeating-linear-gradient(90deg, rgba(182, 193, 203, 0.03) 0 1px, transparent 1px 18px),
+    radial-gradient(circle at 82% 18%, rgba(125, 255, 79, 0.18) 0%, transparent 22%);
+  --app-bg-aurora: rgba(125, 255, 79, 0.18);
+  --app-bg-aurora-secondary: rgba(182, 193, 203, 0.1);
+  --app-bg-start: #040607;
+  --app-bg-end: #111416;
+  --panel-texture:
+    linear-gradient(180deg, rgba(125, 255, 79, 0.05) 0%, transparent 26%, rgba(182, 193, 203, 0.02) 100%),
+    linear-gradient(90deg, rgba(182, 193, 203, 0.05) 0%, transparent 34%, rgba(125, 255, 79, 0.04) 100%);
+  --panel-bg: linear-gradient(180deg, rgba(11, 13, 15, 0.96) 0%, rgba(5, 8, 9, 0.94) 100%);
+  --panel-bg-muted: rgba(9, 11, 13, 0.92);
+  --panel-bg-deep: rgba(5, 7, 9, 0.96);
+  --panel-bg-soft: rgba(125, 255, 79, 0.05);
+  --panel-border: rgba(125, 255, 79, 0.18);
+  --panel-border-strong: rgba(205, 214, 220, 0.28);
+  --panel-border-active: rgba(125, 255, 79, 0.34);
+  --panel-shadow: 0 24px 56px rgba(0, 0, 0, 0.54), 0 0 34px rgba(125, 255, 79, 0.14);
+  --panel-glow-soft: rgba(125, 255, 79, 0.1);
+  --panel-glow-medium: rgba(125, 255, 79, 0.18);
+  --panel-glow-strong: rgba(205, 214, 220, 0.12);
+  --button-primary-bg: linear-gradient(180deg, rgba(125, 255, 79, 0.32) 0%, rgba(182, 193, 203, 0.1) 100%);
+  --button-primary-bg-hover: linear-gradient(180deg, rgba(140, 255, 102, 0.42) 0%, rgba(197, 207, 214, 0.18) 100%);
+  --button-primary-border: rgba(125, 255, 79, 0.24);
+  --button-primary-shadow: 0 0 28px rgba(125, 255, 79, 0.2);
+  --button-secondary-bg: rgba(255, 255, 255, 0.03);
+  --button-secondary-bg-hover: rgba(255, 255, 255, 0.08);
+  --button-secondary-border: rgba(205, 214, 220, 0.12);
+  --button-secondary-border-hover: rgba(125, 255, 79, 0.24);
+  --danger-bg: rgba(104, 31, 39, 0.34);
+  --danger-border: rgba(180, 86, 96, 0.22);
+  --status-chip-bg: rgba(125, 255, 79, 0.1);
+  --status-chip-border: rgba(125, 255, 79, 0.16);
+  --status-chip-text: #effff2;
+  --input-bg: rgba(8, 10, 11, 0.88);
+  --input-border: rgba(125, 255, 79, 0.16);
+  --input-border-focus: rgba(125, 255, 79, 0.34);
+  --scrollbar-track: rgba(125, 255, 79, 0.04);
+  --scrollbar-thumb: rgba(125, 255, 79, 0.2);
+  --scrollbar-thumb-hover: rgba(147, 255, 110, 0.3);
+  --overlay-shell: rgba(8, 10, 11, 0.94);
+  --overlay-shell-border: rgba(125, 255, 79, 0.16);
+  --overlay-shell-highlight: rgba(255, 255, 255, 0.08);
+  --overlay-shell-active: rgba(125, 255, 79, 0.14);
+  --overlay-panel-bg: rgba(8, 10, 11, 0.96);
+  --overlay-panel-shadow: rgba(125, 255, 79, 0.14);
+  --edge-trigger-border: rgba(125, 255, 79, 0.22);
+  --edge-trigger-ready-border: rgba(125, 255, 79, 0.28);
+  --edge-trigger-active-border: rgba(205, 214, 220, 0.24);
+  --edge-trigger-surface-top: rgba(125, 255, 79, 0.14);
+  --edge-trigger-surface-mid: rgba(125, 255, 79, 0.08);
+  --edge-trigger-surface-core: rgba(8, 10, 11, 0.98);
+  --edge-trigger-surface-lower: rgba(205, 214, 220, 0.05);
+  --edge-trigger-surface-bottom: rgba(125, 255, 79, 0.14);
+  --edge-trigger-base-top: rgba(15, 17, 18, 0.98);
+  --edge-trigger-base-bottom: rgba(5, 7, 8, 0.96);
+  --orb-visual-primary: #9cff4f;
+  --orb-visual-secondary: #d7e0e6;
+  --orb-visual-tertiary: #ecffcd;
+  --orb-visual-surface: rgba(7, 9, 10, 0.96);
+  --orb-visual-highlight: #f4fff7;
+  --orb-visual-shadow: rgba(0, 0, 0, 0.84);
+  --orb-visual-grid: rgba(125, 255, 79, 0.18);
+  --orb-visual-trace: rgba(215, 224, 230, 0.3);
+  --window-mark-border: rgba(125, 255, 79, 0.34);
+  --window-mark-bg: radial-gradient(circle, rgba(156, 255, 79, 0.94) 0%, rgba(215, 224, 230, 0.14) 56%, rgba(255, 255, 255, 0) 100%);
+  --window-mark-shadow: 0 0 12px rgba(125, 255, 79, 0.24), 0 0 24px rgba(125, 255, 79, 0.12);
+  --window-title-shadow: 0 0 14px rgba(125, 255, 79, 0.12);
+  --window-control-hover-bg: rgba(125, 255, 79, 0.08);
+  --window-control-hover-border: rgba(125, 255, 79, 0.18);
+  --window-control-hover-shadow: 0 0 16px rgba(125, 255, 79, 0.12);
+  --window-control-close-hover-color: #ffe7e7;
+  --window-control-close-hover-bg: rgba(144, 41, 54, 0.42);
+  --window-control-close-hover-border: rgba(255, 160, 160, 0.22);
+  --status-dot-fill: #9cff4f;
+  --status-dot-shadow: 0 0 16px rgba(156, 255, 79, 0.46);
+}
+
+html[data-theme='brass-engine'],
+body[data-theme='brass-engine'] {
+  --text-primary: #ffe7bf;
+  --text-secondary: #d7b791;
+  --text-muted: #957456;
+  --text-faint: rgba(255, 231, 191, 0.64);
+  --app-bg-pattern:
+    linear-gradient(135deg, rgba(210, 139, 69, 0.08) 0%, transparent 20%, rgba(210, 139, 69, 0.03) 54%, transparent 100%),
+    repeating-linear-gradient(90deg, rgba(126, 73, 38, 0.06) 0 2px, transparent 2px 18px),
+    radial-gradient(circle at 82% 18%, rgba(255, 210, 134, 0.16) 0%, transparent 24%);
+  --app-bg-aurora: rgba(209, 141, 73, 0.2);
+  --app-bg-aurora-secondary: rgba(255, 219, 157, 0.1);
+  --app-bg-start: #140c07;
+  --app-bg-end: #060403;
+  --panel-texture:
+    linear-gradient(180deg, rgba(255, 219, 157, 0.05) 0%, transparent 22%, rgba(124, 73, 38, 0.04) 100%),
+    linear-gradient(90deg, rgba(126, 73, 38, 0.08) 0%, transparent 34%, rgba(255, 219, 157, 0.03) 100%);
+  --panel-bg: linear-gradient(180deg, rgba(40, 22, 12, 0.96) 0%, rgba(14, 8, 5, 0.94) 100%);
+  --panel-bg-muted: rgba(33, 18, 10, 0.92);
+  --panel-bg-deep: rgba(18, 10, 6, 0.96);
+  --panel-bg-soft: rgba(211, 154, 82, 0.06);
+  --panel-border: rgba(211, 154, 82, 0.2);
+  --panel-border-strong: rgba(255, 219, 157, 0.28);
+  --panel-border-active: rgba(211, 154, 82, 0.36);
+  --panel-shadow: 0 24px 56px rgba(0, 0, 0, 0.54), 0 0 30px rgba(211, 154, 82, 0.16);
+  --panel-glow-soft: rgba(211, 154, 82, 0.1);
+  --panel-glow-medium: rgba(255, 213, 138, 0.16);
+  --panel-glow-strong: rgba(255, 219, 157, 0.18);
+  --button-primary-bg: linear-gradient(180deg, rgba(255, 213, 138, 0.3) 0%, rgba(211, 154, 82, 0.18) 100%);
+  --button-primary-bg-hover: linear-gradient(180deg, rgba(255, 224, 157, 0.4) 0%, rgba(224, 166, 92, 0.28) 100%);
+  --button-primary-border: rgba(211, 154, 82, 0.3);
+  --button-primary-shadow: 0 0 24px rgba(211, 154, 82, 0.2);
+  --button-secondary-bg: rgba(255, 213, 138, 0.05);
+  --button-secondary-bg-hover: rgba(255, 213, 138, 0.1);
+  --button-secondary-border: rgba(211, 154, 82, 0.16);
+  --button-secondary-border-hover: rgba(255, 219, 157, 0.24);
+  --danger-bg: rgba(112, 34, 30, 0.34);
+  --danger-border: rgba(192, 102, 92, 0.22);
+  --status-chip-bg: rgba(255, 213, 138, 0.1);
+  --status-chip-border: rgba(211, 154, 82, 0.18);
+  --status-chip-text: #ffe7bf;
+  --input-bg: rgba(15, 9, 6, 0.9);
+  --input-border: rgba(211, 154, 82, 0.18);
+  --input-border-focus: rgba(255, 213, 138, 0.34);
+  --scrollbar-track: rgba(211, 154, 82, 0.04);
+  --scrollbar-thumb: rgba(211, 154, 82, 0.22);
+  --scrollbar-thumb-hover: rgba(255, 219, 157, 0.32);
+  --overlay-shell: rgba(18, 10, 6, 0.94);
+  --overlay-shell-border: rgba(211, 154, 82, 0.18);
+  --overlay-shell-highlight: rgba(255, 255, 255, 0.08);
+  --overlay-shell-active: rgba(255, 213, 138, 0.14);
+  --overlay-panel-bg: rgba(18, 10, 6, 0.96);
+  --overlay-panel-shadow: rgba(211, 154, 82, 0.14);
+  --edge-trigger-border: rgba(211, 154, 82, 0.22);
+  --edge-trigger-ready-border: rgba(255, 219, 157, 0.28);
+  --edge-trigger-active-border: rgba(211, 154, 82, 0.34);
+  --edge-trigger-surface-top: rgba(255, 219, 157, 0.14);
+  --edge-trigger-surface-mid: rgba(211, 154, 82, 0.08);
+  --edge-trigger-surface-core: rgba(18, 10, 6, 0.98);
+  --edge-trigger-surface-lower: rgba(126, 73, 38, 0.06);
+  --edge-trigger-surface-bottom: rgba(255, 219, 157, 0.14);
+  --edge-trigger-base-top: rgba(30, 17, 10, 0.98);
+  --edge-trigger-base-bottom: rgba(10, 6, 4, 0.96);
+  --orb-visual-primary: #d39a52;
+  --orb-visual-secondary: #7c4f2d;
+  --orb-visual-tertiary: #ffd58a;
+  --orb-visual-surface: rgba(33, 18, 10, 0.96);
+  --orb-visual-highlight: #fff0cf;
+  --orb-visual-shadow: rgba(11, 6, 3, 0.84);
+  --orb-visual-grid: rgba(211, 154, 82, 0.16);
+  --orb-visual-trace: rgba(255, 213, 138, 0.32);
+  --window-mark-border: rgba(211, 154, 82, 0.34);
+  --window-mark-bg: radial-gradient(circle, rgba(255, 213, 138, 0.94) 0%, rgba(211, 154, 82, 0.24) 56%, rgba(255, 255, 255, 0) 100%);
+  --window-mark-shadow: 0 0 12px rgba(211, 154, 82, 0.24), 0 0 24px rgba(255, 213, 138, 0.12);
+  --window-title-shadow: 0 0 14px rgba(211, 154, 82, 0.12);
+  --window-control-hover-bg: rgba(255, 213, 138, 0.08);
+  --window-control-hover-border: rgba(211, 154, 82, 0.16);
+  --window-control-hover-shadow: 0 0 16px rgba(211, 154, 82, 0.12);
+  --window-control-close-hover-color: #ffe7e7;
+  --window-control-close-hover-bg: rgba(144, 41, 54, 0.42);
+  --window-control-close-hover-border: rgba(255, 160, 160, 0.22);
+  --status-dot-fill: #ffd58a;
+  --status-dot-shadow: 0 0 16px rgba(255, 213, 138, 0.4);
+}
+
+html[data-theme='shadow-monarch'],
+body[data-theme='shadow-monarch'] {
+  --text-primary: #eef0ff;
+  --text-secondary: #babef7;
+  --text-muted: #7078ba;
+  --text-faint: rgba(238, 240, 255, 0.64);
+  --app-bg-pattern:
+    radial-gradient(circle at 18% 18%, rgba(138, 120, 255, 0.14) 0%, transparent 24%),
+    radial-gradient(circle at 82% 72%, rgba(63, 82, 255, 0.1) 0%, transparent 24%),
+    linear-gradient(180deg, rgba(138, 120, 255, 0.03) 0%, transparent 24%, rgba(63, 82, 255, 0.04) 100%);
+  --app-bg-aurora: rgba(138, 120, 255, 0.18);
+  --app-bg-aurora-secondary: rgba(63, 82, 255, 0.12);
+  --app-bg-start: #05060f;
+  --app-bg-end: #0b0e20;
+  --panel-texture:
+    linear-gradient(180deg, rgba(138, 120, 255, 0.04) 0%, transparent 26%, rgba(63, 82, 255, 0.04) 100%),
+    linear-gradient(90deg, rgba(138, 120, 255, 0.04) 0%, transparent 34%, rgba(63, 82, 255, 0.03) 100%);
+  --panel-bg: linear-gradient(180deg, rgba(13, 15, 31, 0.96) 0%, rgba(7, 9, 19, 0.94) 100%);
+  --panel-bg-muted: rgba(11, 13, 27, 0.92);
+  --panel-bg-deep: rgba(7, 9, 19, 0.96);
+  --panel-bg-soft: rgba(138, 120, 255, 0.05);
+  --panel-border: rgba(138, 120, 255, 0.18);
+  --panel-border-strong: rgba(199, 204, 255, 0.26);
+  --panel-border-active: rgba(63, 82, 255, 0.34);
+  --panel-shadow: 0 24px 56px rgba(0, 0, 0, 0.54), 0 0 34px rgba(138, 120, 255, 0.14);
+  --panel-glow-soft: rgba(138, 120, 255, 0.1);
+  --panel-glow-medium: rgba(63, 82, 255, 0.16);
+  --panel-glow-strong: rgba(199, 204, 255, 0.14);
+  --button-primary-bg: linear-gradient(180deg, rgba(138, 120, 255, 0.28) 0%, rgba(63, 82, 255, 0.18) 100%);
+  --button-primary-bg-hover: linear-gradient(180deg, rgba(157, 140, 255, 0.38) 0%, rgba(83, 101, 255, 0.24) 100%);
+  --button-primary-border: rgba(138, 120, 255, 0.22);
+  --button-primary-shadow: 0 0 24px rgba(138, 120, 255, 0.18);
+  --button-secondary-bg: rgba(138, 120, 255, 0.04);
+  --button-secondary-bg-hover: rgba(138, 120, 255, 0.08);
+  --button-secondary-border: rgba(138, 120, 255, 0.14);
+  --button-secondary-border-hover: rgba(199, 204, 255, 0.22);
+  --danger-bg: rgba(91, 28, 47, 0.34);
+  --danger-border: rgba(187, 93, 122, 0.24);
+  --status-chip-bg: rgba(138, 120, 255, 0.08);
+  --status-chip-border: rgba(138, 120, 255, 0.14);
+  --status-chip-text: #eef0ff;
+  --input-bg: rgba(8, 10, 20, 0.9);
+  --input-border: rgba(138, 120, 255, 0.16);
+  --input-border-focus: rgba(138, 120, 255, 0.32);
+  --scrollbar-track: rgba(138, 120, 255, 0.04);
+  --scrollbar-thumb: rgba(138, 120, 255, 0.2);
+  --scrollbar-thumb-hover: rgba(164, 148, 255, 0.3);
+  --overlay-shell: rgba(8, 10, 20, 0.94);
+  --overlay-shell-border: rgba(138, 120, 255, 0.14);
+  --overlay-shell-highlight: rgba(255, 255, 255, 0.08);
+  --overlay-shell-active: rgba(63, 82, 255, 0.14);
+  --overlay-panel-bg: rgba(8, 10, 20, 0.96);
+  --overlay-panel-shadow: rgba(138, 120, 255, 0.12);
+  --edge-trigger-border: rgba(138, 120, 255, 0.2);
+  --edge-trigger-ready-border: rgba(138, 120, 255, 0.26);
+  --edge-trigger-active-border: rgba(199, 204, 255, 0.22);
+  --edge-trigger-surface-top: rgba(138, 120, 255, 0.12);
+  --edge-trigger-surface-mid: rgba(63, 82, 255, 0.08);
+  --edge-trigger-surface-core: rgba(8, 10, 20, 0.98);
+  --edge-trigger-surface-lower: rgba(199, 204, 255, 0.04);
+  --edge-trigger-surface-bottom: rgba(138, 120, 255, 0.12);
+  --edge-trigger-base-top: rgba(14, 16, 30, 0.98);
+  --edge-trigger-base-bottom: rgba(5, 6, 13, 0.96);
+  --orb-visual-primary: #8a78ff;
+  --orb-visual-secondary: #3f52ff;
+  --orb-visual-tertiary: #e7ecff;
+  --orb-visual-surface: rgba(8, 9, 18, 0.96);
+  --orb-visual-highlight: #ffffff;
+  --orb-visual-shadow: rgba(3, 4, 12, 0.86);
+  --orb-visual-grid: rgba(138, 120, 255, 0.16);
+  --orb-visual-trace: rgba(63, 82, 255, 0.34);
+  --window-mark-border: rgba(138, 120, 255, 0.28);
+  --window-mark-bg: radial-gradient(circle, rgba(231, 236, 255, 0.94) 0%, rgba(138, 120, 255, 0.24) 56%, rgba(255, 255, 255, 0) 100%);
+  --window-mark-shadow: 0 0 12px rgba(138, 120, 255, 0.2), 0 0 24px rgba(63, 82, 255, 0.12);
+  --window-title-shadow: 0 0 14px rgba(138, 120, 255, 0.12);
+  --window-control-hover-bg: rgba(138, 120, 255, 0.08);
+  --window-control-hover-border: rgba(138, 120, 255, 0.16);
+  --window-control-hover-shadow: 0 0 16px rgba(138, 120, 255, 0.1);
+  --window-control-close-hover-color: #ffe7e7;
+  --window-control-close-hover-bg: rgba(144, 41, 54, 0.42);
+  --window-control-close-hover-border: rgba(255, 160, 160, 0.22);
+  --status-dot-fill: #8a78ff;
+  --status-dot-shadow: 0 0 16px rgba(138, 120, 255, 0.44);
+}
+
+html[data-theme='tsukuyomi-veil'],
+body[data-theme='tsukuyomi-veil'] {
+  --text-primary: #eef2ff;
+  --text-secondary: #c4caf2;
+  --text-muted: #8c93c7;
+  --text-faint: rgba(238, 242, 255, 0.64);
+  --app-bg-pattern:
+    radial-gradient(circle at 18% 18%, rgba(223, 230, 255, 0.12) 0%, transparent 24%),
+    radial-gradient(circle at 82% 72%, rgba(143, 139, 255, 0.1) 0%, transparent 22%),
+    linear-gradient(180deg, rgba(223, 230, 255, 0.03) 0%, transparent 26%, rgba(143, 139, 255, 0.04) 100%);
+  --app-bg-aurora: rgba(223, 230, 255, 0.12);
+  --app-bg-aurora-secondary: rgba(143, 139, 255, 0.12);
+  --app-bg-start: #0b0e20;
+  --app-bg-end: #03050d;
+  --panel-texture:
+    linear-gradient(180deg, rgba(223, 230, 255, 0.04) 0%, transparent 24%, rgba(143, 139, 255, 0.03) 100%),
+    linear-gradient(90deg, rgba(223, 230, 255, 0.03) 0%, transparent 32%, rgba(143, 139, 255, 0.03) 100%);
+  --panel-bg: linear-gradient(180deg, rgba(17, 20, 43, 0.96) 0%, rgba(7, 9, 18, 0.94) 100%);
+  --panel-bg-muted: rgba(14, 17, 35, 0.92);
+  --panel-bg-deep: rgba(8, 10, 22, 0.96);
+  --panel-bg-soft: rgba(223, 230, 255, 0.05);
+  --panel-border: rgba(223, 230, 255, 0.16);
+  --panel-border-strong: rgba(223, 230, 255, 0.26);
+  --panel-border-active: rgba(143, 139, 255, 0.3);
+  --panel-shadow: 0 24px 56px rgba(0, 0, 0, 0.54), 0 0 30px rgba(223, 230, 255, 0.1);
+  --panel-glow-soft: rgba(223, 230, 255, 0.08);
+  --panel-glow-medium: rgba(143, 139, 255, 0.14);
+  --panel-glow-strong: rgba(223, 230, 255, 0.16);
+  --button-primary-bg: linear-gradient(180deg, rgba(223, 230, 255, 0.22) 0%, rgba(143, 139, 255, 0.16) 100%);
+  --button-primary-bg-hover: linear-gradient(180deg, rgba(236, 240, 255, 0.32) 0%, rgba(159, 154, 255, 0.24) 100%);
+  --button-primary-border: rgba(223, 230, 255, 0.2);
+  --button-primary-shadow: 0 0 22px rgba(223, 230, 255, 0.14);
+  --button-secondary-bg: rgba(223, 230, 255, 0.04);
+  --button-secondary-bg-hover: rgba(223, 230, 255, 0.08);
+  --button-secondary-border: rgba(223, 230, 255, 0.12);
+  --button-secondary-border-hover: rgba(143, 139, 255, 0.22);
+  --danger-bg: rgba(97, 34, 62, 0.34);
+  --danger-border: rgba(189, 99, 138, 0.24);
+  --status-chip-bg: rgba(223, 230, 255, 0.08);
+  --status-chip-border: rgba(223, 230, 255, 0.14);
+  --status-chip-text: #eef2ff;
+  --input-bg: rgba(8, 10, 22, 0.9);
+  --input-border: rgba(223, 230, 255, 0.14);
+  --input-border-focus: rgba(143, 139, 255, 0.32);
+  --scrollbar-track: rgba(223, 230, 255, 0.04);
+  --scrollbar-thumb: rgba(223, 230, 255, 0.18);
+  --scrollbar-thumb-hover: rgba(223, 230, 255, 0.28);
+  --overlay-shell: rgba(8, 10, 22, 0.94);
+  --overlay-shell-border: rgba(223, 230, 255, 0.14);
+  --overlay-shell-highlight: rgba(255, 255, 255, 0.08);
+  --overlay-shell-active: rgba(143, 139, 255, 0.14);
+  --overlay-panel-bg: rgba(8, 10, 22, 0.96);
+  --overlay-panel-shadow: rgba(223, 230, 255, 0.1);
+  --edge-trigger-border: rgba(223, 230, 255, 0.18);
+  --edge-trigger-ready-border: rgba(223, 230, 255, 0.24);
+  --edge-trigger-active-border: rgba(143, 139, 255, 0.28);
+  --edge-trigger-surface-top: rgba(223, 230, 255, 0.12);
+  --edge-trigger-surface-mid: rgba(143, 139, 255, 0.08);
+  --edge-trigger-surface-core: rgba(8, 10, 22, 0.98);
+  --edge-trigger-surface-lower: rgba(223, 230, 255, 0.04);
+  --edge-trigger-surface-bottom: rgba(223, 230, 255, 0.12);
+  --edge-trigger-base-top: rgba(16, 19, 38, 0.98);
+  --edge-trigger-base-bottom: rgba(5, 7, 14, 0.96);
+  --orb-visual-primary: #dfe6ff;
+  --orb-visual-secondary: #8f8bff;
+  --orb-visual-tertiary: #4d5bb3;
+  --orb-visual-surface: rgba(14, 16, 34, 0.96);
+  --orb-visual-highlight: #ffffff;
+  --orb-visual-shadow: rgba(3, 4, 16, 0.84);
+  --orb-visual-grid: rgba(223, 230, 255, 0.12);
+  --orb-visual-trace: rgba(143, 139, 255, 0.34);
+  --window-mark-border: rgba(223, 230, 255, 0.26);
+  --window-mark-bg: radial-gradient(circle, rgba(255, 255, 255, 0.94) 0%, rgba(223, 230, 255, 0.2) 48%, rgba(143, 139, 255, 0.12) 64%, rgba(255, 255, 255, 0) 100%);
+  --window-mark-shadow: 0 0 12px rgba(223, 230, 255, 0.2), 0 0 24px rgba(143, 139, 255, 0.12);
+  --window-title-shadow: 0 0 14px rgba(223, 230, 255, 0.1);
+  --window-control-hover-bg: rgba(223, 230, 255, 0.08);
+  --window-control-hover-border: rgba(223, 230, 255, 0.16);
+  --window-control-hover-shadow: 0 0 16px rgba(223, 230, 255, 0.08);
+  --window-control-close-hover-color: #ffe7e7;
+  --window-control-close-hover-bg: rgba(144, 41, 54, 0.42);
+  --window-control-close-hover-border: rgba(255, 160, 160, 0.22);
+  --status-dot-fill: #dfe6ff;
+  --status-dot-shadow: 0 0 16px rgba(223, 230, 255, 0.36);
 }
 
 * {
@@ -578,13 +1412,13 @@ body.overlay-body #root {
 .edge-nav-trigger-indicator {
   width: 8px;
   height: 58px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--edge-trigger-border);
   border-radius: 999px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.02) 22%, rgba(7, 7, 9, 0.96) 48%, rgba(255, 255, 255, 0.04) 78%, rgba(255, 255, 255, 0.1) 100%),
-    linear-gradient(180deg, rgba(5, 5, 7, 0.98) 0%, rgba(21, 22, 26, 0.94) 100%);
+    linear-gradient(180deg, var(--edge-trigger-surface-top) 0%, var(--edge-trigger-surface-mid) 22%, var(--edge-trigger-surface-core) 48%, var(--edge-trigger-surface-lower) 78%, var(--edge-trigger-surface-bottom) 100%),
+    linear-gradient(180deg, var(--edge-trigger-base-top) 0%, var(--edge-trigger-base-bottom) 100%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 1px 0 var(--edge-trigger-inner-highlight),
     0 0 8px rgba(255, 255, 255, 0.12),
     0 0 18px rgba(255, 255, 255, 0.08);
   opacity: 0.9;
@@ -592,23 +1426,17 @@ body.overlay-body #root {
 }
 
 .edge-nav--ready .edge-nav-trigger-indicator {
-  border-color: rgba(255, 255, 255, 0.24);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.04) 22%, rgba(6, 6, 8, 0.98) 50%, rgba(255, 255, 255, 0.05) 78%, rgba(255, 255, 255, 0.16) 100%),
-    linear-gradient(180deg, rgba(5, 5, 7, 0.98) 0%, rgba(21, 22, 26, 0.94) 100%);
+  border-color: var(--edge-trigger-ready-border);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 1px 0 var(--edge-trigger-inner-highlight),
     0 0 10px rgba(255, 255, 255, 0.16),
     0 0 22px rgba(255, 255, 255, 0.1);
 }
 
 .edge-nav--active .edge-nav-trigger-indicator {
-  border-color: rgba(255, 255, 255, 0.28);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.06) 18%, rgba(7, 7, 9, 0.98) 50%, rgba(255, 255, 255, 0.06) 82%, rgba(255, 255, 255, 0.2) 100%),
-    linear-gradient(180deg, rgba(5, 5, 7, 0.98) 0%, rgba(21, 22, 26, 0.94) 100%);
+  border-color: var(--edge-trigger-active-border);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 1px 0 var(--edge-trigger-inner-highlight),
     0 0 12px rgba(255, 255, 255, 0.18),
     0 0 24px rgba(255, 255, 255, 0.1);
   animation: edge-glow 2.2s ease-in-out infinite;
@@ -662,7 +1490,7 @@ body.overlay-body #root {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.03);
-  color: #f3f5f8;
+  color: var(--text-primary);
   cursor: pointer;
   font-size: 0.8rem;
   font-weight: 600;
@@ -671,7 +1499,7 @@ body.overlay-body #root {
 }
 
 .edge-nav-btn:hover {
-  color: #ffffff;
+  color: var(--edge-button-hover-text);
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.2);
   box-shadow: 0 0 18px rgba(255, 255, 255, 0.08);
@@ -679,13 +1507,14 @@ body.overlay-body #root {
 }
 
 .edge-nav-btn--primary {
-  color: #ffffff;
+  color: var(--edge-button-primary-text);
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.18);
   box-shadow: 0 0 20px rgba(255, 255, 255, 0.06);
 }
 
 .edge-nav-btn--primary:hover {
+  color: var(--edge-button-primary-text);
   background: rgba(255, 255, 255, 0.16);
   border-color: rgba(255, 255, 255, 0.24);
 }
@@ -2085,26 +2914,26 @@ select:focus-visible {
 .edge-nav-trigger-indicator {
   border-color: var(--overlay-shell-border);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.03) 22%, rgba(7, 7, 9, 0.98) 48%, rgba(255, 255, 255, 0.04) 78%, rgba(255, 255, 255, 0.12) 100%),
-    linear-gradient(180deg, rgba(5, 5, 7, 0.98) 0%, rgba(21, 22, 26, 0.94) 100%);
+    linear-gradient(180deg, var(--overlay-shell-highlight) 0%, var(--overlay-shell-active) 18%, var(--overlay-panel-bg) 50%, var(--overlay-shell-active) 82%, var(--overlay-shell-highlight) 100%),
+    linear-gradient(180deg, var(--overlay-shell) 0%, var(--overlay-panel-bg) 100%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 1px 0 var(--overlay-shell-highlight),
     0 0 10px var(--panel-glow-soft),
     0 0 22px var(--panel-glow-medium);
 }
 
 .edge-nav--ready .edge-nav-trigger-indicator {
-  border-color: rgba(255, 255, 255, 0.22);
+  border-color: var(--panel-border-strong);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 1px 0 var(--overlay-shell-highlight),
     0 0 12px var(--panel-glow-medium),
     0 0 28px var(--panel-glow-strong);
 }
 
 .edge-nav--active .edge-nav-trigger-indicator {
-  border-color: rgba(255, 255, 255, 0.28);
+  border-color: var(--panel-border-active);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 1px 0 var(--overlay-shell-highlight),
     0 0 14px var(--panel-glow-medium),
     0 0 30px var(--panel-glow-strong);
 }
@@ -2121,17 +2950,42 @@ select:focus-visible {
 .edge-nav-btn {
   border-color: var(--button-secondary-border);
   background: var(--button-secondary-bg);
+  color: var(--text-primary);
   box-shadow: none;
 }
 
 .edge-nav-btn--primary {
   border-color: var(--button-primary-border);
+  color: var(--edge-button-primary-text);
 }
 
 .edge-nav-btn--active {
   background: rgba(255, 255, 255, 0.08);
   border-color: var(--panel-border-strong);
   box-shadow: 0 0 18px var(--panel-glow-soft);
+}
+
+.edge-nav-btn:hover {
+  color: var(--edge-button-hover-text);
+}
+
+.edge-nav-btn.edge-nav-btn--primary,
+.edge-nav-btn.edge-nav-btn--primary:hover {
+  color: var(--edge-button-primary-text);
+}
+
+.edge-nav-btn.edge-nav-btn--primary .edge-nav-label,
+.edge-nav-btn.edge-nav-btn--primary:hover .edge-nav-label,
+.edge-nav-btn.edge-nav-btn--primary .edge-nav-icon,
+.edge-nav-btn.edge-nav-btn--primary:hover .edge-nav-icon,
+.edge-nav-btn.edge-nav-btn--primary .edge-nav-icon svg,
+.edge-nav-btn.edge-nav-btn--primary:hover .edge-nav-icon svg {
+  color: var(--edge-button-primary-text);
+}
+
+.edge-nav-btn.edge-nav-btn--primary .edge-nav-label,
+.edge-nav-btn.edge-nav-btn--primary:hover .edge-nav-label {
+  text-shadow: var(--edge-button-primary-text-shadow);
 }
 
 .overlay-composer-panel {
@@ -2243,6 +3097,150 @@ select:focus-visible {
   --design-preview-orb-core: rgba(3, 3, 4, 0.98);
 }
 
+.design-card[data-preview-theme='fantasy-relic'] {
+  --design-preview-bg:
+    radial-gradient(circle at 18% 18%, rgba(194, 124, 255, 0.16) 0%, transparent 26%),
+    radial-gradient(circle at 82% 72%, rgba(103, 255, 216, 0.1) 0%, transparent 24%),
+    linear-gradient(180deg, rgba(30, 16, 42, 0.98) 0%, rgba(11, 9, 20, 0.96) 100%);
+  --design-preview-border: rgba(208, 173, 255, 0.22);
+  --design-preview-panel-border: rgba(214, 184, 255, 0.22);
+  --design-preview-panel-bg: rgba(18, 11, 30, 0.94);
+  --design-preview-rail-border: rgba(103, 255, 216, 0.18);
+  --design-preview-rail-bg: linear-gradient(180deg, rgba(255, 226, 168, 0.08) 0%, rgba(17, 10, 29, 0.96) 100%);
+  --design-preview-glow: rgba(194, 124, 255, 0.18);
+  --design-preview-orb-ring: rgba(240, 214, 255, 0.82);
+  --design-preview-orb-ring-soft: rgba(116, 255, 214, 0.24);
+  --design-preview-orb-core: rgba(36, 18, 52, 0.98);
+}
+
+.design-card[data-preview-theme='retro-arcade'] {
+  --design-preview-bg:
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0 1px, transparent 1px 5px),
+    linear-gradient(90deg, rgba(51, 240, 255, 0.08) 0%, transparent 24%, transparent 76%, rgba(255, 79, 216, 0.08) 100%),
+    linear-gradient(180deg, rgba(28, 11, 35, 0.98) 0%, rgba(10, 8, 18, 0.96) 100%);
+  --design-preview-border: rgba(255, 108, 230, 0.22);
+  --design-preview-panel-border: rgba(255, 176, 241, 0.2);
+  --design-preview-panel-bg: rgba(12, 9, 20, 0.94);
+  --design-preview-rail-border: rgba(43, 240, 255, 0.18);
+  --design-preview-rail-bg: linear-gradient(180deg, rgba(255, 226, 127, 0.08) 0%, rgba(11, 8, 19, 0.96) 100%);
+  --design-preview-glow: rgba(255, 80, 219, 0.16);
+  --design-preview-orb-ring: rgba(255, 226, 127, 0.82);
+  --design-preview-orb-ring-soft: rgba(51, 240, 255, 0.24);
+  --design-preview-orb-core: rgba(9, 6, 16, 0.98);
+}
+
+.design-card[data-preview-theme='modern-glass'] {
+  --design-preview-bg:
+    radial-gradient(circle at 18% 18%, rgba(111, 213, 255, 0.14) 0%, transparent 28%),
+    radial-gradient(circle at 82% 72%, rgba(93, 119, 255, 0.08) 0%, transparent 22%),
+    linear-gradient(180deg, rgba(250, 252, 255, 0.98) 0%, rgba(232, 239, 245, 0.96) 100%);
+  --design-preview-border: rgba(117, 144, 171, 0.2);
+  --design-preview-panel-border: rgba(121, 146, 173, 0.18);
+  --design-preview-panel-bg: rgba(246, 250, 254, 0.94);
+  --design-preview-rail-border: rgba(93, 119, 255, 0.14);
+  --design-preview-rail-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.78) 0%, rgba(229, 237, 244, 0.94) 100%);
+  --design-preview-glow: rgba(111, 213, 255, 0.16);
+  --design-preview-orb-ring: rgba(93, 119, 255, 0.44);
+  --design-preview-orb-ring-soft: rgba(107, 224, 255, 0.22);
+  --design-preview-orb-core: rgba(240, 246, 250, 0.98);
+}
+
+.design-card[data-preview-theme='universe-drift'] {
+  --design-preview-bg:
+    radial-gradient(circle at 20% 18%, rgba(171, 109, 255, 0.14) 0%, transparent 26%),
+    radial-gradient(circle at 82% 72%, rgba(82, 244, 255, 0.08) 0%, transparent 24%),
+    linear-gradient(180deg, rgba(13, 16, 33, 0.98) 0%, rgba(7, 10, 24, 0.96) 100%);
+  --design-preview-border: rgba(147, 179, 255, 0.2);
+  --design-preview-panel-border: rgba(147, 179, 255, 0.18);
+  --design-preview-panel-bg: rgba(8, 11, 24, 0.94);
+  --design-preview-rail-border: rgba(82, 244, 255, 0.16);
+  --design-preview-rail-bg: linear-gradient(180deg, rgba(147, 179, 255, 0.08) 0%, rgba(8, 11, 24, 0.96) 100%);
+  --design-preview-glow: rgba(171, 109, 255, 0.16);
+  --design-preview-orb-ring: rgba(147, 179, 255, 0.76);
+  --design-preview-orb-ring-soft: rgba(82, 244, 255, 0.22);
+  --design-preview-orb-core: rgba(6, 8, 18, 0.98);
+}
+
+.design-card[data-preview-theme='creed-eclipse'] {
+  --design-preview-bg:
+    repeating-linear-gradient(180deg, rgba(133, 240, 255, 0.04) 0 1px, transparent 1px 7px),
+    linear-gradient(90deg, rgba(133, 240, 255, 0.08) 0%, transparent 20%, transparent 80%, rgba(103, 182, 255, 0.08) 100%),
+    linear-gradient(180deg, rgba(11, 26, 35, 0.98) 0%, rgba(5, 16, 24, 0.96) 100%);
+  --design-preview-border: rgba(133, 240, 255, 0.2);
+  --design-preview-panel-border: rgba(133, 240, 255, 0.2);
+  --design-preview-panel-bg: rgba(7, 19, 27, 0.94);
+  --design-preview-rail-border: rgba(103, 182, 255, 0.18);
+  --design-preview-rail-bg: linear-gradient(180deg, rgba(246, 253, 255, 0.08) 0%, rgba(7, 19, 27, 0.96) 100%);
+  --design-preview-glow: rgba(133, 240, 255, 0.16);
+  --design-preview-orb-ring: rgba(246, 253, 255, 0.78);
+  --design-preview-orb-ring-soft: rgba(103, 182, 255, 0.24);
+  --design-preview-orb-core: rgba(7, 19, 27, 0.98);
+}
+
+.design-card[data-preview-theme='volt-forge'] {
+  --design-preview-bg:
+    linear-gradient(135deg, rgba(125, 255, 79, 0.08) 0%, transparent 20%, rgba(125, 255, 79, 0.03) 52%, transparent 100%),
+    repeating-linear-gradient(90deg, rgba(182, 193, 203, 0.03) 0 1px, transparent 1px 16px),
+    linear-gradient(180deg, rgba(9, 11, 14, 0.98) 0%, rgba(4, 7, 8, 0.96) 100%);
+  --design-preview-border: rgba(125, 255, 79, 0.22);
+  --design-preview-panel-border: rgba(182, 193, 203, 0.22);
+  --design-preview-panel-bg: rgba(6, 9, 11, 0.94);
+  --design-preview-rail-border: rgba(125, 255, 79, 0.2);
+  --design-preview-rail-bg: linear-gradient(180deg, rgba(156, 255, 79, 0.08) 0%, rgba(7, 10, 12, 0.96) 100%);
+  --design-preview-glow: rgba(125, 255, 79, 0.2);
+  --design-preview-orb-ring: rgba(156, 255, 79, 0.84);
+  --design-preview-orb-ring-soft: rgba(215, 224, 230, 0.22);
+  --design-preview-orb-core: rgba(5, 7, 9, 0.98);
+}
+
+.design-card[data-preview-theme='brass-engine'] {
+  --design-preview-bg:
+    linear-gradient(135deg, rgba(211, 154, 82, 0.08) 0%, transparent 18%, rgba(126, 73, 38, 0.04) 52%, transparent 100%),
+    repeating-linear-gradient(90deg, rgba(126, 73, 38, 0.05) 0 2px, transparent 2px 16px),
+    linear-gradient(180deg, rgba(42, 23, 13, 0.98) 0%, rgba(14, 8, 5, 0.96) 100%);
+  --design-preview-border: rgba(211, 154, 82, 0.22);
+  --design-preview-panel-border: rgba(255, 219, 157, 0.22);
+  --design-preview-panel-bg: rgba(21, 12, 7, 0.94);
+  --design-preview-rail-border: rgba(211, 154, 82, 0.2);
+  --design-preview-rail-bg: linear-gradient(180deg, rgba(255, 213, 138, 0.08) 0%, rgba(18, 10, 6, 0.96) 100%);
+  --design-preview-glow: rgba(211, 154, 82, 0.18);
+  --design-preview-orb-ring: rgba(255, 213, 138, 0.82);
+  --design-preview-orb-ring-soft: rgba(124, 79, 45, 0.24);
+  --design-preview-orb-core: rgba(18, 10, 6, 0.98);
+}
+
+.design-card[data-preview-theme='shadow-monarch'] {
+  --design-preview-bg:
+    radial-gradient(circle at 18% 18%, rgba(138, 120, 255, 0.14) 0%, transparent 24%),
+    radial-gradient(circle at 82% 72%, rgba(63, 82, 255, 0.08) 0%, transparent 22%),
+    linear-gradient(180deg, rgba(13, 15, 31, 0.98) 0%, rgba(7, 9, 19, 0.96) 100%);
+  --design-preview-border: rgba(138, 120, 255, 0.2);
+  --design-preview-panel-border: rgba(138, 120, 255, 0.18);
+  --design-preview-panel-bg: rgba(8, 10, 20, 0.94);
+  --design-preview-rail-border: rgba(63, 82, 255, 0.18);
+  --design-preview-rail-bg: linear-gradient(180deg, rgba(138, 120, 255, 0.08) 0%, rgba(8, 10, 20, 0.96) 100%);
+  --design-preview-glow: rgba(138, 120, 255, 0.18);
+  --design-preview-orb-ring: rgba(231, 236, 255, 0.78);
+  --design-preview-orb-ring-soft: rgba(63, 82, 255, 0.22);
+  --design-preview-orb-core: rgba(7, 9, 19, 0.98);
+}
+
+.design-card[data-preview-theme='tsukuyomi-veil'] {
+  --design-preview-bg:
+    radial-gradient(circle at 18% 18%, rgba(223, 230, 255, 0.12) 0%, transparent 24%),
+    radial-gradient(circle at 82% 72%, rgba(143, 139, 255, 0.08) 0%, transparent 22%),
+    linear-gradient(180deg, rgba(17, 20, 43, 0.98) 0%, rgba(8, 10, 22, 0.96) 100%);
+  --design-preview-border: rgba(223, 230, 255, 0.18);
+  --design-preview-panel-border: rgba(223, 230, 255, 0.16);
+  --design-preview-panel-bg: rgba(8, 10, 22, 0.94);
+  --design-preview-rail-border: rgba(143, 139, 255, 0.16);
+  --design-preview-rail-bg: linear-gradient(180deg, rgba(223, 230, 255, 0.08) 0%, rgba(8, 10, 22, 0.96) 100%);
+  --design-preview-glow: rgba(223, 230, 255, 0.14);
+  --design-preview-orb-ring: rgba(223, 230, 255, 0.8);
+  --design-preview-orb-ring-soft: rgba(143, 139, 255, 0.22);
+  --design-preview-orb-core: rgba(14, 16, 34, 0.98);
+}
+
 .design-card__preview {
   position: relative;
   width: 100%;
@@ -2350,6 +3348,503 @@ select:focus-visible {
   color: var(--text-muted);
   font-size: 0.84rem;
   font-weight: 600;
+}
+
+.voice-chat-screen {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 8px;
+  pointer-events: none;
+}
+
+.voice-chat-shell {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 16px;
+  padding: 18px;
+  color: var(--text-primary);
+  border: 1px solid var(--overlay-shell-border);
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at top right, var(--panel-glow-medium), transparent 38%),
+    var(--panel-texture),
+    var(--overlay-panel-bg);
+  box-shadow:
+    0 24px 44px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 var(--overlay-shell-highlight),
+    0 0 28px var(--overlay-panel-shadow);
+  backdrop-filter: blur(18px);
+  pointer-events: auto;
+}
+
+.voice-chat-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.voice-chat-header strong {
+  display: block;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+}
+
+.voice-chat-header p {
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+}
+
+.voice-chat-connection {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--status-chip-border);
+  background: var(--status-chip-bg);
+  color: var(--status-dot-fill);
+  font-size: 0.84rem;
+  font-weight: 700;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 18px var(--panel-glow-soft);
+}
+
+.voice-chat-connection::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: var(--status-dot-shadow);
+}
+
+.voice-chat-connection--error {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+  color: #ffb0b0;
+}
+
+.voice-chat-messages {
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  overflow: auto;
+  padding-right: 8px;
+}
+
+.voice-chat-messages::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+.voice-chat-messages::-webkit-scrollbar-thumb {
+  border: 2px solid var(--scrollbar-track);
+  background: linear-gradient(180deg, var(--scrollbar-thumb), rgba(255, 255, 255, 0.08));
+}
+
+.voice-chat-messages::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--scrollbar-thumb-hover), rgba(255, 255, 255, 0.12));
+}
+
+.voice-chat-empty {
+  display: grid;
+  gap: 8px;
+  place-items: center;
+  min-height: 100%;
+  padding: 22px;
+  border: 1px dashed var(--panel-border);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at top, var(--panel-glow-soft), transparent 34%),
+    var(--panel-bg-soft);
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.voice-chat-empty p {
+  margin: 0;
+}
+
+.voice-chat-message {
+  max-width: 84%;
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 1px solid var(--panel-border);
+  background:
+    radial-gradient(circle at top left, var(--panel-glow-soft), transparent 38%),
+    var(--panel-bg-soft);
+  box-shadow: 0 14px 22px rgba(0, 0, 0, 0.18);
+}
+
+.voice-chat-message--user {
+  margin-left: auto;
+  border-color: var(--button-primary-border);
+  background:
+    radial-gradient(circle at top right, var(--panel-glow-medium), transparent 42%),
+    var(--button-primary-bg);
+  box-shadow:
+    0 14px 24px rgba(0, 0, 0, 0.2),
+    0 0 22px var(--panel-glow-soft);
+}
+
+.voice-chat-message--assistant {
+  margin-right: auto;
+  border-color: var(--status-chip-border);
+  background:
+    radial-gradient(circle at top left, var(--panel-glow-medium), transparent 40%),
+    linear-gradient(135deg, var(--status-chip-bg) 0%, var(--panel-bg-soft) 100%);
+}
+
+.voice-chat-message--system {
+  max-width: 100%;
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+}
+
+.voice-chat-message-role {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.voice-chat-message p {
+  margin: 0;
+  white-space: pre-wrap;
+  color: var(--text-primary);
+}
+
+.voice-chat-message--typing {
+  min-width: 84px;
+}
+
+.voice-chat-typing-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 22px;
+}
+
+.voice-chat-typing-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--text-primary);
+  animation: voice-chat-pulse 1.2s ease-in-out infinite;
+}
+
+.voice-chat-typing-dots span:nth-child(2) {
+  animation-delay: 120ms;
+}
+
+.voice-chat-typing-dots span:nth-child(3) {
+  animation-delay: 240ms;
+}
+
+.voice-chat-composer {
+  display: grid;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--panel-border);
+}
+
+.voice-chat-composer-label {
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.voice-chat-composer-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.voice-chat-composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.voice-chat-input {
+  width: 100%;
+  min-height: 64px;
+  resize: none;
+  border: 1px solid var(--input-border);
+  border-radius: 18px;
+  padding: 14px 16px;
+  color: var(--text-primary);
+  background: var(--input-bg);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 0 0 1px rgba(255, 255, 255, 0.02);
+}
+
+.voice-chat-input::placeholder {
+  color: var(--text-muted);
+}
+
+.voice-chat-input:focus-visible {
+  outline: 2px solid var(--input-border-focus);
+  outline-offset: 2px;
+}
+
+.voice-chat-tool-button,
+.voice-chat-send-button {
+  width: 56px;
+  min-width: 56px;
+  height: 56px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--button-secondary-border);
+  border-radius: 18px;
+  padding: 0;
+  color: var(--text-primary);
+  background: var(--button-secondary-bg);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 12px 22px rgba(0, 0, 0, 0.16);
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease,
+    opacity 160ms ease;
+}
+
+.voice-chat-tool-button:hover:not(:disabled),
+.voice-chat-send-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: var(--button-secondary-border-hover);
+  background: var(--button-secondary-bg-hover);
+  box-shadow:
+    0 14px 24px rgba(0, 0, 0, 0.2),
+    0 0 24px var(--panel-glow-soft);
+}
+
+.voice-chat-send-button {
+  border-color: var(--button-primary-border);
+  background: var(--button-primary-bg);
+  box-shadow:
+    0 14px 24px rgba(0, 0, 0, 0.22),
+    var(--button-primary-shadow);
+}
+
+.voice-chat-send-button:hover:not(:disabled) {
+  background: var(--button-primary-bg-hover);
+}
+
+.voice-chat-tool-button--recording {
+  position: relative;
+  border-color: var(--danger-border);
+  background: linear-gradient(135deg, rgba(125, 37, 52, 0.9) 0%, rgba(68, 18, 31, 0.92) 100%);
+  color: #ffd0d0;
+  box-shadow: 0 16px 28px rgba(125, 37, 52, 0.3);
+}
+
+.voice-chat-tool-button--recording::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border: 1px solid rgba(255, 126, 126, 0.32);
+  border-radius: 22px;
+  animation: voice-chat-ring 1.4s ease-out infinite;
+}
+
+.voice-chat-tool-button:disabled,
+.voice-chat-send-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+  box-shadow: none;
+}
+
+.voice-chat-button-icon {
+  width: 20px;
+  height: 20px;
+  display: block;
+  overflow: visible;
+}
+
+.voice-chat-status {
+  margin: 0;
+  min-height: 22px;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+
+.voice-chat-status--error {
+  color: #ffb0b0;
+}
+
+html[data-theme='creed-eclipse'] .hero-card,
+html[data-theme='creed-eclipse'] .info-card,
+html[data-theme='creed-eclipse'] .result-card,
+html[data-theme='creed-eclipse'] .instructions-card,
+html[data-theme='creed-eclipse'] .settings-card,
+html[data-theme='creed-eclipse'] .feed-card,
+html[data-theme='creed-eclipse'] .settings-page-hero,
+html[data-theme='creed-eclipse'] .settings-sidebar,
+html[data-theme='creed-eclipse'] .settings-detail-panel,
+html[data-theme='creed-eclipse'] .screen-edge-dock__panel,
+html[data-theme='creed-eclipse'] .voice-chat-shell {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+html[data-theme='creed-eclipse'] .hero-card::after,
+html[data-theme='creed-eclipse'] .info-card::after,
+html[data-theme='creed-eclipse'] .result-card::after,
+html[data-theme='creed-eclipse'] .instructions-card::after,
+html[data-theme='creed-eclipse'] .settings-card::after,
+html[data-theme='creed-eclipse'] .feed-card::after,
+html[data-theme='creed-eclipse'] .settings-page-hero::after,
+html[data-theme='creed-eclipse'] .settings-sidebar::after,
+html[data-theme='creed-eclipse'] .settings-detail-panel::after,
+html[data-theme='creed-eclipse'] .screen-edge-dock__panel::after,
+html[data-theme='creed-eclipse'] .voice-chat-shell::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -42%;
+  height: 42%;
+  background: linear-gradient(180deg, rgba(133, 240, 255, 0) 0%, rgba(133, 240, 255, 0.2) 46%, rgba(133, 240, 255, 0) 100%);
+  opacity: 0.64;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  animation: animus-panel-scan 4.6s linear infinite;
+}
+
+html[data-theme='creed-eclipse'] .window-titlebar__mark {
+  animation: animus-beacon 2.8s ease-in-out infinite;
+}
+
+html[data-theme='shadow-monarch'] .hero-card,
+html[data-theme='shadow-monarch'] .settings-page-hero,
+html[data-theme='shadow-monarch'] .settings-sidebar,
+html[data-theme='shadow-monarch'] .settings-detail-panel,
+html[data-theme='shadow-monarch'] .voice-chat-shell {
+  animation: shadow-monarch-breathe 5.2s ease-in-out infinite;
+}
+
+html[data-theme='tsukuyomi-veil'] .window-titlebar__mark {
+  animation: tsukuyomi-sheen 4.2s ease-in-out infinite;
+}
+
+@keyframes voice-chat-pulse {
+  0%,
+  80%,
+  100% {
+    transform: scale(0.82);
+    opacity: 0.42;
+  }
+
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes voice-chat-ring {
+  0% {
+    transform: scale(0.94);
+    opacity: 0.7;
+  }
+
+  100% {
+    transform: scale(1.08);
+    opacity: 0;
+  }
+}
+
+@keyframes animus-panel-scan {
+  0% {
+    top: -42%;
+    opacity: 0;
+  }
+
+  16% {
+    opacity: 0.68;
+  }
+
+  100% {
+    top: 118%;
+    opacity: 0;
+  }
+}
+
+@keyframes animus-beacon {
+  0%,
+  100% {
+    transform: scale(0.92);
+    box-shadow: var(--window-mark-shadow);
+  }
+
+  50% {
+    transform: scale(1.08);
+    box-shadow:
+      0 0 16px rgba(246, 253, 255, 0.26),
+      0 0 30px rgba(133, 240, 255, 0.24);
+  }
+}
+
+@keyframes shadow-monarch-breathe {
+  0%,
+  100% {
+    box-shadow: var(--panel-shadow);
+  }
+
+  50% {
+    box-shadow:
+      0 24px 56px rgba(0, 0, 0, 0.54),
+      0 0 38px rgba(138, 120, 255, 0.18);
+  }
+}
+
+@keyframes tsukuyomi-sheen {
+  0%,
+  100% {
+    transform: scale(0.94);
+    box-shadow: var(--window-mark-shadow);
+  }
+
+  50% {
+    transform: scale(1.04);
+    box-shadow:
+      0 0 16px rgba(223, 230, 255, 0.24),
+      0 0 28px rgba(143, 139, 255, 0.18);
+  }
+}
+
+@media (max-width: 640px) {
+  .voice-chat-message {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 540px) {
+  .voice-chat-composer-row {
+    grid-template-columns: 1fr;
+  }
+
+  .voice-chat-composer-actions {
+    justify-content: flex-end;
+  }
 }
 
 @media (max-width: 960px) {

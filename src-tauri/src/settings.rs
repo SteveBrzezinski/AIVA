@@ -178,6 +178,15 @@ pub fn sanitize_settings(mut settings: AppSettings) -> AppSettings {
         "shadow-satin" => "shadow-satin".to_string(),
         "olympian-marble" => "olympian-marble".to_string(),
         "retro-signal" => "retro-signal".to_string(),
+        "fantasy-relic" => "fantasy-relic".to_string(),
+        "retro-arcade" => "retro-arcade".to_string(),
+        "modern-glass" => "modern-glass".to_string(),
+        "universe-drift" => "universe-drift".to_string(),
+        "creed-eclipse" => "creed-eclipse".to_string(),
+        "volt-forge" => "volt-forge".to_string(),
+        "brass-engine" => "brass-engine".to_string(),
+        "shadow-monarch" => "shadow-monarch".to_string(),
+        "tsukuyomi-veil" => "tsukuyomi-veil".to_string(),
         _ => DEFAULT_DESIGN_THEME_ID.to_string(),
     };
     settings.tts_format = match settings.tts_format.trim().to_lowercase().as_str() {

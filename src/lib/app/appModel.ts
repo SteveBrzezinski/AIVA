@@ -162,7 +162,7 @@ export function getAssistantNameError(value: string): string | null {
   if (!trimmed) {
     return i18n.t('validation.assistantNameRequired');
   }
-  if (trimmed.length < 4 || trimmed.length > 8) {
+  if (trimmed.length < 3 || trimmed.length > 8) {
     return i18n.t('validation.assistantNameLength');
   }
   if (!/^[A-Za-z0-9]+$/.test(trimmed)) {

@@ -18,7 +18,7 @@
   },
   "validation": {
     "assistantNameRequired": "Please enter an assistant name.",
-    "assistantNameLength": "The assistant name must be 4 to 8 characters long.",
+    "assistantNameLength": "The assistant name must be 3 to 8 characters long.",
     "assistantNameFormat": "Use one single word without spaces or special characters.",
     "assistantCalibrationRequired": "Please finish the assistant wake-word calibration for the current name and language before saving."
   },

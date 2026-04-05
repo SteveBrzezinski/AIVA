@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { LogicalPosition, LogicalSize, currentMonitor, getCurrentWindow, primaryMonitor } from '@tauri-apps/api/window';
+import { getChatWindowVisibility, onChatWindowVisibility, toggleChatWindow } from './lib/voiceOverlay';
 import {
   OVERLAY_ACTION_EVENT,
   OVERLAY_STATE_EVENT,
@@ -55,6 +56,7 @@ export default function OverlayDock() {
   const armedActionRef = useRef<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [overlayState, setOverlayState] = useState<OverlayState>(fallbackOverlayState);
+  const [isChatVisible, setIsChatVisible] = useState(false);
   const [statusNote, setStatusNote] = useState('Hover the edge glow to open the action bar.');
 
   useEffect(() => {
@@ -69,12 +71,27 @@ export default function OverlayDock() {
 
   useEffect(() => {
     let unlistenOverlayState: (() => void | Promise<void>) | undefined;
+    let unlistenChatWindowVisibility: (() => void | Promise<void>) | undefined;
     let unlistenScale: (() => void | Promise<void>) | undefined;
 
     void overlayWindowRef.current.listen<OverlayState>(OVERLAY_STATE_EVENT, (event) => {
       setOverlayState(event.payload);
     }).then((cleanup) => {
       unlistenOverlayState = cleanup;
+    });
+
+    void getChatWindowVisibility()
+      .then((visible) => {
+        setIsChatVisible(visible);
+      })
+      .catch(() => {
+        setIsChatVisible(false);
+      });
+
+    void onChatWindowVisibility(({ visible }) => {
+      setIsChatVisible(visible);
+    }).then((cleanup) => {
+      unlistenChatWindowVisibility = cleanup;
     });
 
     void overlayWindowRef.current.onScaleChanged(() => {
@@ -91,6 +108,7 @@ export default function OverlayDock() {
         window.clearTimeout(collapseTimerRef.current);
       }
       void unlistenOverlayState?.();
+      void unlistenChatWindowVisibility?.();
       void unlistenScale?.();
     };
   }, []);
@@ -179,14 +197,15 @@ export default function OverlayDock() {
     }
   };
 
-  const handleOpenComposer = async (): Promise<void> => {
+  const handleToggleChatWindow = async (): Promise<void> => {
     setIsExpanded(true);
     try {
-      await requestOverlayAction({ type: 'toggle-composer' });
-      setStatusNote(overlayState.composerVisible ? 'Text composer closed.' : 'Text composer opened.');
+      const visible = await toggleChatWindow();
+      setIsChatVisible(visible);
+      setStatusNote(visible ? 'Chat window opened.' : 'Chat window closed.');
     } catch (error: unknown) {
       const text = error instanceof Error ? error.message : String(error);
-      setStatusNote(`Could not open the text composer: ${text}`);
+      setStatusNote(`Could not toggle the chat window: ${text}`);
     }
   };
 
@@ -231,10 +250,10 @@ export default function OverlayDock() {
 
           <button
             type="button"
-            className={`edge-nav-btn ${overlayState.composerVisible ? 'edge-nav-btn--active' : ''}`}
+            className={`edge-nav-btn ${isChatVisible ? 'edge-nav-btn--active' : ''}`}
             onPointerDown={() => armAction('composer')}
             onPointerLeave={clearArmedAction}
-            onPointerUp={() => handleArmedAction('composer', handleOpenComposer)}
+            onPointerUp={() => handleArmedAction('composer', handleToggleChatWindow)}
           >
             <span className="edge-nav-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -1,6 +1,20 @@
 import { getCurrentWindow, type Window } from '@tauri-apps/api/window';
 
-export const DESIGN_THEME_IDS = ['obsidian-halo', 'shadow-satin', 'olympian-marble', 'retro-signal'] as const;
+export const DESIGN_THEME_IDS = [
+  'obsidian-halo',
+  'shadow-satin',
+  'olympian-marble',
+  'retro-signal',
+  'fantasy-relic',
+  'retro-arcade',
+  'modern-glass',
+  'universe-drift',
+  'creed-eclipse',
+  'volt-forge',
+  'brass-engine',
+  'shadow-monarch',
+  'tsukuyomi-veil',
+] as const;
 export type DesignThemeId = (typeof DESIGN_THEME_IDS)[number];
 
 export type DesignThemeOption = {
@@ -45,6 +59,78 @@ export const DESIGN_THEME_OPTIONS: DesignThemeOption[] = [
     description: 'A warm CRT-inspired retro look with amber glow, teal edge light, and subtle scanline texture.',
     accent: 'Amber / phosphor teal',
     contrast: 'Retro neon',
+    colorScheme: 'dark',
+  },
+  {
+    id: 'fantasy-relic',
+    label: 'Fantasy Relic',
+    description: 'Velvet night panels, enchanted jewel tones, and a rune-crystal orb instead of the black-hole core.',
+    accent: 'Amethyst / mint sigils',
+    contrast: 'Mystic contrast',
+    colorScheme: 'dark',
+  },
+  {
+    id: 'retro-arcade',
+    label: 'Retro Arcade',
+    description: 'Magenta-cyan arcade surfaces with a scanline pulse orb and animated level bars.',
+    accent: 'Neon magenta / cyan',
+    contrast: 'Arcade glow',
+    colorScheme: 'dark',
+  },
+  {
+    id: 'modern-glass',
+    label: 'Modern Glass',
+    description: 'Clean frosted panels, cool blue highlights, and a minimal glass pulse orb with orbiting nodes.',
+    accent: 'Ice glass / cobalt',
+    contrast: 'Soft modern light',
+    colorScheme: 'light',
+  },
+  {
+    id: 'universe-drift',
+    label: 'Universe Drift',
+    description: 'Nebula gradients, deep midnight framing, and a planetary orbit orb with drifting satellites.',
+    accent: 'Starlight / cosmic violet',
+    contrast: 'Deep space glow',
+    colorScheme: 'dark',
+  },
+  {
+    id: 'creed-eclipse',
+    label: 'Animus Eclipse',
+    description: 'Animus-inspired holographic whites, icy cyan telemetry, and a synchronisation orb with scanning rings and data nodes.',
+    accent: 'Sync white / animus cyan',
+    contrast: 'Simulation glow',
+    colorScheme: 'dark',
+  },
+  {
+    id: 'volt-forge',
+    label: 'Volt Forge',
+    description: 'Black alloy chassis, toxic volt tracers, and a reactor orb carved from hex steel and neon surge blades.',
+    accent: 'Volt green / gunmetal',
+    contrast: 'Predatory neon',
+    colorScheme: 'dark',
+  },
+  {
+    id: 'brass-engine',
+    label: 'Brass Engine',
+    description: 'Riveted brass housings, furnace amber pressure lights, and a clockwork reactor orb wrapped in steam and gears.',
+    accent: 'Brass / furnace amber',
+    contrast: 'Industrial opulence',
+    colorScheme: 'dark',
+  },
+  {
+    id: 'shadow-monarch',
+    label: 'Shadow Monarch',
+    description: 'Ink-black obsidian, abyssal indigo glows, and a shadow-gate orb with summoned shards and spectral smoke.',
+    accent: 'Void violet / royal blue',
+    contrast: 'Abyssal anime glow',
+    colorScheme: 'dark',
+  },
+  {
+    id: 'tsukuyomi-veil',
+    label: 'Tsukuyomi Veil',
+    description: 'Moonlit indigo lacquer, silver shrine accents, and a lunar eclipse orb wrapped in drifting veils and glyph petals.',
+    accent: 'Moon silver / midnight violet',
+    contrast: 'Mythic moonlight',
     colorScheme: 'dark',
   },
 ];

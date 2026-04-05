@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { LogicalPosition, LogicalSize, currentMonitor, getCurrentWindow, primaryMonitor } from '@tauri-apps/api/window';
+import { DEFAULT_DESIGN_THEME_ID, normalizeDesignThemeId, type DesignThemeId } from './designThemes';
 import { OVERLAY_ACTION_EVENT, OVERLAY_STATE_EVENT, type OverlayAction, type OverlayState } from './lib/overlayBridge';
-import BlackHoleOrb from './BlackHoleOrb';
+import ThemedOrb from './ThemedOrb';
+import { getSettings, onSettingsUpdated } from './lib/voiceOverlay';
 
 const SCREEN_EDGE_INSET = 12;
 const ORB_WINDOW_PADDING = 18;
@@ -46,6 +48,7 @@ async function syncVoiceOrbLayout(): Promise<void> {
 export default function VoiceOrbOverlay() {
   const overlayWindowRef = useRef(getCurrentWindow());
   const [overlayState, setOverlayState] = useState<OverlayState>(fallbackOverlayState);
+  const [themeId, setThemeId] = useState<DesignThemeId>(DEFAULT_DESIGN_THEME_ID);
   const [statusNote, setStatusNote] = useState('Voice overlay ready.');
 
   useEffect(() => {
@@ -60,7 +63,22 @@ export default function VoiceOrbOverlay() {
 
   useEffect(() => {
     let unlistenOverlayState: (() => void | Promise<void>) | undefined;
+    let unlistenSettings: (() => void | Promise<void>) | undefined;
     let unlistenScale: (() => void | Promise<void>) | undefined;
+
+    void getSettings()
+      .then((settings) => {
+        setThemeId(normalizeDesignThemeId(settings.designThemeId));
+      })
+      .catch(() => {
+        setThemeId(DEFAULT_DESIGN_THEME_ID);
+      });
+
+    void onSettingsUpdated((settings) => {
+      setThemeId(normalizeDesignThemeId(settings.designThemeId));
+    }).then((cleanup) => {
+      unlistenSettings = cleanup;
+    });
 
     void overlayWindowRef.current.listen<OverlayState>(OVERLAY_STATE_EVENT, (event) => {
       setOverlayState(event.payload);
@@ -80,6 +98,7 @@ export default function VoiceOrbOverlay() {
 
     return () => {
       void unlistenOverlayState?.();
+      void unlistenSettings?.();
       void unlistenScale?.();
     };
   }, []);
@@ -116,7 +135,8 @@ export default function VoiceOrbOverlay() {
 
   return (
     <div className="overlay-root overlay-root--orb">
-      <BlackHoleOrb
+      <ThemedOrb
+        themeId={themeId}
         isVisible={shouldShowOrb}
         isListening={overlayState.assistantActive}
         isThinking={overlayState.uiState === 'working'}

@@ -18,7 +18,7 @@
   },
   "validation": {
     "assistantNameRequired": "Bitte gib einen Assistentennamen ein.",
-    "assistantNameLength": "Der Assistentenname muss 4 bis 8 Zeichen lang sein.",
+    "assistantNameLength": "Der Assistentenname muss 3 bis 8 Zeichen lang sein.",
     "assistantNameFormat": "Verwende genau ein Wort ohne Leerzeichen oder Sonderzeichen.",
     "assistantCalibrationRequired": "Bitte schließe die Wake-Word-Kalibrierung für den aktuellen Namen und die aktuelle Sprache ab, bevor du speicherst."
   },

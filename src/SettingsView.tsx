@@ -7,7 +7,7 @@ import {
   ASSISTANT_MATCH_THRESHOLD_MIN,
 } from './lib/liveStt';
 
-type SettingsSectionId = 'design' | 'audio' | 'translation' | 'assistant' | 'startup' | 'advanced';
+type SettingsSectionId = 'general' | 'assistant' | 'startup' | 'api' | 'design';
 
 type SettingsViewProps = {
   settings: AppSettings;
@@ -65,8 +65,9 @@ export default function SettingsView({
   const [activeSection, setActiveSection] = useState<SettingsSectionId | null>(null);
 
   const translationTargetLabel = useMemo(
-    () => languageOptions.find((option) => option.code === settings.translationTargetLanguage)?.label
-      ?? settings.translationTargetLanguage.toUpperCase(),
+    () =>
+      languageOptions.find((option) => option.code === settings.translationTargetLanguage)?.label ??
+      settings.translationTargetLanguage.toUpperCase(),
     [languageOptions, settings.translationTargetLanguage],
   );
   const selectedThemeLabel = useMemo(
@@ -77,69 +78,62 @@ export default function SettingsView({
   const settingsSections = useMemo<SettingsSection[]>(() => {
     const assistantLabel = settings.assistantName.trim() || 'Ava';
     const assistantLanguage = settings.sttLanguage.trim().toUpperCase() || 'DE';
-    const assistantSummary = assistantCalibrationComplete && assistantTrainingReadyName === settings.assistantName
-      ? `${assistantLabel} / ${assistantLanguage} / training ready`
-      : assistantCalibrationRequired
-        ? `${assistantLabel} / ${assistantLanguage} / training recommended`
-        : `${assistantLabel} / ${assistantLanguage}`;
+    const assistantSummary =
+      assistantCalibrationComplete && assistantTrainingReadyName === settings.assistantName
+        ? `${assistantLabel} / ${assistantLanguage} / training ready`
+        : assistantCalibrationRequired
+          ? `${assistantLabel} / ${assistantLanguage} / training recommended`
+          : `${assistantLabel} / ${assistantLanguage}`;
 
     return [
       {
-        id: 'design',
-        label: 'Design',
-        description: 'Visual themes for the main window, the settings view, and the overlays.',
-        summary: selectedThemeLabel,
-      },
-      {
-        id: 'audio',
-        label: 'Audio & playback',
-        description: 'Speech mode, output format, lead-in, and playback speed.',
-        summary: `${settings.ttsMode} / ${settings.ttsFormat.toUpperCase()} / ${settings.playbackSpeed.toFixed(1)}x`,
-      },
-      {
-        id: 'translation',
-        label: 'Translation',
-        description: 'Target language and the translation pipeline.',
-        summary: translationTargetLabel,
+        id: 'general',
+        label: 'General',
+        description: 'Target language, UI language, and playback speed from dev.',
+        summary: `${translationTargetLabel} / UI ${settings.uiLanguage.toUpperCase()} / ${settings.playbackSpeed.toFixed(1)}x`,
       },
       {
         id: 'assistant',
-        label: 'Assistant & listening',
-        description: 'Wake word, STT language, activation, and voice assistant settings.',
+        label: 'Assistant',
+        description: 'Wake name, STT language, and assistant matching settings from dev.',
         summary: assistantSummary,
       },
       {
         id: 'startup',
-        label: 'Startup & background',
-        description: 'How the app behaves when Windows starts.',
+        label: 'Startup',
+        description: 'Launch and background behavior from dev.',
         summary: settings.launchAtLogin
-          ? settings.startHiddenOnLaunch ? 'Auto-start hidden' : 'Auto-start visible'
+          ? settings.startHiddenOnLaunch
+            ? 'Auto-start hidden'
+            : 'Auto-start visible'
           : 'Manual start',
       },
       {
-        id: 'advanced',
-        label: 'API & debug',
-        description: 'OpenAI key handling and fallback behavior for troubleshooting.',
-        summary: `${settings.openaiApiKey ? 'Custom API key' : 'Using .env key'} / ${settings.realtimeAllowLiveFallback ? 'Fallback on' : 'Fallback off'}`,
+        id: 'api',
+        label: 'API',
+        description: 'Only the OpenAI key field from dev.',
+        summary: settings.openaiApiKey ? 'Custom API key' : 'Using .env key',
+      },
+      {
+        id: 'design',
+        label: 'Design',
+        description: 'Your theme system for dashboard, settings, action bar, and orb.',
+        summary: selectedThemeLabel,
       },
     ];
   }, [
     assistantCalibrationComplete,
     assistantCalibrationRequired,
     assistantTrainingReadyName,
-    languageOptions,
+    selectedThemeLabel,
     settings.assistantName,
-    settings.designThemeId,
     settings.launchAtLogin,
     settings.openaiApiKey,
     settings.playbackSpeed,
-    settings.realtimeAllowLiveFallback,
     settings.startHiddenOnLaunch,
     settings.sttLanguage,
     settings.translationTargetLanguage,
-    settings.ttsFormat,
-    settings.ttsMode,
-    selectedThemeLabel,
+    settings.uiLanguage,
     translationTargetLabel,
   ]);
 
@@ -158,7 +152,7 @@ export default function SettingsView({
           <span className="settings-panel-eyebrow">Settings overview</span>
           <h2>Select a category</h2>
           <p className="settings-helper">
-            Choose one of the categories on the left. The right side then shows only the settings that belong together.
+            On the left you only see the main categories. Click one of them and the matching dev settings appear on the right.
           </p>
           <div className="settings-panel-meta">
             <span className={`settings-state-pill settings-state-pill--${settingsStatusTone}`}>{settingsStatusText}</span>
@@ -168,123 +162,72 @@ export default function SettingsView({
       );
     }
 
-    if (activeSection === 'audio') {
+    if (activeSection === 'general') {
       return (
         <div className="settings-detail-stack">
           <div className="settings-panel-header">
             <div>
-              <span className="settings-panel-eyebrow">Audio & playback</span>
-              <h2>Audio & playback</h2>
-              <p className="settings-helper">Everything for how speech is generated, starts, and plays back.</p>
+              <span className="settings-panel-eyebrow">General</span>
+              <h2>General</h2>
+              <p className="settings-helper">These are the language and playback settings that belong to dev.</p>
             </div>
-            <button type="button" className="settings-link-button" onClick={() => setActiveSection(null)}>Show categories</button>
-          </div>
-          <div className="settings-grid">
-            <label className="settings-field">
-              <span className="info-label">Speech mode</span>
-              <select value={settings.ttsMode} onChange={(event) => setSettings({ ...settings, ttsMode: event.target.value as AppSettings['ttsMode'] })}>
-                <option value="classic">Classic / stable</option>
-                <option value="live">Live / session-ready streaming</option>
-                <option value="realtime">Realtime / experimental</option>
-              </select>
-              <span className="field-note">Classic keeps the chunked file pipeline. Live uses the newer session-oriented streaming path. Realtime uses the OpenAI Realtime WebSocket audio path directly and exposes startup errors more clearly.</span>
-            </label>
-            <label className="settings-field">
-              <span className="info-label">Audio format</span>
-              <select value={settings.ttsFormat} onChange={(event) => setSettings({ ...settings, ttsFormat: event.target.value as AppSettings['ttsFormat'] })}>
-                <option value="wav">WAV (Default)</option>
-                <option value="mp3">MP3</option>
-              </select>
-              <span className="field-note">This applies to the classic pipeline. Live and realtime stream PCM internally and store the finished file as WAV.</span>
-            </label>
-            <label className="settings-field">
-              <span className="info-label">First chunk lead-in</span>
-              <select value={String(settings.firstChunkLeadingSilenceMs)} onChange={(event) => setSettings({ ...settings, firstChunkLeadingSilenceMs: Number(event.target.value) })}>
-                {[0, 120, 180, 250, 320].map((value) => <option key={value} value={value}>{value} ms</option>)}
-              </select>
-            </label>
-            <label className="settings-field settings-field--wide">
-              <span className="info-label">Speech playback speed</span>
-              <div className="slider-row">
-                <input type="range" min="0.5" max="2" step="0.1" value={settings.playbackSpeed} onChange={(event) => setSettings({ ...settings, playbackSpeed: Number(event.target.value) })} />
-                <output>{settings.playbackSpeed.toFixed(1)}x</output>
-              </div>
-              <span className="field-note">0.5x is slower, 1.0x is default, 2.0x is faster. This still applies to read-aloud and translate+read output.</span>
-            </label>
-          </div>
-        </div>
-      );
-    }
-
-    if (activeSection === 'design') {
-      const selectedThemeId = normalizeDesignThemeId(settings.designThemeId);
-
-      return (
-        <div className="settings-detail-stack">
-          <div className="settings-panel-header">
-            <div>
-              <span className="settings-panel-eyebrow">Design</span>
-              <h2>Design</h2>
-              <p className="settings-helper">Choose the visual language for the dashboard, settings screen, action bar, composer, and voice orb.</p>
-            </div>
-            <button type="button" className="settings-link-button" onClick={() => setActiveSection(null)}>Show categories</button>
-          </div>
-          <div className="design-grid">
-            {DESIGN_THEME_OPTIONS.map((theme) => {
-              const isActive = selectedThemeId === theme.id;
-              return (
-                <button
-                  type="button"
-                  key={theme.id}
-                  data-preview-theme={theme.id}
-                  className={`design-card ${isActive ? 'design-card--active' : ''}`}
-                  onClick={() => setSettings({ ...settings, designThemeId: theme.id })}
-                >
-                  <div className="design-card__preview" aria-hidden="true">
-                    <span className="design-card__preview-window" />
-                    <span className="design-card__preview-rail" />
-                    <span className="design-card__preview-panel" />
-                    <span className="design-card__preview-orb">
-                      <span className="design-card__preview-ring design-card__preview-ring--outer" />
-                      <span className="design-card__preview-ring design-card__preview-ring--middle" />
-                      <span className="design-card__preview-core" />
-                    </span>
-                  </div>
-                  <span className="design-card__eyebrow">{theme.accent}</span>
-                  <strong className="design-card__title">{theme.label}</strong>
-                  <p className="design-card__description">{theme.description}</p>
-                  <span className="design-card__meta">{isActive ? 'Selected for preview' : theme.contrast}</span>
-                </button>
-              );
-            })}
-          </div>
-          <p className="field-note">The main window previews your selection immediately. Save the settings to push the design to the action bar, the orb overlay, and future launches.</p>
-        </div>
-      );
-    }
-
-    if (activeSection === 'translation') {
-      return (
-        <div className="settings-detail-stack">
-          <div className="settings-panel-header">
-            <div>
-              <span className="settings-panel-eyebrow">Translation</span>
-              <h2>Translation</h2>
-              <p className="settings-helper">Everything that affects translated output and the translate-plus-read flow.</p>
-            </div>
-            <button type="button" className="settings-link-button" onClick={() => setActiveSection(null)}>Show categories</button>
+            <button type="button" className="settings-link-button" onClick={() => setActiveSection(null)}>
+              Show categories
+            </button>
           </div>
           <div className="settings-grid">
             <label className="settings-field">
               <span className="info-label">Translation target language</span>
-              <select value={settings.translationTargetLanguage} onChange={(event) => setSettings({ ...settings, translationTargetLanguage: event.target.value })}>
-                {languageOptions.map((option) => <option key={option.code} value={option.code}>{option.label}</option>)}
+              <select
+                value={settings.translationTargetLanguage}
+                onChange={(event) =>
+                  setSettings({
+                    ...settings,
+                    translationTargetLanguage: event.target.value,
+                  })
+                }
+              >
+                {languageOptions.map((option) => (
+                  <option key={option.code} value={option.code}>
+                    {option.label}
+                  </option>
+                ))}
               </select>
             </label>
+
+            <label className="settings-field settings-field--wide">
+              <span className="info-label">Speech playback speed</span>
+              <div className="slider-row">
+                <input
+                  type="range"
+                  min="0.5"
+                  max="2"
+                  step="0.1"
+                  value={settings.playbackSpeed}
+                  onChange={(event) =>
+                    setSettings({ ...settings, playbackSpeed: Number(event.target.value) })
+                  }
+                />
+                <output>{settings.playbackSpeed.toFixed(1)}x</output>
+              </div>
+              <span className="field-note">0.5x is slower, 1.0x is default, 2.0x is faster.</span>
+            </label>
+
             <label className="settings-field">
-              <span className="info-label">Read / translate engine</span>
-              <input type="text" value="live / fixed" readOnly />
-              <span className="field-note">Read aloud and translate-plus-read use the live TTS path in the background.</span>
+              <span className="info-label">UI language</span>
+              <select
+                value={settings.uiLanguage}
+                onChange={(event) =>
+                  setSettings({
+                    ...settings,
+                    uiLanguage: event.target.value,
+                  })
+                }
+              >
+                <option value="en">English</option>
+                <option value="de">Deutsch</option>
+              </select>
+              <span className="field-note">This changes the app language, not the speech language.</span>
             </label>
           </div>
         </div>
@@ -296,23 +239,15 @@ export default function SettingsView({
         <div className="settings-detail-stack">
           <div className="settings-panel-header">
             <div>
-              <span className="settings-panel-eyebrow">Assistant & listening</span>
-              <h2>Assistant & listening</h2>
-              <p className="settings-helper">Wake word, STT language, recognition tuning, and assistant runtime details.</p>
+              <span className="settings-panel-eyebrow">Assistant</span>
+              <h2>Assistant</h2>
+              <p className="settings-helper">Only the assistant naming, training, and listening settings from dev.</p>
             </div>
-            <button type="button" className="settings-link-button" onClick={() => setActiveSection(null)}>Show categories</button>
+            <button type="button" className="settings-link-button" onClick={() => setActiveSection(null)}>
+              Show categories
+            </button>
           </div>
           <div className="settings-grid">
-            <label className="settings-field">
-              <span className="info-label">Voice assistant transport</span>
-              <input type="text" value="WebRTC realtime" readOnly />
-              <span className="field-note">The assistant&apos;s spoken conversation runs separately through OpenAI Realtime over WebRTC.</span>
-            </label>
-            <label className="settings-field">
-              <span className="info-label">STT provider</span>
-              <input type="text" value="WebView2 / Windows speech" readOnly />
-              <span className="field-note">The live transcription path stays on WebView2 only to keep local overhead and lag as low as possible.</span>
-            </label>
             <label className="settings-field settings-field--wide">
               <span className="info-label">Assistant name</span>
               <div className="inline-field-row">
@@ -331,31 +266,52 @@ export default function SettingsView({
                     });
                   }}
                 />
-                <button type="button" className="secondary-button secondary-button--icon" disabled={Boolean(assistantNameError) || isSavingSettings} onClick={() => void onOpenTraining()}>
-                  Activate
+                <button
+                  type="button"
+                  className="secondary-button secondary-button--icon"
+                  disabled={Boolean(assistantNameError) || isSavingSettings}
+                  onClick={() => void onOpenTraining()}
+                >
+                  Train wake phrase
                 </button>
               </div>
               {assistantNameError ? <span className="field-note field-note--error">{assistantNameError}</span> : null}
-              {!assistantNameError && assistantCalibrationRequired && !assistantCalibrationComplete ? <span className="field-note field-note--warning">Wake-word training is optional right now. You can save immediately, but training still improves matching.</span> : null}
-              {!assistantNameError && assistantCalibrationComplete && assistantTrainingReadyName === settings.assistantName ? <span className="field-note field-note--success">Wake-word calibration is ready for this name and language.</span> : null}
-              <span className="field-note">Use 3-8 characters, one single word. The wake phrase stays in English: <code>Hey {settings.assistantName || 'Ava'}</code>.</span>
+              {!assistantNameError && assistantCalibrationRequired && !assistantCalibrationComplete ? (
+                <span className="field-note field-note--warning">
+                  Wake-word training is required again after changing the name or language.
+                </span>
+              ) : null}
+              {!assistantNameError &&
+              assistantCalibrationComplete &&
+              assistantTrainingReadyName === settings.assistantName ? (
+                <span className="field-note field-note--success">
+                  Wake-word calibration is ready for this name and language.
+                </span>
+              ) : null}
+              <span className="field-note">
+                Use 3-8 characters, one single word. The wake phrase stays <code>Hey {settings.assistantName || 'Ava'}</code>.
+              </span>
             </label>
+
             <label className="settings-field">
               <span className="info-label">Active transcription language</span>
               <input
                 type="text"
                 placeholder="de"
                 value={settings.sttLanguage}
-                onChange={(event) => setSettings({
-                  ...settings,
-                  sttLanguage: event.target.value,
-                  assistantWakeSamples: [],
-                  assistantNameSamples: [],
-                  assistantSampleLanguage: normalizeLanguageCode(event.target.value),
-                })}
+                onChange={(event) =>
+                  setSettings({
+                    ...settings,
+                    sttLanguage: event.target.value,
+                    assistantWakeSamples: [],
+                    assistantNameSamples: [],
+                    assistantSampleLanguage: normalizeLanguageCode(event.target.value),
+                  })
+                }
               />
               <span className="field-note">If you change it, record the training samples again, for example <code>de</code> or <code>en</code>.</span>
             </label>
+
             <label className="settings-field">
               <span className="info-label">Wake match threshold</span>
               <div className="slider-row">
@@ -365,19 +321,23 @@ export default function SettingsView({
                   max={ASSISTANT_MATCH_THRESHOLD_MAX}
                   step="1"
                   value={settings.assistantWakeThreshold}
-                  onChange={(event) => setSettings({
-                    ...settings,
-                    assistantWakeThreshold: parseBoundedInteger(
-                      event.target.value,
-                      settings.assistantWakeThreshold,
-                      ASSISTANT_MATCH_THRESHOLD_MIN,
-                      ASSISTANT_MATCH_THRESHOLD_MAX,
-                    ),
-                  })}
+                  onChange={(event) =>
+                    setSettings({
+                      ...settings,
+                      assistantWakeThreshold: parseBoundedInteger(
+                        event.target.value,
+                        settings.assistantWakeThreshold,
+                        ASSISTANT_MATCH_THRESHOLD_MIN,
+                        ASSISTANT_MATCH_THRESHOLD_MAX,
+                      ),
+                    })
+                  }
                 />
                 <output>{settings.assistantWakeThreshold}</output>
               </div>
+              <span className="field-note">Higher values make wake detection stricter.</span>
             </label>
+
             <label className="settings-field">
               <span className="info-label">Cue cooldown</span>
               <input
@@ -386,15 +346,17 @@ export default function SettingsView({
                 max={ASSISTANT_CUE_COOLDOWN_MS_MAX}
                 step="100"
                 value={settings.assistantCueCooldownMs}
-                onChange={(event) => setSettings({
-                  ...settings,
-                  assistantCueCooldownMs: parseBoundedInteger(
-                    event.target.value,
-                    settings.assistantCueCooldownMs,
-                    0,
-                    ASSISTANT_CUE_COOLDOWN_MS_MAX,
-                  ),
-                })}
+                onChange={(event) =>
+                  setSettings({
+                    ...settings,
+                    assistantCueCooldownMs: parseBoundedInteger(
+                      event.target.value,
+                      settings.assistantCueCooldownMs,
+                      0,
+                      ASSISTANT_CUE_COOLDOWN_MS_MAX,
+                    ),
+                  })
+                }
               />
               <span className="field-note">Milliseconds to ignore repeated wake hits right after activation.</span>
             </label>
@@ -408,55 +370,121 @@ export default function SettingsView({
         <div className="settings-detail-stack">
           <div className="settings-panel-header">
             <div>
-              <span className="settings-panel-eyebrow">Startup & background</span>
-              <h2>Startup & background</h2>
-              <p className="settings-helper">Control whether the app starts with Windows and hides into the background.</p>
+              <span className="settings-panel-eyebrow">Startup</span>
+              <h2>Startup</h2>
+              <p className="settings-helper">These are the startup and background options kept from dev.</p>
             </div>
-            <button type="button" className="settings-link-button" onClick={() => setActiveSection(null)}>Show categories</button>
+            <button type="button" className="settings-link-button" onClick={() => setActiveSection(null)}>
+              Show categories
+            </button>
           </div>
           <div className="settings-grid">
             <label className="settings-field settings-field--wide">
               <span className="info-label">Background startup</span>
               <label className="checkbox-row">
-                <input type="checkbox" checked={settings.launchAtLogin} onChange={(event) => setSettings({ ...settings, launchAtLogin: event.target.checked })} />
+                <input
+                  type="checkbox"
+                  checked={settings.launchAtLogin}
+                  onChange={(event) =>
+                    setSettings({ ...settings, launchAtLogin: event.target.checked })
+                  }
+                />
                 <span>Launch the app automatically when I sign in to Windows</span>
               </label>
               <label className="checkbox-row">
-                <input type="checkbox" checked={settings.startHiddenOnLaunch} disabled={!settings.launchAtLogin} onChange={(event) => setSettings({ ...settings, startHiddenOnLaunch: event.target.checked })} />
+                <input
+                  type="checkbox"
+                  checked={settings.startHiddenOnLaunch}
+                  disabled={!settings.launchAtLogin}
+                  onChange={(event) =>
+                    setSettings({ ...settings, startHiddenOnLaunch: event.target.checked })
+                  }
+                />
                 <span>When started automatically, keep the window hidden and run in the background</span>
               </label>
-              <span className="field-note">Saving this writes or removes a Windows Startup launcher for the current executable.</span>
+              <span className="field-note">Saving this writes or removes the Windows Startup launcher for the current executable.</span>
             </label>
           </div>
         </div>
       );
     }
 
+    if (activeSection === 'api') {
+      return (
+        <div className="settings-detail-stack">
+          <div className="settings-panel-header">
+            <div>
+              <span className="settings-panel-eyebrow">API</span>
+              <h2>API</h2>
+              <p className="settings-helper">Only the OpenAI API key field remains here, exactly like in dev.</p>
+            </div>
+            <button type="button" className="settings-link-button" onClick={() => setActiveSection(null)}>
+              Show categories
+            </button>
+          </div>
+          <div className="settings-grid">
+            <label className="settings-field settings-field--wide">
+              <span className="info-label">OpenAI API key</span>
+              <input
+                type="password"
+                autoComplete="off"
+                placeholder="sk-..."
+                value={settings.openaiApiKey}
+                onChange={(event) =>
+                  setSettings({ ...settings, openaiApiKey: event.target.value })
+                }
+              />
+              <span className="field-note">When set here, it overrides <code>OPENAI_API_KEY</code> from <code>.env</code>.</span>
+            </label>
+          </div>
+        </div>
+      );
+    }
+
+    const selectedThemeId = normalizeDesignThemeId(settings.designThemeId);
+
     return (
       <div className="settings-detail-stack">
         <div className="settings-panel-header">
           <div>
-            <span className="settings-panel-eyebrow">API & debug</span>
-            <h2>API & debug</h2>
-            <p className="settings-helper">Keep sensitive and debugging-related options grouped in one place.</p>
+            <span className="settings-panel-eyebrow">Design</span>
+            <h2>Design</h2>
+            <p className="settings-helper">These are the theme options from your design branches and nothing else.</p>
           </div>
-          <button type="button" className="settings-link-button" onClick={() => setActiveSection(null)}>Show categories</button>
+          <button type="button" className="settings-link-button" onClick={() => setActiveSection(null)}>
+            Show categories
+          </button>
         </div>
-        <div className="settings-grid">
-          <label className="settings-field settings-field--wide">
-            <span className="info-label">Realtime debug fallback</span>
-            <label className="checkbox-row">
-              <input type="checkbox" checked={settings.realtimeAllowLiveFallback} onChange={(event) => setSettings({ ...settings, realtimeAllowLiveFallback: event.target.checked })} />
-              <span>Allow temporary fallback from realtime to live on startup failure</span>
-            </label>
-            <span className="field-note">Leave this off if you want realtime startup errors to stay visible while debugging.</span>
-          </label>
-          <label className="settings-field settings-field--wide">
-            <span className="info-label">OpenAI API key</span>
-            <input type="password" autoComplete="off" placeholder="sk-..." value={settings.openaiApiKey} onChange={(event) => setSettings({ ...settings, openaiApiKey: event.target.value })} />
-            <span className="field-note">When set here, it overrides <code>OPENAI_API_KEY</code> from <code>.env</code>.</span>
-          </label>
+        <div className="design-grid">
+          {DESIGN_THEME_OPTIONS.map((theme) => {
+            const isActive = selectedThemeId === theme.id;
+            return (
+              <button
+                type="button"
+                key={theme.id}
+                data-preview-theme={theme.id}
+                className={`design-card ${isActive ? 'design-card--active' : ''}`}
+                onClick={() => setSettings({ ...settings, designThemeId: theme.id })}
+              >
+                <div className="design-card__preview" aria-hidden="true">
+                  <span className="design-card__preview-window" />
+                  <span className="design-card__preview-rail" />
+                  <span className="design-card__preview-panel" />
+                  <span className="design-card__preview-orb">
+                    <span className="design-card__preview-ring design-card__preview-ring--outer" />
+                    <span className="design-card__preview-ring design-card__preview-ring--middle" />
+                    <span className="design-card__preview-core" />
+                  </span>
+                </div>
+                <span className="design-card__eyebrow">{theme.accent}</span>
+                <strong className="design-card__title">{theme.label}</strong>
+                <p className="design-card__description">{theme.description}</p>
+                <span className="design-card__meta">{isActive ? 'Selected for preview' : theme.contrast}</span>
+              </button>
+            );
+          })}
         </div>
+        <p className="field-note">The main window previews your selection immediately. Save the settings to push the design to the action bar, the orb overlay, and future launches.</p>
       </div>
     );
   };
@@ -483,7 +511,7 @@ export default function SettingsView({
           </div>
         </div>
         <h1>Settings</h1>
-        <p className="hero-copy">Choose a category on the left. On the right, you only see the settings that logically belong together.</p>
+        <p className="hero-copy">This page now keeps only the dev settings plus the theme selection from your design work.</p>
         <div className="settings-panel-meta">
           <span className={`settings-state-pill settings-state-pill--${settingsStatusTone}`}>{settingsStatusText}</span>
           <p className="field-note">Save applies changes to future hotkey runs and stores them in the local config file.</p>
