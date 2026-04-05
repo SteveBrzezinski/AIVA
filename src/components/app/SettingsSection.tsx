@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
 import {
@@ -77,16 +77,13 @@ export function SettingsSection(props: SettingsSectionProps): JSX.Element {
     onHostedCheckout,
     onOpenAssistantTraining,
   } = props;
-  const [hostedEmail, setHostedEmail] = useState(settings.hostedAccountEmail);
+  const [hostedEmailDraft, setHostedEmailDraft] = useState<string | null>(null);
   const [hostedPassword, setHostedPassword] = useState('');
+  const hostedEmail = hostedEmailDraft ?? settings.hostedAccountEmail;
   const isHostedMode = settings.aiProviderMode === 'hosted';
   const hostedRealtimeEnabled = Boolean(
     hostedAccount?.entitlements.some((item) => item.feature === 'hosted_realtime' && item.enabled),
   );
-
-  useEffect(() => {
-    setHostedEmail(settings.hostedAccountEmail);
-  }, [settings.hostedAccountEmail]);
 
   return (
     <section className="settings-card">
@@ -413,7 +410,7 @@ export function SettingsSection(props: SettingsSectionProps): JSX.Element {
                     autoComplete="username"
                     placeholder="name@example.com"
                     value={hostedEmail}
-                    onChange={(event) => setHostedEmail(event.target.value)}
+                    onChange={(event) => setHostedEmailDraft(event.target.value)}
                   />
                   <input
                     type="password"
@@ -441,6 +438,7 @@ export function SettingsSection(props: SettingsSectionProps): JSX.Element {
                         email: hostedEmail,
                         password: hostedPassword,
                       });
+                      setHostedEmailDraft(null);
                       setHostedPassword('');
                     }}
                   >
@@ -471,6 +469,7 @@ export function SettingsSection(props: SettingsSectionProps): JSX.Element {
                     }
                     onClick={async () => {
                       await onHostedLogout();
+                      setHostedEmailDraft(null);
                       setHostedPassword('');
                     }}
                   >

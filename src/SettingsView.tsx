@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
+import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import { DESIGN_THEME_OPTIONS, getDesignThemeLabel, normalizeDesignThemeId } from './designThemes';
 import type {
   AppSettings,
@@ -96,17 +96,14 @@ export default function SettingsView({
   normalizeLanguageCode,
 }: SettingsViewProps) {
   const [activeSection, setActiveSection] = useState<SettingsSectionId | null>(null);
-  const [hostedEmail, setHostedEmail] = useState(settings.hostedAccountEmail);
+  const [hostedEmailDraft, setHostedEmailDraft] = useState<string | null>(null);
   const [hostedPassword, setHostedPassword] = useState('');
+  const hostedEmail = hostedEmailDraft ?? settings.hostedAccountEmail;
 
   const isHostedMode = settings.aiProviderMode === 'hosted';
   const hostedRealtimeEnabled = Boolean(
     hostedAccount?.entitlements.some((item) => item.feature === 'hosted_realtime' && item.enabled),
   );
-
-  useEffect(() => {
-    setHostedEmail(settings.hostedAccountEmail);
-  }, [settings.hostedAccountEmail]);
 
   const translationTargetLabel = useMemo(
     () =>
@@ -552,7 +549,7 @@ export default function SettingsView({
                         autoComplete="username"
                         placeholder="name@example.com"
                         value={hostedEmail}
-                        onChange={(event) => setHostedEmail(event.target.value)}
+                        onChange={(event) => setHostedEmailDraft(event.target.value)}
                       />
                       <input
                         type="password"
@@ -581,6 +578,7 @@ export default function SettingsView({
                               email: hostedEmail,
                               password: hostedPassword,
                             });
+                            setHostedEmailDraft(null);
                             setHostedPassword('');
                           })();
                         }}
@@ -611,6 +609,7 @@ export default function SettingsView({
                         onClick={() => {
                           void (async () => {
                             await onHostedLogout();
+                            setHostedEmailDraft(null);
                             setHostedPassword('');
                           })();
                         }}
