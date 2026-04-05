@@ -18,6 +18,7 @@ import { LiveSttController, type AssistantStateSnapshot, type ProviderSnapshot }
 import {
   RealtimeVoiceAgentController,
   type RealtimeChatEvent,
+  type VoiceAgentStatus,
   type VoiceConnectionState,
   type VoiceFeedItem,
 } from '../lib/realtimeVoiceAgent';
@@ -111,6 +112,26 @@ export function useVoiceAssistantRuntime(
     setChatMessages((current) => [...current, message].slice(-40));
   }, []);
 
+  const failPendingChatMessage = useCallback((detail: string, expectedMessageId?: string): boolean => {
+    const pendingMessageId = pendingChatMessageIdRef.current;
+    if (!pendingMessageId || (expectedMessageId && pendingMessageId !== expectedMessageId)) {
+      return false;
+    }
+
+    pendingChatMessageIdRef.current = null;
+    setIsChatAssistantResponding(false);
+    setChatStatusText(detail);
+    appendChatMessage({
+      id: `chat-system-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      role: 'system',
+      text: detail,
+      createdAtMs: Date.now(),
+      status: 'error',
+      replyToMessageId: pendingMessageId,
+    });
+    return true;
+  }, [appendChatMessage]);
+
   const handleChatEvent = useCallback((event: RealtimeChatEvent): void => {
     if (event.type === 'assistant-message') {
       if (
@@ -149,6 +170,15 @@ export function useVoiceAssistantRuntime(
       replyToMessageId: event.replyToMessageId ?? null,
     });
   }, [appendChatMessage]);
+
+  const handleVoiceAgentStatus = useCallback((status: VoiceAgentStatus): void => {
+    setVoiceAgentState(status.state);
+    setVoiceAgentDetail(status.detail);
+    setVoiceAgentSession(status.session ?? null);
+    if (status.state === 'error') {
+      failPendingChatMessage(status.detail);
+    }
+  }, [failPendingChatMessage]);
 
   const publishChatState = useCallback((): void => {
     void emitVoiceChatState({
@@ -193,9 +223,7 @@ export function useVoiceAssistantRuntime(
         }
       },
       onStatus: (status) => {
-        setVoiceAgentState(status.state);
-        setVoiceAgentDetail(status.detail);
-        setVoiceAgentSession(status.session ?? null);
+        handleVoiceAgentStatus(status);
       },
       onAssistantControlRequest: ({ action, reason }) => {
         if (action === 'deactivate') {
@@ -213,7 +241,7 @@ export function useVoiceAssistantRuntime(
     } catch {
       realtimeVoiceAgentRef.current = null;
     }
-  }, [handleChatEvent]);
+  }, [handleChatEvent, handleVoiceAgentStatus]);
 
   const stopVoiceAgent = useCallback(async (reason = 'deactivate'): Promise<void> => {
     if (realtimeVoiceAgentRef.current) {
@@ -438,19 +466,7 @@ export function useVoiceAssistantRuntime(
           await realtimeVoiceAgentRef.current?.sendTextMessage(text, messageId);
         } catch (error: unknown) {
           const detail = error instanceof Error ? error.message : String(error);
-          if (pendingChatMessageIdRef.current === messageId) {
-            pendingChatMessageIdRef.current = null;
-          }
-          setIsChatAssistantResponding(false);
-          setChatStatusText(detail);
-          appendChatMessage({
-            id: `chat-system-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-            role: 'system',
-            text: detail,
-            createdAtMs: Date.now(),
-            status: 'error',
-            replyToMessageId: messageId,
-          });
+          failPendingChatMessage(detail, messageId);
         }
       })();
     }).then((cleanup) => {
@@ -461,7 +477,7 @@ export function useVoiceAssistantRuntime(
       void unlistenChatSync?.();
       void unlistenChatSubmit?.();
     };
-  }, [appendChatMessage, startVoiceAgent]);
+  }, [appendChatMessage, failPendingChatMessage, startVoiceAgent]);
 
   useEffect(() => {
     let unlistenLiveSttControl: (() => void | Promise<void>) | undefined;
@@ -501,25 +517,6 @@ export function useVoiceAssistantRuntime(
       }
     };
   }, []);
-
-  useEffect(() => {
-    if (voiceAgentState !== 'error' || !pendingChatMessageIdRef.current) {
-      return;
-    }
-
-    const replyToMessageId = pendingChatMessageIdRef.current;
-    pendingChatMessageIdRef.current = null;
-    setIsChatAssistantResponding(false);
-    setChatStatusText(voiceAgentDetail);
-    appendChatMessage({
-      id: `chat-system-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      role: 'system',
-      text: voiceAgentDetail,
-      createdAtMs: Date.now(),
-      status: 'error',
-      replyToMessageId,
-    });
-  }, [appendChatMessage, voiceAgentDetail, voiceAgentState]);
 
   useEffect(() => {
     if (!isLiveTranscribing || !liveTranscriptionSessionId) {

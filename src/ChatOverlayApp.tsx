@@ -170,6 +170,26 @@ export default function ChatOverlayApp() {
   const recordedChunksRef = useRef<Blob[]>([]);
   const recordingMimeTypeRef = useRef('audio/webm');
 
+  function stopRecordingResources(): void {
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.ondataavailable = null;
+      recorder.onerror = null;
+      recorder.onstop = null;
+      recorder.stop();
+    }
+
+    if (mediaStreamRef.current) {
+      for (const track of mediaStreamRef.current.getTracks()) {
+        track.stop();
+      }
+    }
+
+    mediaRecorderRef.current = null;
+    mediaStreamRef.current = null;
+    recordedChunksRef.current = [];
+  }
+
   useEffect(() => {
     let isMounted = true;
     let unlistenChatState: (() => void | Promise<void>) | undefined;
@@ -225,11 +245,9 @@ export default function ChatOverlayApp() {
 
   useEffect(() => {
     if (recordingPhase !== 'recording' || !recordingStartedAtMs) {
-      setRecordingElapsedMs(0);
       return;
     }
 
-    setRecordingElapsedMs(Date.now() - recordingStartedAtMs);
     const timer = window.setInterval(() => {
       setRecordingElapsedMs(Date.now() - recordingStartedAtMs);
     }, 250);
@@ -291,6 +309,7 @@ export default function ChatOverlayApp() {
 
     try {
       setLocalError('');
+      setRecordingElapsedMs(0);
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -315,6 +334,7 @@ export default function ChatOverlayApp() {
     } catch (error: unknown) {
       stopRecordingResources();
       setRecordingPhase('idle');
+      setRecordingElapsedMs(0);
       setRecordingStartedAtMs(null);
       setLocalError(error instanceof Error ? error.message : String(error));
     }
@@ -345,6 +365,7 @@ export default function ChatOverlayApp() {
       });
 
       stopRecordingResources();
+      setRecordingElapsedMs(0);
       setRecordingStartedAtMs(null);
       const transcriptionMimeType =
         (blob.type || recordingMimeTypeRef.current).split(';')[0] || 'audio/webm';
@@ -366,29 +387,10 @@ export default function ChatOverlayApp() {
     } catch (error: unknown) {
       stopRecordingResources();
       setRecordingPhase('idle');
+      setRecordingElapsedMs(0);
       setRecordingStartedAtMs(null);
       setLocalError(error instanceof Error ? error.message : String(error));
     }
-  }
-
-  function stopRecordingResources(): void {
-    const recorder = mediaRecorderRef.current;
-    if (recorder && recorder.state !== 'inactive') {
-      recorder.ondataavailable = null;
-      recorder.onerror = null;
-      recorder.onstop = null;
-      recorder.stop();
-    }
-
-    if (mediaStreamRef.current) {
-      for (const track of mediaStreamRef.current.getTracks()) {
-        track.stop();
-      }
-    }
-
-    mediaRecorderRef.current = null;
-    mediaStreamRef.current = null;
-    recordedChunksRef.current = [];
   }
 
   return (
