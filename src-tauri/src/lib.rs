@@ -17,7 +17,9 @@ pub mod voice_tools;
 mod commands {
     use super::run_controller::{CancelResult, PauseResumeResult, RunController};
     use super::selection_capture::{capture_selected_text, CaptureOptions, CaptureResult};
-    use super::settings::{AppSettings, LanguageOption, SettingsState, SETTINGS_EVENT, LANGUAGE_OPTIONS};
+    use super::settings::{
+        AppSettings, LanguageOption, SettingsState, LANGUAGE_OPTIONS, SETTINGS_EVENT,
+    };
     use super::stt::{
         append_stt_debug_log, transcribe_chat_audio, AppendSttDebugLogOptions,
         AppendSttDebugLogResult, TranscribeChatAudioRequest, TranscribeChatAudioResult,
@@ -28,12 +30,24 @@ mod commands {
     use tauri::{AppHandle, Emitter, State};
 
     #[tauri::command]
-    pub fn pause_resume_current_run(controller: State<'_, RunController>) -> Result<String, String> {
+    pub fn pause_resume_current_run(
+        controller: State<'_, RunController>,
+    ) -> Result<String, String> {
         Ok(match controller.pause_resume() {
-            PauseResumeResult::NoActiveRun => return Err("No active run can be paused or resumed.".to_string()),
-            PauseResumeResult::CancelPending(snapshot) => format!("Cancel already requested for current {} run during phase '{}'.", snapshot.action, snapshot.phase),
-            PauseResumeResult::Paused(snapshot) => format!("Paused current {} run during phase '{}'.", snapshot.action, snapshot.phase),
-            PauseResumeResult::Resumed(snapshot) => format!("Resumed current {} run during phase '{}'.", snapshot.action, snapshot.phase),
+            PauseResumeResult::NoActiveRun => {
+                return Err("No active run can be paused or resumed.".to_string())
+            }
+            PauseResumeResult::CancelPending(snapshot) => format!(
+                "Cancel already requested for current {} run during phase '{}'.",
+                snapshot.action, snapshot.phase
+            ),
+            PauseResumeResult::Paused(snapshot) => {
+                format!("Paused current {} run during phase '{}'.", snapshot.action, snapshot.phase)
+            }
+            PauseResumeResult::Resumed(snapshot) => format!(
+                "Resumed current {} run during phase '{}'.",
+                snapshot.action, snapshot.phase
+            ),
         })
     }
 
@@ -41,18 +55,29 @@ mod commands {
     pub fn cancel_current_run(controller: State<'_, RunController>) -> Result<String, String> {
         Ok(match controller.cancel() {
             CancelResult::NoActiveRun => return Err("No active run to cancel.".to_string()),
-            CancelResult::CancelRequested(snapshot) => format!("Cancelling current {} run during phase '{}'.", snapshot.action, snapshot.phase),
-            CancelResult::AlreadyRequested(snapshot) => format!("Cancel was already requested for current {} run during phase '{}'.", snapshot.action, snapshot.phase),
+            CancelResult::CancelRequested(snapshot) => format!(
+                "Cancelling current {} run during phase '{}'.",
+                snapshot.action, snapshot.phase
+            ),
+            CancelResult::AlreadyRequested(snapshot) => format!(
+                "Cancel was already requested for current {} run during phase '{}'.",
+                snapshot.action, snapshot.phase
+            ),
         })
     }
 
     #[tauri::command]
-    pub fn capture_selected_text_command(options: Option<CaptureOptions>) -> Result<CaptureResult, String> {
+    pub fn capture_selected_text_command(
+        options: Option<CaptureOptions>,
+    ) -> Result<CaptureResult, String> {
         capture_selected_text(options)
     }
 
     #[tauri::command]
-    pub fn speak_text_command(options: SpeakTextOptions, settings: State<'_, SettingsState>) -> Result<SpeakTextResult, String> {
+    pub fn speak_text_command(
+        options: SpeakTextOptions,
+        settings: State<'_, SettingsState>,
+    ) -> Result<SpeakTextResult, String> {
         speak_text(options, &settings.get())
     }
 
@@ -65,7 +90,9 @@ mod commands {
     }
 
     #[tauri::command]
-    pub fn get_settings(settings: State<'_, SettingsState>) -> AppSettings { settings.get() }
+    pub fn get_settings(settings: State<'_, SettingsState>) -> AppSettings {
+        settings.get()
+    }
 
     #[tauri::command]
     pub fn update_settings(
@@ -79,14 +106,19 @@ mod commands {
     }
 
     #[tauri::command]
-    pub fn reset_settings(settings: State<'_, SettingsState>, app: AppHandle) -> Result<AppSettings, String> {
+    pub fn reset_settings(
+        settings: State<'_, SettingsState>,
+        app: AppHandle,
+    ) -> Result<AppSettings, String> {
         let saved = settings.reset()?;
         let _ = app.emit(SETTINGS_EVENT, &saved);
         Ok(saved)
     }
 
     #[tauri::command]
-    pub fn get_language_options() -> Vec<LanguageOption> { LANGUAGE_OPTIONS.to_vec() }
+    pub fn get_language_options() -> Vec<LanguageOption> {
+        LANGUAGE_OPTIONS.to_vec()
+    }
 
     #[tauri::command]
     pub fn append_stt_debug_log_command(
@@ -130,7 +162,9 @@ mod commands {
     ) -> Result<CaptureAndSpeakResult, String> {
         let capture = capture_selected_text(capture_options)?;
         if capture.text.trim().is_empty() {
-            return Err(capture.note.unwrap_or_else(|| "No marked text could be captured.".to_string()));
+            return Err(capture
+                .note
+                .unwrap_or_else(|| "No marked text could be captured.".to_string()));
         }
         let app_settings = settings.get();
         let base_speak = speak_options.unwrap_or(SpeakTextOptions {
@@ -158,7 +192,12 @@ mod commands {
             },
             &app_settings,
         )?;
-        Ok(CaptureAndSpeakResult { captured_text: capture.text, restored_clipboard: capture.restored_clipboard, note: capture.note, speech })
+        Ok(CaptureAndSpeakResult {
+            captured_text: capture.text,
+            restored_clipboard: capture.restored_clipboard,
+            note: capture.note,
+            speech,
+        })
     }
 
     #[tauri::command]
@@ -169,7 +208,9 @@ mod commands {
     ) -> Result<CaptureAndTranslateResult, String> {
         let capture = capture_selected_text(capture_options)?;
         if capture.text.trim().is_empty() {
-            return Err(capture.note.unwrap_or_else(|| "No marked text could be captured.".to_string()));
+            return Err(capture
+                .note
+                .unwrap_or_else(|| "No marked text could be captured.".to_string()));
         }
         let app_settings = settings.get();
         let base = translate_options.unwrap_or(TranslateTextOptions {
@@ -178,12 +219,17 @@ mod commands {
             source_language: None,
             model: None,
         });
-        let translation = translate_text(TranslateTextOptions {
-            text: Some(capture.text.clone()),
-            target_language: base.target_language.or(Some(app_settings.translation_target_language.clone())),
-            source_language: base.source_language,
-            model: base.model,
-        }, &app_settings)?;
+        let translation = translate_text(
+            TranslateTextOptions {
+                text: Some(capture.text.clone()),
+                target_language: base
+                    .target_language
+                    .or(Some(app_settings.translation_target_language.clone())),
+                source_language: base.source_language,
+                model: base.model,
+            },
+            &app_settings,
+        )?;
         let speech = speak_text(
             SpeakTextOptions {
                 text: Some(translation.text.clone()),
@@ -198,7 +244,13 @@ mod commands {
             },
             &app_settings,
         )?;
-        Ok(CaptureAndTranslateResult { captured_text: capture.text, restored_clipboard: capture.restored_clipboard, note: capture.note, translation, speech })
+        Ok(CaptureAndTranslateResult {
+            captured_text: capture.text,
+            restored_clipboard: capture.restored_clipboard,
+            note: capture.note,
+            translation,
+            speech,
+        })
     }
 }
 
@@ -214,5 +266,8 @@ pub use hosted_backend::{
     open_external_url_command,
 };
 pub use voice_agent::{create_voice_agent_session_command, run_voice_agent_tool_command};
-pub use voice_memory::{get_recent_voice_memory_command, recall_voice_memory_command, store_voice_session_memory_command};
+pub use voice_memory::{
+    get_recent_voice_memory_command, recall_voice_memory_command,
+    store_voice_session_memory_command,
+};
 pub use voice_tasks::get_voice_agent_task_command;

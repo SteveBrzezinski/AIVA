@@ -1,7 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use tauri::Manager;
-use voice_overlay_assistant::{app_icon, background, hotkey, run_controller, settings, voice_tasks};
+use voice_overlay_assistant::{
+    app_icon, background, hotkey, run_controller, settings, voice_tasks,
+};
 
 #[tauri::command]
 fn app_status() -> &'static str {

@@ -123,10 +123,7 @@ pub fn setup_background<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
                 button_state: MouseButtonState::Up,
                 ..
             }
-            | TrayIconEvent::DoubleClick {
-                button: MouseButton::Left,
-                ..
-            } => {
+            | TrayIconEvent::DoubleClick { button: MouseButton::Left, .. } => {
                 let _ = show_main_window(tray.app_handle());
             }
             _ => {}
@@ -250,21 +247,13 @@ fn request_exit<R: Runtime>(app: &AppHandle<R>) {
 
 fn emit_main_window_visibility<R: Runtime>(app: &AppHandle<R>, visible: bool) {
     let payload = MainWindowVisibilityPayload { visible };
-    let _ = app.emit_to(
-        ACTION_BAR_WINDOW_LABEL,
-        MAIN_WINDOW_VISIBILITY_EVENT,
-        payload,
-    );
+    let _ = app.emit_to(ACTION_BAR_WINDOW_LABEL, MAIN_WINDOW_VISIBILITY_EVENT, payload);
     let _ = app.emit_to(CHAT_WINDOW_LABEL, MAIN_WINDOW_VISIBILITY_EVENT, payload);
 }
 
 fn emit_chat_window_visibility<R: Runtime>(app: &AppHandle<R>, visible: bool) {
     let payload = ChatWindowVisibilityPayload { visible };
-    let _ = app.emit_to(
-        ACTION_BAR_WINDOW_LABEL,
-        CHAT_WINDOW_VISIBILITY_EVENT,
-        payload,
-    );
+    let _ = app.emit_to(ACTION_BAR_WINDOW_LABEL, CHAT_WINDOW_VISIBILITY_EVENT, payload);
     let _ = app.emit_to(CHAT_WINDOW_LABEL, CHAT_WINDOW_VISIBILITY_EVENT, payload);
 }
 
@@ -363,12 +352,8 @@ fn show_main_window<R: Runtime, M: Manager<R>>(manager: &M) -> Result<bool, Stri
             .map_err(|error| format!("Failed to restore the main window: {error}"))?;
     }
 
-    window
-        .show()
-        .map_err(|error| format!("Failed to show the main window: {error}"))?;
-    window
-        .set_focus()
-        .map_err(|error| format!("Failed to focus the main window: {error}"))?;
+    window.show().map_err(|error| format!("Failed to show the main window: {error}"))?;
+    window.set_focus().map_err(|error| format!("Failed to focus the main window: {error}"))?;
 
     let app = manager.app_handle();
     emit_main_window_visibility(&app, true);
@@ -387,12 +372,8 @@ fn show_chat_window<R: Runtime>(app: &AppHandle<R>) -> Result<bool, String> {
             .map_err(|error| format!("Failed to restore the chat window: {error}"))?;
     }
 
-    window
-        .show()
-        .map_err(|error| format!("Failed to show the chat window: {error}"))?;
-    window
-        .set_focus()
-        .map_err(|error| format!("Failed to focus the chat window: {error}"))?;
+    window.show().map_err(|error| format!("Failed to show the chat window: {error}"))?;
+    window.set_focus().map_err(|error| format!("Failed to focus the chat window: {error}"))?;
 
     emit_chat_window_visibility(app, true);
     Ok(true)
@@ -403,9 +384,7 @@ fn hide_main_window<R: Runtime, M: Manager<R>>(manager: &M) -> Result<bool, Stri
         .get_webview_window(MAIN_WINDOW_LABEL)
         .ok_or_else(|| "Main window is unavailable.".to_string())?;
 
-    window
-        .hide()
-        .map_err(|error| format!("Failed to hide the main window: {error}"))?;
+    window.hide().map_err(|error| format!("Failed to hide the main window: {error}"))?;
 
     let app = manager.app_handle();
     emit_main_window_visibility(&app, false);
@@ -415,9 +394,7 @@ fn hide_main_window<R: Runtime, M: Manager<R>>(manager: &M) -> Result<bool, Stri
 fn hide_chat_window<R: Runtime>(app: &AppHandle<R>) -> Result<bool, String> {
     let window = get_chat_window(app)?;
 
-    window
-        .hide()
-        .map_err(|error| format!("Failed to hide the chat window: {error}"))?;
+    window.hide().map_err(|error| format!("Failed to hide the chat window: {error}"))?;
 
     emit_chat_window_visibility(app, false);
     Ok(false)
@@ -443,40 +420,34 @@ fn toggle_chat_window<R: Runtime>(app: &AppHandle<R>) -> Result<bool, String> {
 pub fn get_main_window_visibility_command(
     app: tauri::AppHandle,
 ) -> Result<MainWindowVisibilityPayload, String> {
-    Ok(MainWindowVisibilityPayload {
-        visible: main_window_is_visible(&app)?,
-    })
+    Ok(MainWindowVisibilityPayload { visible: main_window_is_visible(&app)? })
 }
 
 #[tauri::command]
 pub fn toggle_main_window_command(
     app: tauri::AppHandle,
 ) -> Result<MainWindowVisibilityPayload, String> {
-    Ok(MainWindowVisibilityPayload {
-        visible: toggle_main_window(&app)?,
-    })
+    Ok(MainWindowVisibilityPayload { visible: toggle_main_window(&app)? })
 }
 
 #[tauri::command]
 pub fn get_chat_window_visibility_command(
     app: tauri::AppHandle,
 ) -> Result<ChatWindowVisibilityPayload, String> {
-    Ok(ChatWindowVisibilityPayload {
-        visible: chat_window_is_visible(&app)?,
-    })
+    Ok(ChatWindowVisibilityPayload { visible: chat_window_is_visible(&app)? })
 }
 
 #[tauri::command]
 pub fn toggle_chat_window_command(
     app: tauri::AppHandle,
 ) -> Result<ChatWindowVisibilityPayload, String> {
-    Ok(ChatWindowVisibilityPayload {
-        visible: toggle_chat_window(&app)?,
-    })
+    Ok(ChatWindowVisibilityPayload { visible: toggle_chat_window(&app)? })
 }
 
 #[tauri::command]
-pub fn get_assistant_state_command(state: tauri::State<'_, AssistantState>) -> AssistantStatePayload {
+pub fn get_assistant_state_command(
+    state: tauri::State<'_, AssistantState>,
+) -> AssistantStatePayload {
     AssistantStatePayload { active: state.get() }
 }
 
@@ -503,10 +474,7 @@ pub fn request_assistant_control_command(
     app.emit_to(
         MAIN_WINDOW_LABEL,
         ASSISTANT_CONTROL_EVENT,
-        AssistantControlPayload {
-            action,
-            source: "manual".to_string(),
-        },
+        AssistantControlPayload { action, source: "manual".to_string() },
     )
     .map_err(|error| format!("Failed to emit assistant control request: {error}"))
 }
@@ -552,17 +520,17 @@ mod windows_impl {
     }
 
     fn startup_script_path() -> Result<PathBuf, String> {
-        let app_data = env::var_os("APPDATA")
-            .ok_or_else(|| "APPDATA is missing, so the Windows Startup folder cannot be resolved.".to_string())?;
+        let app_data = env::var_os("APPDATA").ok_or_else(|| {
+            "APPDATA is missing, so the Windows Startup folder cannot be resolved.".to_string()
+        })?;
 
-        Ok(PathBuf::from(app_data)
-            .join(WINDOWS_STARTUP_FOLDER)
-            .join(STARTUP_SCRIPT_NAME))
+        Ok(PathBuf::from(app_data).join(WINDOWS_STARTUP_FOLDER).join(STARTUP_SCRIPT_NAME))
     }
 
     fn current_executable_path() -> Result<PathBuf, String> {
-        env::current_exe()
-            .map_err(|error| format!("Failed to resolve the current executable for autostart: {error}"))
+        env::current_exe().map_err(|error| {
+            format!("Failed to resolve the current executable for autostart: {error}")
+        })
     }
 
     fn build_startup_script(executable_path: &Path) -> String {
