@@ -21,6 +21,7 @@ export type OverlayState = {
   isLiveTranscribing: boolean;
   voiceOrbPinned: boolean;
   composerVisible: boolean;
+  settingsVisible: boolean;
   assistantStateDetail: string;
   liveTranscriptionStatus: string;
   assistantWakePhrase: string;

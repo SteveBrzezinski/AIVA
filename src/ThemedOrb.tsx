@@ -26,7 +26,9 @@ type OrbVariant =
   | 'razor'
   | 'steam'
   | 'monarch'
-  | 'tsukuyomi';
+  | 'tsukuyomi'
+  | 'anime'
+  | 'kitsune';
 
 const FANTASY_GLYPH_POSITIONS = [
   { angle: 0, distance: 76 },
@@ -84,6 +86,22 @@ const MONARCH_SHARD_POSITIONS = [
 
 const TSUKUYOMI_SIGIL_ANGLES = [0, 60, 120, 180, 240, 300];
 
+const ANIME_SPARKLE_POSITIONS = [
+  { top: '12%', left: '26%', delay: '0.1s', scale: 0.84 },
+  { top: '18%', left: '78%', delay: '1.2s', scale: 1 },
+  { top: '58%', left: '14%', delay: '0.7s', scale: 0.72 },
+  { top: '76%', left: '82%', delay: '1.8s', scale: 0.9 },
+];
+
+const ANIME_WAVE_DELAYS = ['0s', '0.24s', '0.48s'];
+
+const KITSUNE_PETAL_POSITIONS = [
+  { top: '10%', left: '24%', delay: '0.2s', rotate: -18 },
+  { top: '20%', left: '78%', delay: '1.1s', rotate: 22 },
+  { top: '64%', left: '18%', delay: '1.7s', rotate: 36 },
+  { top: '74%', left: '72%', delay: '0.8s', rotate: -34 },
+];
+
 function joinClassNames(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(' ');
 }
@@ -114,6 +132,10 @@ function resolveOrbVariant(themeId: DesignThemeId): OrbVariant {
       return 'monarch';
     case 'tsukuyomi-veil':
       return 'tsukuyomi';
+    case 'anime-companion':
+      return 'anime';
+    case 'kitsune-matsuri':
+      return 'kitsune';
     default:
       return 'black-hole';
   }
@@ -482,6 +504,119 @@ function renderTsukuyomiOrb() {
   );
 }
 
+function renderAnimeCompanion() {
+  return (
+    <>
+      <span className="anime-companion__aura" />
+      <span className="anime-companion__halo" />
+      <span className="anime-companion__wavefield">
+        {ANIME_WAVE_DELAYS.map((delay, index) => (
+          <span
+            key={`anime-wave-${delay}`}
+            className="anime-companion__wave"
+            style={
+              {
+                animationDelay: delay,
+                '--anime-wave-inset': `${index * 8}px`,
+              } as CSSProperties
+            }
+          />
+        ))}
+      </span>
+
+      {ANIME_SPARKLE_POSITIONS.map((spark) => (
+        <span
+          key={`anime-spark-${spark.top}-${spark.left}`}
+          className="anime-companion__sparkle"
+          style={
+            {
+              top: spark.top,
+              left: spark.left,
+              animationDelay: spark.delay,
+              '--anime-spark-scale': spark.scale.toString(),
+            } as CSSProperties
+          }
+        />
+      ))}
+
+      <span className="anime-companion__ground-shadow" />
+      <span className="anime-companion__hair anime-companion__hair--back" />
+      <span className="anime-companion__side-lock anime-companion__side-lock--left" />
+      <span className="anime-companion__side-lock anime-companion__side-lock--right" />
+      <span className="anime-companion__arm anime-companion__arm--left">
+        <span className="anime-companion__hand anime-companion__hand--left" />
+      </span>
+      <span className="anime-companion__arm anime-companion__arm--right">
+        <span className="anime-companion__hand anime-companion__hand--right" />
+      </span>
+      <span className="anime-companion__body">
+        <span className="anime-companion__collar anime-companion__collar--left" />
+        <span className="anime-companion__collar anime-companion__collar--right" />
+        <span className="anime-companion__tie" />
+      </span>
+      <span className="anime-companion__skirt">
+        <span className="anime-companion__skirt-line anime-companion__skirt-line--left" />
+        <span className="anime-companion__skirt-line anime-companion__skirt-line--right" />
+      </span>
+      <span className="anime-companion__leg anime-companion__leg--left" />
+      <span className="anime-companion__leg anime-companion__leg--right" />
+      <span className="anime-companion__shoe anime-companion__shoe--left" />
+      <span className="anime-companion__shoe anime-companion__shoe--right" />
+      <span className="anime-companion__neck" />
+      <span className="anime-companion__head">
+        <span className="anime-companion__bang anime-companion__bang--left" />
+        <span className="anime-companion__bang anime-companion__bang--middle" />
+        <span className="anime-companion__bang anime-companion__bang--right" />
+        <span className="anime-companion__eye anime-companion__eye--left" />
+        <span className="anime-companion__eye anime-companion__eye--right" />
+        <span className="anime-companion__blush anime-companion__blush--left" />
+        <span className="anime-companion__blush anime-companion__blush--right" />
+        <span className="anime-companion__mouth" />
+      </span>
+      <span className="anime-companion__ribbon anime-companion__ribbon--left" />
+      <span className="anime-companion__ribbon anime-companion__ribbon--right" />
+    </>
+  );
+}
+
+function renderKitsuneOrb() {
+  return (
+    <>
+      <span className="themed-orb__backdrop" />
+      <span className="kitsune-orb__gate kitsune-orb__gate--top" />
+      <span className="kitsune-orb__gate kitsune-orb__gate--cross" />
+      <span className="kitsune-orb__post kitsune-orb__post--left" />
+      <span className="kitsune-orb__post kitsune-orb__post--right" />
+      <span className="kitsune-orb__cord" />
+      <span className="kitsune-orb__lantern" />
+      <span className="kitsune-orb__mask">
+        <span className="kitsune-orb__ear kitsune-orb__ear--left" />
+        <span className="kitsune-orb__ear kitsune-orb__ear--right" />
+        <span className="kitsune-orb__eye kitsune-orb__eye--left" />
+        <span className="kitsune-orb__eye kitsune-orb__eye--right" />
+        <span className="kitsune-orb__mark kitsune-orb__mark--center" />
+        <span className="kitsune-orb__mark kitsune-orb__mark--left" />
+        <span className="kitsune-orb__mark kitsune-orb__mark--right" />
+      </span>
+
+      {KITSUNE_PETAL_POSITIONS.map((petal) => (
+        <span
+          key={`kitsune-petal-${petal.top}-${petal.left}`}
+          className="kitsune-orb__petal"
+          style={
+            {
+              top: petal.top,
+              left: petal.left,
+              animationDelay: petal.delay,
+              '--kitsune-petal-rotate': `${petal.rotate}deg`,
+            } as CSSProperties
+          }
+        />
+      ))}
+    </>
+  );
+}
+
 export default function ThemedOrb({
   themeId,
   isVisible,
@@ -532,6 +667,8 @@ export default function ThemedOrb({
         {variant === 'steam' ? renderSteamOrb() : null}
         {variant === 'monarch' ? renderMonarchOrb() : null}
         {variant === 'tsukuyomi' ? renderTsukuyomiOrb() : null}
+        {variant === 'anime' ? renderAnimeCompanion() : null}
+        {variant === 'kitsune' ? renderKitsuneOrb() : null}
       </div>
     </button>
   );

@@ -1176,6 +1176,178 @@ body[data-theme='tsukuyomi-veil'] {
   --status-dot-shadow: 0 0 16px rgba(223, 230, 255, 0.36);
 }
 
+html[data-theme='anime-companion'],
+body[data-theme='anime-companion'] {
+  --text-primary: #fff3fb;
+  --text-secondary: #ffd3f1;
+  --text-muted: #96dff4;
+  --text-faint: rgba(255, 243, 251, 0.64);
+  --app-bg-pattern:
+    radial-gradient(circle at 16% 20%, rgba(255, 122, 223, 0.16) 0%, transparent 24%),
+    radial-gradient(circle at 82% 18%, rgba(101, 246, 255, 0.12) 0%, transparent 22%),
+    radial-gradient(circle at 74% 82%, rgba(255, 208, 96, 0.08) 0%, transparent 20%),
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 18px);
+  --app-bg-aurora: rgba(255, 122, 223, 0.14);
+  --app-bg-aurora-secondary: rgba(101, 246, 255, 0.14);
+  --app-bg-start: #1a102d;
+  --app-bg-end: #080613;
+  --panel-texture:
+    radial-gradient(circle at 22% 14%, rgba(255, 122, 223, 0.09) 0%, transparent 24%),
+    linear-gradient(120deg, rgba(101, 246, 255, 0.04) 0%, transparent 34%, rgba(255, 122, 223, 0.05) 100%);
+  --panel-bg: linear-gradient(180deg, rgba(38, 19, 62, 0.96) 0%, rgba(13, 9, 28, 0.94) 100%);
+  --panel-bg-muted: rgba(25, 14, 42, 0.92);
+  --panel-bg-deep: rgba(12, 8, 28, 0.96);
+  --panel-bg-soft: rgba(255, 122, 223, 0.07);
+  --panel-border: rgba(255, 122, 223, 0.2);
+  --panel-border-strong: rgba(101, 246, 255, 0.28);
+  --panel-border-active: rgba(255, 208, 96, 0.32);
+  --panel-shadow: 0 24px 56px rgba(5, 2, 14, 0.56), 0 0 32px rgba(255, 122, 223, 0.14);
+  --panel-glow-soft: rgba(255, 122, 223, 0.1);
+  --panel-glow-medium: rgba(101, 246, 255, 0.14);
+  --panel-glow-strong: rgba(255, 208, 96, 0.18);
+  --button-primary-bg: linear-gradient(180deg, rgba(255, 122, 223, 0.28) 0%, rgba(101, 246, 255, 0.16) 100%);
+  --button-primary-bg-hover: linear-gradient(180deg, rgba(255, 156, 230, 0.38) 0%, rgba(126, 250, 255, 0.24) 100%);
+  --button-primary-border: rgba(255, 122, 223, 0.28);
+  --button-primary-shadow: 0 0 24px rgba(255, 122, 223, 0.2);
+  --button-secondary-bg: rgba(255, 122, 223, 0.06);
+  --button-secondary-bg-hover: rgba(101, 246, 255, 0.1);
+  --button-secondary-border: rgba(255, 122, 223, 0.18);
+  --button-secondary-border-hover: rgba(101, 246, 255, 0.28);
+  --danger-bg: rgba(91, 28, 47, 0.38);
+  --danger-border: rgba(255, 122, 174, 0.28);
+  --status-chip-bg: rgba(255, 122, 223, 0.12);
+  --status-chip-border: rgba(101, 246, 255, 0.18);
+  --status-chip-text: #fff3fb;
+  --input-bg: rgba(12, 8, 28, 0.9);
+  --input-border: rgba(255, 122, 223, 0.2);
+  --input-border-focus: rgba(101, 246, 255, 0.34);
+  --scrollbar-track: rgba(255, 122, 223, 0.05);
+  --scrollbar-thumb: rgba(255, 122, 223, 0.22);
+  --scrollbar-thumb-hover: rgba(101, 246, 255, 0.3);
+  --overlay-shell: rgba(18, 10, 35, 0.94);
+  --overlay-shell-border: rgba(255, 122, 223, 0.2);
+  --overlay-shell-highlight: rgba(255, 255, 255, 0.1);
+  --overlay-shell-active: rgba(101, 246, 255, 0.15);
+  --overlay-panel-bg: rgba(14, 8, 30, 0.96);
+  --overlay-panel-shadow: rgba(255, 122, 223, 0.16);
+  --edge-trigger-border: rgba(255, 122, 223, 0.26);
+  --edge-trigger-ready-border: rgba(101, 246, 255, 0.3);
+  --edge-trigger-active-border: rgba(255, 208, 96, 0.32);
+  --edge-trigger-surface-top: rgba(255, 122, 223, 0.16);
+  --edge-trigger-surface-mid: rgba(101, 246, 255, 0.09);
+  --edge-trigger-surface-core: rgba(18, 10, 35, 0.98);
+  --edge-trigger-surface-lower: rgba(255, 208, 96, 0.05);
+  --edge-trigger-surface-bottom: rgba(255, 122, 223, 0.16);
+  --edge-trigger-base-top: rgba(32, 16, 50, 0.98);
+  --edge-trigger-base-bottom: rgba(8, 5, 18, 0.96);
+  --orb-visual-primary: #ff7adf;
+  --orb-visual-secondary: #65f6ff;
+  --orb-visual-tertiary: #fff1a8;
+  --orb-visual-surface: rgba(20, 10, 34, 0.96);
+  --orb-visual-highlight: #ffffff;
+  --orb-visual-shadow: rgba(16, 2, 28, 0.78);
+  --orb-visual-grid: rgba(255, 122, 223, 0.18);
+  --orb-visual-trace: rgba(101, 246, 255, 0.32);
+  --window-mark-border: rgba(255, 122, 223, 0.32);
+  --window-mark-bg: radial-gradient(circle, rgba(255, 243, 251, 0.96) 0%, rgba(255, 122, 223, 0.28) 48%, rgba(101, 246, 255, 0.14) 68%, rgba(255, 255, 255, 0) 100%);
+  --window-mark-shadow: 0 0 14px rgba(255, 122, 223, 0.24), 0 0 28px rgba(101, 246, 255, 0.14);
+  --window-title-shadow: 0 0 14px rgba(255, 122, 223, 0.14);
+  --window-control-hover-bg: rgba(255, 122, 223, 0.09);
+  --window-control-hover-border: rgba(101, 246, 255, 0.18);
+  --window-control-hover-shadow: 0 0 16px rgba(255, 122, 223, 0.12);
+  --window-control-close-hover-color: #ffe7f2;
+  --window-control-close-hover-bg: rgba(144, 41, 74, 0.46);
+  --window-control-close-hover-border: rgba(255, 160, 196, 0.26);
+  --status-dot-fill: #ff7adf;
+  --status-dot-shadow: 0 0 18px rgba(255, 122, 223, 0.46);
+}
+
+html[data-theme='kitsune-matsuri'],
+body[data-theme='kitsune-matsuri'] {
+  --text-primary: #fff1d8;
+  --text-secondary: #f4c989;
+  --text-muted: #c78c64;
+  --text-faint: rgba(255, 241, 216, 0.64);
+  --app-bg-pattern:
+    radial-gradient(circle at 18% 18%, rgba(255, 74, 53, 0.14) 0%, transparent 24%),
+    radial-gradient(circle at 82% 18%, rgba(255, 212, 122, 0.1) 0%, transparent 20%),
+    radial-gradient(circle at 72% 82%, rgba(255, 142, 102, 0.1) 0%, transparent 24%),
+    repeating-linear-gradient(90deg, rgba(255, 233, 188, 0.035) 0 1px, transparent 1px 14px);
+  --app-bg-aurora: rgba(255, 74, 53, 0.13);
+  --app-bg-aurora-secondary: rgba(255, 212, 122, 0.12);
+  --app-bg-start: #24110c;
+  --app-bg-end: #080302;
+  --panel-texture:
+    linear-gradient(90deg, rgba(255, 233, 188, 0.04) 0%, transparent 28%, rgba(255, 74, 53, 0.04) 100%),
+    repeating-linear-gradient(0deg, rgba(255, 233, 188, 0.025) 0 1px, transparent 1px 9px);
+  --panel-bg: linear-gradient(180deg, rgba(45, 18, 12, 0.96) 0%, rgba(17, 7, 5, 0.94) 100%);
+  --panel-bg-muted: rgba(34, 14, 9, 0.92);
+  --panel-bg-deep: rgba(16, 6, 4, 0.96);
+  --panel-bg-soft: rgba(255, 74, 53, 0.07);
+  --panel-border: rgba(255, 142, 102, 0.22);
+  --panel-border-strong: rgba(255, 212, 122, 0.3);
+  --panel-border-active: rgba(255, 233, 188, 0.34);
+  --panel-shadow: 0 24px 56px rgba(8, 2, 1, 0.58), 0 0 34px rgba(255, 74, 53, 0.13);
+  --panel-glow-soft: rgba(255, 74, 53, 0.1);
+  --panel-glow-medium: rgba(255, 212, 122, 0.14);
+  --panel-glow-strong: rgba(255, 142, 102, 0.18);
+  --button-primary-bg: linear-gradient(180deg, rgba(255, 74, 53, 0.28) 0%, rgba(255, 212, 122, 0.16) 100%);
+  --button-primary-bg-hover: linear-gradient(180deg, rgba(255, 117, 78, 0.38) 0%, rgba(255, 226, 150, 0.22) 100%);
+  --button-primary-border: rgba(255, 142, 102, 0.28);
+  --button-primary-shadow: 0 0 24px rgba(255, 74, 53, 0.18);
+  --button-secondary-bg: rgba(255, 74, 53, 0.06);
+  --button-secondary-bg-hover: rgba(255, 212, 122, 0.1);
+  --button-secondary-border: rgba(255, 142, 102, 0.18);
+  --button-secondary-border-hover: rgba(255, 212, 122, 0.28);
+  --danger-bg: rgba(91, 28, 28, 0.38);
+  --danger-border: rgba(255, 142, 102, 0.28);
+  --status-chip-bg: rgba(255, 74, 53, 0.12);
+  --status-chip-border: rgba(255, 212, 122, 0.18);
+  --status-chip-text: #fff1d8;
+  --input-bg: rgba(16, 6, 4, 0.9);
+  --input-border: rgba(255, 142, 102, 0.2);
+  --input-border-focus: rgba(255, 212, 122, 0.34);
+  --scrollbar-track: rgba(255, 74, 53, 0.05);
+  --scrollbar-thumb: rgba(255, 142, 102, 0.24);
+  --scrollbar-thumb-hover: rgba(255, 212, 122, 0.32);
+  --overlay-shell: rgba(24, 8, 5, 0.94);
+  --overlay-shell-border: rgba(255, 142, 102, 0.22);
+  --overlay-shell-highlight: rgba(255, 255, 255, 0.09);
+  --overlay-shell-active: rgba(255, 212, 122, 0.15);
+  --overlay-panel-bg: rgba(18, 7, 5, 0.96);
+  --overlay-panel-shadow: rgba(255, 74, 53, 0.14);
+  --edge-trigger-border: rgba(255, 142, 102, 0.28);
+  --edge-trigger-ready-border: rgba(255, 212, 122, 0.32);
+  --edge-trigger-active-border: rgba(255, 233, 188, 0.34);
+  --edge-trigger-surface-top: rgba(255, 74, 53, 0.16);
+  --edge-trigger-surface-mid: rgba(255, 212, 122, 0.08);
+  --edge-trigger-surface-core: rgba(24, 8, 5, 0.98);
+  --edge-trigger-surface-lower: rgba(255, 233, 188, 0.05);
+  --edge-trigger-surface-bottom: rgba(255, 74, 53, 0.15);
+  --edge-trigger-base-top: rgba(42, 16, 10, 0.98);
+  --edge-trigger-base-bottom: rgba(10, 4, 3, 0.96);
+  --orb-visual-primary: #ff4a35;
+  --orb-visual-secondary: #ffd47a;
+  --orb-visual-tertiary: #fff3db;
+  --orb-visual-surface: rgba(36, 10, 8, 0.96);
+  --orb-visual-highlight: #fff8e8;
+  --orb-visual-shadow: rgba(18, 3, 2, 0.84);
+  --orb-visual-grid: rgba(255, 74, 53, 0.18);
+  --orb-visual-trace: rgba(255, 212, 122, 0.32);
+  --window-mark-border: rgba(255, 212, 122, 0.32);
+  --window-mark-bg: radial-gradient(circle, rgba(255, 248, 232, 0.96) 0%, rgba(255, 212, 122, 0.26) 48%, rgba(255, 74, 53, 0.16) 68%, rgba(255, 255, 255, 0) 100%);
+  --window-mark-shadow: 0 0 14px rgba(255, 212, 122, 0.24), 0 0 28px rgba(255, 74, 53, 0.14);
+  --window-title-shadow: 0 0 14px rgba(255, 212, 122, 0.14);
+  --window-control-hover-bg: rgba(255, 74, 53, 0.09);
+  --window-control-hover-border: rgba(255, 212, 122, 0.18);
+  --window-control-hover-shadow: 0 0 16px rgba(255, 74, 53, 0.12);
+  --window-control-close-hover-color: #fff1d8;
+  --window-control-close-hover-bg: rgba(144, 41, 41, 0.46);
+  --window-control-close-hover-border: rgba(255, 160, 140, 0.26);
+  --status-dot-fill: #ffd47a;
+  --status-dot-shadow: 0 0 18px rgba(255, 212, 122, 0.42);
+}
+
 * {
   box-sizing: border-box;
   scrollbar-width: thin;
@@ -1456,9 +1628,9 @@ body.overlay-body #root {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   min-width: 0;
-  padding: 8px 10px;
+  padding: 8px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 999px;
   background: rgba(6, 6, 8, 0.94);
@@ -1483,12 +1655,14 @@ body.overlay-body #root {
 .edge-nav-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 38px;
-  min-width: 88px;
-  padding: 8px 12px 8px 10px;
+  justify-content: center;
+  min-height: 40px;
+  min-width: 40px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
+  border-radius: 14px;
   background: rgba(255, 255, 255, 0.03);
   color: var(--text-primary);
   cursor: pointer;
@@ -1520,31 +1694,36 @@ body.overlay-body #root {
 }
 
 .edge-nav-btn--active {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.22);
-  box-shadow: 0 0 18px rgba(255, 255, 255, 0.08);
+  color: var(--edge-button-primary-text);
+  background:
+    radial-gradient(circle at 50% 34%, rgba(255, 255, 255, 0.18) 0%, transparent 48%),
+    rgba(255, 255, 255, 0.12);
+  border-color: var(--edge-trigger-active-border);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 0 18px rgba(255, 255, 255, 0.12),
+    0 0 28px var(--panel-glow-medium);
+  transform: translateY(-1px);
 }
 
 .edge-nav-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   flex-shrink: 0;
   color: currentColor;
 }
 
 .edge-nav-icon svg {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   display: block;
 }
 
 .edge-nav-label {
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  display: none;
 }
 
 .screen-edge-dock {
@@ -3273,6 +3452,40 @@ select:focus-visible {
   --design-preview-orb-core: rgba(14, 16, 34, 0.98);
 }
 
+.design-card[data-preview-theme='anime-companion'] {
+  --design-preview-bg:
+    radial-gradient(circle at 18% 18%, rgba(255, 122, 223, 0.16) 0%, transparent 24%),
+    radial-gradient(circle at 82% 22%, rgba(101, 246, 255, 0.12) 0%, transparent 22%),
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 16px),
+    linear-gradient(180deg, rgba(38, 19, 62, 0.98) 0%, rgba(13, 9, 28, 0.96) 100%);
+  --design-preview-border: rgba(255, 122, 223, 0.22);
+  --design-preview-panel-border: rgba(101, 246, 255, 0.2);
+  --design-preview-panel-bg: rgba(18, 10, 35, 0.94);
+  --design-preview-rail-border: rgba(255, 122, 223, 0.2);
+  --design-preview-rail-bg: linear-gradient(180deg, rgba(255, 122, 223, 0.1) 0%, rgba(18, 10, 35, 0.96) 100%);
+  --design-preview-glow: rgba(255, 122, 223, 0.2);
+  --design-preview-orb-ring: rgba(255, 230, 251, 0.82);
+  --design-preview-orb-ring-soft: rgba(101, 246, 255, 0.24);
+  --design-preview-orb-core: rgba(255, 122, 223, 0.88);
+}
+
+.design-card[data-preview-theme='kitsune-matsuri'] {
+  --design-preview-bg:
+    radial-gradient(circle at 18% 18%, rgba(255, 74, 53, 0.15) 0%, transparent 24%),
+    radial-gradient(circle at 82% 26%, rgba(255, 212, 122, 0.1) 0%, transparent 22%),
+    repeating-linear-gradient(90deg, rgba(255, 233, 188, 0.04) 0 1px, transparent 1px 14px),
+    linear-gradient(180deg, rgba(45, 18, 12, 0.98) 0%, rgba(17, 7, 5, 0.96) 100%);
+  --design-preview-border: rgba(255, 142, 102, 0.24);
+  --design-preview-panel-border: rgba(255, 212, 122, 0.22);
+  --design-preview-panel-bg: rgba(24, 8, 5, 0.94);
+  --design-preview-rail-border: rgba(255, 142, 102, 0.22);
+  --design-preview-rail-bg: linear-gradient(180deg, rgba(255, 74, 53, 0.1) 0%, rgba(24, 8, 5, 0.96) 100%);
+  --design-preview-glow: rgba(255, 74, 53, 0.18);
+  --design-preview-orb-ring: rgba(255, 212, 122, 0.84);
+  --design-preview-orb-ring-soft: rgba(255, 74, 53, 0.24);
+  --design-preview-orb-core: rgba(255, 241, 216, 0.94);
+}
+
 .design-card__preview {
   position: relative;
   width: 100%;
@@ -3356,6 +3569,47 @@ select:focus-visible {
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.08),
     0 0 22px var(--design-preview-glow);
+}
+
+.design-card[data-preview-theme='anime-companion'] .design-card__preview-orb {
+  right: 16px;
+  bottom: 12px;
+  width: 52px;
+  height: 68px;
+  border-radius: 24px;
+}
+
+.design-card[data-preview-theme='anime-companion'] .design-card__preview-ring {
+  border-radius: 42% 42% 34% 34%;
+}
+
+.design-card[data-preview-theme='anime-companion'] .design-card__preview-core {
+  width: 28px;
+  height: 38px;
+  border-radius: 44% 44% 52% 52%;
+  background:
+    radial-gradient(circle at 36% 34%, rgba(255, 255, 255, 0.96) 0%, transparent 10%),
+    linear-gradient(180deg, rgba(255, 230, 251, 0.96) 0%, rgba(255, 122, 223, 0.88) 58%, rgba(43, 24, 82, 0.96) 100%);
+}
+
+.design-card[data-preview-theme='kitsune-matsuri'] .design-card__preview-orb {
+  right: 14px;
+  bottom: 14px;
+  width: 62px;
+  height: 58px;
+}
+
+.design-card[data-preview-theme='kitsune-matsuri'] .design-card__preview-ring {
+  border-radius: 22px 22px 50% 50%;
+}
+
+.design-card[data-preview-theme='kitsune-matsuri'] .design-card__preview-core {
+  width: 28px;
+  height: 22px;
+  border-radius: 52% 52% 58% 58%;
+  background:
+    linear-gradient(90deg, rgba(255, 74, 53, 0.82) 0 18%, transparent 18% 82%, rgba(255, 74, 53, 0.82) 82% 100%),
+    linear-gradient(180deg, rgba(255, 248, 232, 0.98) 0%, rgba(235, 209, 174, 0.96) 100%);
 }
 
 .design-card__eyebrow {
@@ -3778,6 +4032,151 @@ html[data-theme='tsukuyomi-veil'] .window-titlebar__mark {
   animation: tsukuyomi-sheen 4.2s ease-in-out infinite;
 }
 
+html[data-theme='anime-companion'] .app-frame,
+html[data-theme='kitsune-matsuri'] .app-frame {
+  position: relative;
+  overflow: hidden;
+}
+
+html[data-theme='anime-companion'] .app-shell,
+html[data-theme='kitsune-matsuri'] .app-shell {
+  position: relative;
+  z-index: 1;
+}
+
+html[data-theme='anime-companion'] .app-frame::before,
+html[data-theme='kitsune-matsuri'] .app-frame::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+html[data-theme='anime-companion'] .app-frame::before {
+  background:
+    radial-gradient(circle at 14% 22%, rgba(255, 122, 223, 0.16) 0%, transparent 14%),
+    radial-gradient(circle at 84% 18%, rgba(101, 246, 255, 0.12) 0%, transparent 16%),
+    radial-gradient(circle at 68% 78%, rgba(255, 208, 96, 0.1) 0%, transparent 12%);
+  filter: blur(10px);
+  animation: anime-bg-drift 9s ease-in-out infinite;
+}
+
+html[data-theme='kitsune-matsuri'] .app-frame::before {
+  background:
+    linear-gradient(90deg, rgba(255, 74, 53, 0.16) 0 2px, transparent 2px calc(100% - 2px), rgba(255, 212, 122, 0.14) calc(100% - 2px) 100%),
+    radial-gradient(circle at 18% 18%, rgba(255, 74, 53, 0.12) 0%, transparent 16%),
+    radial-gradient(circle at 82% 82%, rgba(255, 212, 122, 0.1) 0%, transparent 18%);
+  animation: kitsune-bg-drift 12s ease-in-out infinite;
+}
+
+html[data-theme='anime-companion'] .hero-card,
+html[data-theme='anime-companion'] .info-card,
+html[data-theme='anime-companion'] .result-card,
+html[data-theme='anime-companion'] .instructions-card,
+html[data-theme='anime-companion'] .settings-card,
+html[data-theme='anime-companion'] .feed-card,
+html[data-theme='anime-companion'] .settings-page-hero,
+html[data-theme='anime-companion'] .settings-sidebar,
+html[data-theme='anime-companion'] .settings-detail-panel,
+html[data-theme='anime-companion'] .screen-edge-dock__panel,
+html[data-theme='anime-companion'] .voice-chat-shell,
+html[data-theme='kitsune-matsuri'] .hero-card,
+html[data-theme='kitsune-matsuri'] .info-card,
+html[data-theme='kitsune-matsuri'] .result-card,
+html[data-theme='kitsune-matsuri'] .instructions-card,
+html[data-theme='kitsune-matsuri'] .settings-card,
+html[data-theme='kitsune-matsuri'] .feed-card,
+html[data-theme='kitsune-matsuri'] .settings-page-hero,
+html[data-theme='kitsune-matsuri'] .settings-sidebar,
+html[data-theme='kitsune-matsuri'] .settings-detail-panel,
+html[data-theme='kitsune-matsuri'] .screen-edge-dock__panel,
+html[data-theme='kitsune-matsuri'] .voice-chat-shell {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+html[data-theme='anime-companion'] .hero-card::before,
+html[data-theme='anime-companion'] .settings-page-hero::before,
+html[data-theme='anime-companion'] .settings-detail-panel::before,
+html[data-theme='anime-companion'] .voice-chat-shell::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(110deg, transparent 0%, rgba(255, 122, 223, 0.16) 36%, rgba(101, 246, 255, 0.18) 50%, transparent 66%),
+    radial-gradient(circle at 12% 16%, rgba(255, 255, 255, 0.08) 0%, transparent 18%);
+  opacity: 0.54;
+  mix-blend-mode: screen;
+  animation: anime-panel-spark 5.8s ease-in-out infinite;
+}
+
+html[data-theme='kitsune-matsuri'] .window-titlebar {
+  margin: 0 12px;
+  padding: 12px 16px 0;
+  border-bottom: 1px solid rgba(255, 212, 122, 0.18);
+  border-radius: 0 0 22px 22px;
+  background:
+    linear-gradient(90deg, rgba(255, 74, 53, 0.12) 0%, transparent 22%, transparent 78%, rgba(255, 212, 122, 0.1) 100%),
+    linear-gradient(180deg, rgba(24, 8, 5, 0.76) 0%, rgba(24, 8, 5, 0.12) 100%);
+  box-shadow:
+    inset 0 -1px 0 rgba(255, 233, 188, 0.1),
+    0 10px 28px rgba(8, 2, 1, 0.18);
+}
+
+html[data-theme='kitsune-matsuri'] .window-titlebar::before {
+  content: '';
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  bottom: -9px;
+  height: 12px;
+  border: 1px solid rgba(255, 212, 122, 0.2);
+  border-top: 0;
+  border-radius: 0 0 18px 18px;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 233, 188, 0.18) 0 2px, transparent 2px 14px),
+    linear-gradient(180deg, rgba(255, 74, 53, 0.16) 0%, transparent 100%);
+  pointer-events: none;
+  animation: kitsune-titlebar-breathe 4.6s ease-in-out infinite;
+}
+
+html[data-theme='kitsune-matsuri'] .hero-card,
+html[data-theme='kitsune-matsuri'] .settings-page-hero,
+html[data-theme='kitsune-matsuri'] .settings-sidebar,
+html[data-theme='kitsune-matsuri'] .settings-detail-panel,
+html[data-theme='kitsune-matsuri'] .voice-chat-shell {
+  border-radius: 28px;
+  box-shadow:
+    var(--panel-shadow),
+    inset 0 0 0 1px rgba(255, 233, 188, 0.06);
+}
+
+html[data-theme='kitsune-matsuri'] .hero-card::before,
+html[data-theme='kitsune-matsuri'] .settings-page-hero::before,
+html[data-theme='kitsune-matsuri'] .settings-sidebar::before,
+html[data-theme='kitsune-matsuri'] .settings-detail-panel::before,
+html[data-theme='kitsune-matsuri'] .voice-chat-shell::before {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  border: 1px solid rgba(255, 212, 122, 0.16);
+  border-radius: 22px;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(255, 74, 53, 0.12), transparent 18%, transparent 82%, rgba(255, 212, 122, 0.1)),
+    repeating-linear-gradient(0deg, rgba(255, 233, 188, 0.045) 0 1px, transparent 1px 10px);
+  opacity: 0.82;
+  animation: kitsune-panel-lacquer 6.4s ease-in-out infinite;
+}
+
+html[data-theme='kitsune-matsuri'] .window-titlebar__mark {
+  animation: kitsune-titlebar-breathe 3.4s ease-in-out infinite;
+}
+
 @keyframes voice-chat-pulse {
   0%,
   80%,
@@ -3860,6 +4259,73 @@ html[data-theme='tsukuyomi-veil'] .window-titlebar__mark {
     box-shadow:
       0 0 16px rgba(223, 230, 255, 0.24),
       0 0 28px rgba(143, 139, 255, 0.18);
+  }
+}
+
+@keyframes anime-bg-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.78;
+  }
+
+  50% {
+    transform: translate3d(18px, -12px, 0) scale(1.04);
+    opacity: 1;
+  }
+}
+
+@keyframes anime-panel-spark {
+  0%,
+  100% {
+    transform: translateX(-18%);
+    opacity: 0.34;
+  }
+
+  50% {
+    transform: translateX(18%);
+    opacity: 0.68;
+  }
+}
+
+@keyframes kitsune-bg-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0.72;
+  }
+
+  50% {
+    transform: translate3d(-12px, 10px, 0);
+    opacity: 1;
+  }
+}
+
+@keyframes kitsune-titlebar-breathe {
+  0%,
+  100% {
+    filter: brightness(0.96);
+    box-shadow: var(--window-mark-shadow);
+  }
+
+  50% {
+    filter: brightness(1.16);
+    box-shadow:
+      0 0 16px rgba(255, 212, 122, 0.28),
+      0 0 30px rgba(255, 74, 53, 0.2);
+  }
+}
+
+@keyframes kitsune-panel-lacquer {
+  0%,
+  100% {
+    opacity: 0.66;
+    transform: scale(0.996);
+  }
+
+  50% {
+    opacity: 0.92;
+    transform: scale(1);
   }
 }
 

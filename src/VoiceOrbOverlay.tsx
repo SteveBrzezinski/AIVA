@@ -7,17 +7,26 @@ import { getSettings, onSettingsUpdated } from './lib/voiceOverlay';
 
 const SCREEN_EDGE_INSET = 12;
 const ORB_WINDOW_PADDING = 18;
-const ORB_VISUAL_LAYOUT = { width: 188, height: 188 };
-const ORB_LAYOUT = {
-  width: ORB_VISUAL_LAYOUT.width + (ORB_WINDOW_PADDING * 2),
-  height: ORB_VISUAL_LAYOUT.height + (ORB_WINDOW_PADDING * 2),
+const DEFAULT_ORB_VISUAL_LAYOUT = { width: 188, height: 188 };
+const THEME_ORB_VISUAL_LAYOUTS: Partial<Record<DesignThemeId, typeof DEFAULT_ORB_VISUAL_LAYOUT>> = {
+  'anime-companion': { width: 252, height: 304 },
 };
+
+function getOrbLayout(themeId: DesignThemeId) {
+  const visualLayout = THEME_ORB_VISUAL_LAYOUTS[themeId] ?? DEFAULT_ORB_VISUAL_LAYOUT;
+
+  return {
+    width: visualLayout.width + (ORB_WINDOW_PADDING * 2),
+    height: visualLayout.height + (ORB_WINDOW_PADDING * 2),
+  };
+}
 
 const fallbackOverlayState: OverlayState = {
   assistantActive: false,
   isLiveTranscribing: false,
   voiceOrbPinned: false,
   composerVisible: false,
+  settingsVisible: false,
   assistantStateDetail: 'Listening is stopped.',
   liveTranscriptionStatus: 'Live transcription is stopped.',
   assistantWakePhrase: 'Hey Ava',
@@ -26,27 +35,29 @@ const fallbackOverlayState: OverlayState = {
   uiState: 'idle',
 };
 
-async function syncVoiceOrbLayout(): Promise<void> {
+async function syncVoiceOrbLayout(themeId: DesignThemeId): Promise<void> {
   const overlayWindow = getCurrentWindow();
   const monitor = await currentMonitor() ?? await primaryMonitor();
   if (!monitor) {
     return;
   }
 
+  const orbLayout = getOrbLayout(themeId);
   const workAreaPosition = monitor.workArea.position.toLogical(monitor.scaleFactor);
   const workAreaSize = monitor.workArea.size.toLogical(monitor.scaleFactor);
 
-  await overlayWindow.setSize(new LogicalSize(ORB_LAYOUT.width, ORB_LAYOUT.height));
+  await overlayWindow.setSize(new LogicalSize(orbLayout.width, orbLayout.height));
   await overlayWindow.setPosition(
     new LogicalPosition(
-      workAreaPosition.x + workAreaSize.width - ORB_LAYOUT.width - SCREEN_EDGE_INSET + ORB_WINDOW_PADDING,
-      workAreaPosition.y + workAreaSize.height - ORB_LAYOUT.height - SCREEN_EDGE_INSET + ORB_WINDOW_PADDING,
+      workAreaPosition.x + workAreaSize.width - orbLayout.width - SCREEN_EDGE_INSET + ORB_WINDOW_PADDING,
+      workAreaPosition.y + workAreaSize.height - orbLayout.height - SCREEN_EDGE_INSET + ORB_WINDOW_PADDING,
     ),
   );
 }
 
 export default function VoiceOrbOverlay() {
   const overlayWindowRef = useRef(getCurrentWindow());
+  const themeIdRef = useRef<DesignThemeId>(DEFAULT_DESIGN_THEME_ID);
   const [overlayState, setOverlayState] = useState<OverlayState>(fallbackOverlayState);
   const [themeId, setThemeId] = useState<DesignThemeId>(DEFAULT_DESIGN_THEME_ID);
   const [statusNote, setStatusNote] = useState('Voice overlay ready.');
@@ -68,14 +79,21 @@ export default function VoiceOrbOverlay() {
 
     void getSettings()
       .then((settings) => {
-        setThemeId(normalizeDesignThemeId(settings.designThemeId));
+        const nextThemeId = normalizeDesignThemeId(settings.designThemeId);
+        themeIdRef.current = nextThemeId;
+        setThemeId(nextThemeId);
+        void syncVoiceOrbLayout(nextThemeId);
       })
       .catch(() => {
+        themeIdRef.current = DEFAULT_DESIGN_THEME_ID;
         setThemeId(DEFAULT_DESIGN_THEME_ID);
       });
 
     void onSettingsUpdated((settings) => {
-      setThemeId(normalizeDesignThemeId(settings.designThemeId));
+      const nextThemeId = normalizeDesignThemeId(settings.designThemeId);
+      themeIdRef.current = nextThemeId;
+      setThemeId(nextThemeId);
+      void syncVoiceOrbLayout(nextThemeId);
     }).then((cleanup) => {
       unlistenSettings = cleanup;
     });
@@ -88,13 +106,13 @@ export default function VoiceOrbOverlay() {
     });
 
     void overlayWindowRef.current.onScaleChanged(() => {
-      void syncVoiceOrbLayout();
+      void syncVoiceOrbLayout(themeIdRef.current);
     }).then((cleanup) => {
       unlistenScale = cleanup;
     });
 
     void overlayWindowRef.current.emitTo<OverlayAction>('main', OVERLAY_ACTION_EVENT, { type: 'request-state' });
-    void syncVoiceOrbLayout();
+    void syncVoiceOrbLayout(themeIdRef.current);
 
     return () => {
       void unlistenOverlayState?.();
@@ -107,7 +125,7 @@ export default function VoiceOrbOverlay() {
 
   useEffect(() => {
     const syncVisibility = async (): Promise<void> => {
-      await syncVoiceOrbLayout();
+      await syncVoiceOrbLayout(themeId);
       if (shouldShowOrb) {
         await overlayWindowRef.current.show();
       } else {
@@ -116,7 +134,7 @@ export default function VoiceOrbOverlay() {
     };
 
     void syncVisibility().catch(() => undefined);
-  }, [shouldShowOrb]);
+  }, [shouldShowOrb, themeId]);
 
   const toggleAssistant = async (): Promise<void> => {
     const nextAction: OverlayAction = !overlayState.isLiveTranscribing

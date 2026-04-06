@@ -14,6 +14,8 @@ export const DESIGN_THEME_IDS = [
   'brass-engine',
   'shadow-monarch',
   'tsukuyomi-veil',
+  'anime-companion',
+  'kitsune-matsuri',
 ] as const;
 export type DesignThemeId = (typeof DESIGN_THEME_IDS)[number];
 
@@ -131,6 +133,22 @@ export const DESIGN_THEME_OPTIONS: DesignThemeOption[] = [
     description: 'Moonlit indigo lacquer, silver shrine accents, and a lunar eclipse orb wrapped in drifting veils and glyph petals.',
     accent: 'Moon silver / midnight violet',
     contrast: 'Mythic moonlight',
+    colorScheme: 'dark',
+  },
+  {
+    id: 'anime-companion',
+    label: 'Anime Companion',
+    description: 'A vivid 2D companion theme with sakura-pink neon, cyan sparkle trails, and a small animated character replacing the orb.',
+    accent: 'Sakura pink / aqua spark',
+    contrast: 'Animated companion',
+    colorScheme: 'dark',
+  },
+  {
+    id: 'kitsune-matsuri',
+    label: 'Kitsune Matsuri',
+    description: 'A sharp Japanese festival theme with vermilion lacquer frames, washi-gold glow, shoji motion, and a fox-mask voice overlay.',
+    accent: 'Vermilion / washi gold',
+    contrast: 'Festival lacquer',
     colorScheme: 'dark',
   },
 ];

@@ -634,6 +634,7 @@ export default function App() {
       isLiveTranscribing: voiceRuntime.isLiveTranscribing,
       voiceOrbPinned,
       composerVisible,
+      settingsVisible: activeView === 'settings',
       assistantStateDetail: voiceRuntime.assistantStateDetail,
       liveTranscriptionStatus: voiceRuntime.liveTranscriptionStatus,
       assistantWakePhrase: voiceRuntime.assistantWakePhrase,
@@ -642,6 +643,7 @@ export default function App() {
       uiState,
     }),
     [
+      activeView,
       assistantClosePhrase,
       composerVisible,
       message,

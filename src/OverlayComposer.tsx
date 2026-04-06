@@ -53,6 +53,7 @@ const fallbackOverlayState: OverlayState = {
   isLiveTranscribing: false,
   voiceOrbPinned: false,
   composerVisible: false,
+  settingsVisible: false,
   assistantStateDetail: 'Listening is stopped.',
   liveTranscriptionStatus: 'Live transcription is stopped.',
   assistantWakePhrase: 'Hey Ava',

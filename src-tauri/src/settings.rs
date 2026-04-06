@@ -195,6 +195,8 @@ pub fn sanitize_settings(mut settings: AppSettings) -> AppSettings {
         "brass-engine" => "brass-engine".to_string(),
         "shadow-monarch" => "shadow-monarch".to_string(),
         "tsukuyomi-veil" => "tsukuyomi-veil".to_string(),
+        "anime-companion" => "anime-companion".to_string(),
+        "kitsune-matsuri" => "kitsune-matsuri".to_string(),
         _ => DEFAULT_DESIGN_THEME_ID.to_string(),
     };
     settings.tts_format = match settings.tts_format.trim().to_lowercase().as_str() {

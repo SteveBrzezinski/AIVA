@@ -1441,6 +1441,796 @@
   box-shadow: 0 0 34px rgba(223, 230, 255, 0.28);
 }
 
+.themed-orb--anime {
+  width: 188px;
+  height: 210px;
+  --themed-orb-primary: var(--orb-visual-primary, #ff7adf);
+  --themed-orb-secondary: var(--orb-visual-secondary, #65f6ff);
+  --themed-orb-tertiary: var(--orb-visual-tertiary, #ffe6fb);
+  --themed-orb-surface: var(--orb-visual-surface, rgba(20, 10, 34, 0.96));
+  --themed-orb-highlight: var(--orb-visual-highlight, #ffffff);
+  --themed-orb-shadow: var(--orb-visual-shadow, rgba(16, 2, 28, 0.78));
+  --themed-orb-grid: var(--orb-visual-grid, rgba(255, 122, 223, 0.18));
+  --themed-orb-trace: var(--orb-visual-trace, rgba(101, 246, 255, 0.32));
+}
+
+.themed-orb--anime .themed-orb__stage {
+  inset: -8px 0 0;
+  border-radius: 42px;
+  animation: anime-companion-bob 4.8s ease-in-out infinite;
+}
+
+.anime-companion__aura,
+.anime-companion__halo,
+.anime-companion__wavefield,
+.anime-companion__wave,
+.anime-companion__sparkle,
+.anime-companion__hair,
+.anime-companion__body,
+.anime-companion__collar,
+.anime-companion__tie,
+.anime-companion__neck,
+.anime-companion__head,
+.anime-companion__bang,
+.anime-companion__eye,
+.anime-companion__blush,
+.anime-companion__mouth,
+.anime-companion__side-lock,
+.anime-companion__ribbon {
+  position: absolute;
+}
+
+.anime-companion__aura {
+  left: 22px;
+  right: 22px;
+  bottom: 6px;
+  height: 134px;
+  border-radius: 42% 42% 28% 28%;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(255, 230, 251, 0.22) 0%, transparent 28%),
+    radial-gradient(circle at 30% 72%, rgba(255, 122, 223, 0.2) 0%, transparent 30%),
+    radial-gradient(circle at 76% 64%, rgba(101, 246, 255, 0.18) 0%, transparent 34%);
+  filter: blur(8px);
+  opacity: 0.9;
+  animation: themed-orb-pulse 3.6s ease-in-out infinite;
+}
+
+.anime-companion__halo {
+  left: 54px;
+  top: 14px;
+  width: 80px;
+  height: 28px;
+  border: 2px solid rgba(255, 230, 251, 0.64);
+  border-radius: 50%;
+  box-shadow:
+    0 0 18px rgba(255, 122, 223, 0.32),
+    inset 0 0 18px rgba(101, 246, 255, 0.14);
+  transform: rotate(-5deg);
+  animation: anime-companion-halo 3.8s ease-in-out infinite;
+}
+
+.anime-companion__wavefield {
+  left: 44px;
+  top: 42px;
+  width: 100px;
+  height: 120px;
+  pointer-events: none;
+}
+
+.anime-companion__wave {
+  inset: var(--anime-wave-inset, 0);
+  border: 1px solid rgba(101, 246, 255, 0.22);
+  border-radius: 42% 42% 36% 36%;
+  animation: anime-companion-wave 2.2s ease-out infinite;
+}
+
+.anime-companion__sparkle {
+  width: 10px;
+  height: 10px;
+  background: rgba(255, 230, 251, 0.95);
+  clip-path: polygon(50% 0%, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0% 50%, 38% 38%);
+  box-shadow: 0 0 14px rgba(255, 122, 223, 0.42);
+  animation: anime-companion-sparkle 2.8s ease-in-out infinite;
+}
+
+.anime-companion__hair--back {
+  left: 48px;
+  top: 54px;
+  width: 92px;
+  height: 100px;
+  border-radius: 48% 48% 42% 42%;
+  background:
+    radial-gradient(circle at 32% 20%, rgba(255, 122, 223, 0.38) 0%, transparent 24%),
+    linear-gradient(160deg, rgba(55, 31, 95, 0.98) 0%, rgba(24, 13, 58, 0.98) 54%, rgba(8, 7, 22, 0.98) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 16px 24px var(--themed-orb-shadow);
+  animation: anime-companion-hair 4.2s ease-in-out infinite;
+}
+
+.anime-companion__body {
+  left: 48px;
+  bottom: 12px;
+  width: 92px;
+  height: 72px;
+  border-radius: 42px 42px 28px 28px;
+  background:
+    linear-gradient(135deg, rgba(101, 246, 255, 0.5) 0%, transparent 20%),
+    linear-gradient(180deg, rgba(43, 24, 82, 0.98) 0%, rgba(19, 12, 46, 0.98) 100%);
+  border: 1px solid rgba(255, 230, 251, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 0 24px rgba(255, 122, 223, 0.18);
+}
+
+.anime-companion__collar {
+  top: 8px;
+  width: 34px;
+  height: 34px;
+  background: linear-gradient(180deg, rgba(255, 230, 251, 0.96) 0%, rgba(101, 246, 255, 0.72) 100%);
+  clip-path: polygon(0 0, 100% 0, 58% 100%);
+}
+
+.anime-companion__collar--left {
+  left: 14px;
+  transform: rotate(16deg);
+}
+
+.anime-companion__collar--right {
+  right: 14px;
+  transform: scaleX(-1) rotate(16deg);
+}
+
+.anime-companion__tie {
+  left: 39px;
+  top: 22px;
+  width: 14px;
+  height: 42px;
+  border-radius: 999px 999px 8px 8px;
+  background: linear-gradient(180deg, var(--themed-orb-primary) 0%, rgba(101, 246, 255, 0.86) 100%);
+  box-shadow: 0 0 18px rgba(255, 122, 223, 0.26);
+  animation: anime-companion-ribbon 2.8s ease-in-out infinite;
+}
+
+.anime-companion__neck {
+  left: 81px;
+  top: 118px;
+  width: 26px;
+  height: 24px;
+  border-radius: 8px 8px 12px 12px;
+  background: linear-gradient(180deg, #ffd8c7 0%, #f0a7bd 100%);
+}
+
+.anime-companion__head {
+  left: 58px;
+  top: 48px;
+  width: 72px;
+  height: 76px;
+  border-radius: 46% 46% 50% 50%;
+  background:
+    radial-gradient(circle at 32% 42%, rgba(255, 255, 255, 0.34) 0%, transparent 10%),
+    linear-gradient(180deg, #ffe1d3 0%, #ffc2d8 100%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.38),
+    0 8px 16px rgba(62, 18, 64, 0.28);
+}
+
+.anime-companion__bang {
+  top: -4px;
+  width: 28px;
+  height: 42px;
+  border-radius: 50% 50% 44% 44%;
+  background: linear-gradient(180deg, rgba(75, 38, 122, 0.98) 0%, rgba(22, 12, 55, 0.98) 100%);
+  transform-origin: top center;
+  animation: anime-companion-hair 4.6s ease-in-out infinite;
+}
+
+.anime-companion__bang--left {
+  left: 8px;
+  transform: rotate(20deg);
+}
+
+.anime-companion__bang--middle {
+  left: 25px;
+  height: 48px;
+  transform: rotate(-2deg);
+}
+
+.anime-companion__bang--right {
+  right: 8px;
+  transform: rotate(-20deg);
+}
+
+.anime-companion__eye {
+  top: 38px;
+  width: 10px;
+  height: 16px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 38% 28%, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.98) 16%, transparent 18%),
+    linear-gradient(180deg, rgba(74, 252, 255, 0.98) 0%, rgba(255, 122, 223, 0.96) 100%);
+  box-shadow: 0 0 10px rgba(101, 246, 255, 0.32);
+  animation: anime-companion-blink 5.4s ease-in-out infinite;
+}
+
+.anime-companion__eye--left {
+  left: 20px;
+}
+
+.anime-companion__eye--right {
+  right: 20px;
+}
+
+.anime-companion__blush {
+  top: 56px;
+  width: 14px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 122, 174, 0.32);
+  filter: blur(1px);
+}
+
+.anime-companion__blush--left {
+  left: 12px;
+}
+
+.anime-companion__blush--right {
+  right: 12px;
+}
+
+.anime-companion__mouth {
+  left: 32px;
+  top: 58px;
+  width: 9px;
+  height: 5px;
+  border-bottom: 2px solid rgba(96, 36, 62, 0.72);
+  border-radius: 0 0 999px 999px;
+}
+
+.anime-companion__side-lock {
+  top: 70px;
+  width: 24px;
+  height: 80px;
+  border-radius: 999px 999px 18px 18px;
+  background: linear-gradient(180deg, rgba(43, 24, 82, 0.98) 0%, rgba(12, 9, 34, 0.98) 100%);
+  transform-origin: top center;
+  animation: anime-companion-hair 4.2s ease-in-out infinite;
+}
+
+.anime-companion__side-lock--left {
+  left: 38px;
+  transform: rotate(10deg);
+}
+
+.anime-companion__side-lock--right {
+  right: 38px;
+  transform: rotate(-10deg);
+  animation-delay: 0.4s;
+}
+
+.anime-companion__ribbon {
+  top: 48px;
+  width: 26px;
+  height: 22px;
+  border-radius: 70% 30% 70% 30%;
+  background: linear-gradient(135deg, rgba(255, 122, 223, 0.96) 0%, rgba(101, 246, 255, 0.82) 100%);
+  box-shadow: 0 0 16px rgba(255, 122, 223, 0.3);
+  animation: anime-companion-ribbon 2.8s ease-in-out infinite;
+}
+
+.anime-companion__ribbon--left {
+  left: 34px;
+  transform: rotate(-26deg);
+}
+
+.anime-companion__ribbon--right {
+  right: 34px;
+  transform: rotate(26deg) scaleX(-1);
+  animation-delay: 0.24s;
+}
+
+.themed-orb--speaking .anime-companion__mouth {
+  width: 12px;
+  height: 8px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(96, 36, 62, 0.72);
+  animation: anime-companion-talk 0.34s ease-in-out infinite;
+}
+
+.themed-orb--listening .anime-companion__halo,
+.themed-orb--speaking .anime-companion__halo {
+  box-shadow:
+    0 0 26px rgba(255, 122, 223, 0.44),
+    inset 0 0 20px rgba(101, 246, 255, 0.24);
+}
+
+.themed-orb--anime {
+  width: 220px;
+  height: 260px;
+}
+
+.themed-orb--anime .themed-orb__stage {
+  inset: 0;
+  border-radius: 46px;
+  perspective: 720px;
+  transform-style: preserve-3d;
+  animation: anime-companion-idle-3d 5.2s ease-in-out infinite;
+}
+
+.anime-companion__ground-shadow,
+.anime-companion__arm,
+.anime-companion__hand,
+.anime-companion__skirt,
+.anime-companion__skirt-line,
+.anime-companion__leg,
+.anime-companion__shoe {
+  position: absolute;
+}
+
+.anime-companion__ground-shadow {
+  left: 60px;
+  bottom: 6px;
+  width: 102px;
+  height: 20px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 122, 223, 0.28) 0%, rgba(101, 246, 255, 0.12) 42%, transparent 72%);
+  filter: blur(5px);
+  transform: rotateX(62deg);
+  opacity: 0.78;
+  animation: anime-companion-shadow 5.2s ease-in-out infinite;
+}
+
+.themed-orb--anime .anime-companion__aura {
+  left: 18px;
+  right: 18px;
+  bottom: 2px;
+  height: 224px;
+  border-radius: 48% 48% 34% 34%;
+}
+
+.themed-orb--anime .anime-companion__halo {
+  left: 68px;
+  top: 6px;
+  width: 84px;
+  height: 24px;
+}
+
+.themed-orb--anime .anime-companion__wavefield {
+  left: 42px;
+  top: 38px;
+  width: 136px;
+  height: 180px;
+}
+
+.themed-orb--anime .anime-companion__hair--back {
+  left: 60px;
+  top: 38px;
+  width: 100px;
+  height: 140px;
+  border-radius: 48% 48% 46% 46%;
+  transform: translateZ(-12px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 20px 28px var(--themed-orb-shadow),
+    0 0 24px rgba(255, 122, 223, 0.12);
+}
+
+.themed-orb--anime .anime-companion__side-lock {
+  top: 76px;
+  width: 22px;
+  height: 112px;
+  z-index: 3;
+  filter: drop-shadow(0 12px 12px rgba(16, 2, 28, 0.24));
+}
+
+.themed-orb--anime .anime-companion__side-lock--left {
+  left: 56px;
+  transform: rotate(8deg);
+}
+
+.themed-orb--anime .anime-companion__side-lock--right {
+  right: 56px;
+  transform: rotate(-8deg);
+}
+
+.anime-companion__arm {
+  top: 142px;
+  width: 22px;
+  height: 74px;
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255, 230, 251, 0.18) 0%, transparent 32%),
+    linear-gradient(180deg, rgba(55, 31, 95, 0.98) 0%, rgba(32, 18, 70, 0.98) 54%, #ffd3c6 55%, #f0a7bd 100%);
+  border: 1px solid rgba(255, 230, 251, 0.14);
+  box-shadow: 0 10px 18px rgba(16, 2, 28, 0.24);
+  transform-origin: 50% 8%;
+  z-index: 4;
+}
+
+.anime-companion__arm--left {
+  left: 52px;
+  transform: rotate(20deg) translateZ(14px);
+  animation: anime-companion-arm-left 4.2s ease-in-out infinite;
+}
+
+.anime-companion__arm--right {
+  right: 52px;
+  transform: rotate(-20deg) translateZ(14px);
+  animation: anime-companion-arm-right 3.4s ease-in-out infinite;
+}
+
+.anime-companion__hand {
+  left: 2px;
+  bottom: -6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #ffd8c7 0%, #f0a7bd 100%);
+  box-shadow: 0 0 12px rgba(255, 122, 223, 0.18);
+}
+
+.themed-orb--anime .anime-companion__body {
+  left: 68px;
+  top: 134px;
+  bottom: auto;
+  width: 84px;
+  height: 70px;
+  border-radius: 36px 36px 24px 24px;
+  z-index: 5;
+  transform: translateZ(18px);
+}
+
+.themed-orb--anime .anime-companion__collar {
+  top: 7px;
+  width: 32px;
+  height: 30px;
+}
+
+.themed-orb--anime .anime-companion__tie {
+  left: 36px;
+  top: 20px;
+  width: 13px;
+  height: 54px;
+}
+
+.anime-companion__skirt {
+  left: 59px;
+  top: 192px;
+  width: 102px;
+  height: 44px;
+  clip-path: polygon(16% 0%, 84% 0%, 100% 100%, 0% 100%);
+  border-radius: 8px 8px 18px 18px;
+  background:
+    linear-gradient(90deg, rgba(101, 246, 255, 0.18) 0 1px, transparent 1px 26px),
+    linear-gradient(180deg, rgba(255, 122, 223, 0.92) 0%, rgba(43, 24, 82, 0.98) 100%);
+  border: 1px solid rgba(255, 230, 251, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 12px 22px rgba(16, 2, 28, 0.24);
+  transform: translateZ(12px);
+  z-index: 4;
+  animation: anime-companion-skirt 3.8s ease-in-out infinite;
+}
+
+.anime-companion__skirt-line {
+  top: 7px;
+  width: 1px;
+  height: 32px;
+  background: rgba(255, 230, 251, 0.24);
+}
+
+.anime-companion__skirt-line--left {
+  left: 36px;
+  transform: rotate(8deg);
+}
+
+.anime-companion__skirt-line--right {
+  right: 36px;
+  transform: rotate(-8deg);
+}
+
+.anime-companion__leg {
+  top: 226px;
+  width: 16px;
+  height: 30px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffd8c7 0%, #f0a7bd 100%);
+  box-shadow: 0 8px 12px rgba(16, 2, 28, 0.2);
+  z-index: 3;
+  transform-origin: top center;
+}
+
+.anime-companion__leg--left {
+  left: 86px;
+  transform: rotate(5deg);
+  animation: anime-companion-leg-left 4.8s ease-in-out infinite;
+}
+
+.anime-companion__leg--right {
+  right: 86px;
+  transform: rotate(-5deg);
+  animation: anime-companion-leg-right 4.8s ease-in-out infinite;
+}
+
+.anime-companion__shoe {
+  top: 250px;
+  width: 27px;
+  height: 11px;
+  border-radius: 999px 999px 8px 8px;
+  background: linear-gradient(180deg, rgba(101, 246, 255, 0.86) 0%, rgba(24, 13, 58, 0.98) 100%);
+  box-shadow: 0 6px 12px rgba(16, 2, 28, 0.28);
+  z-index: 5;
+}
+
+.anime-companion__shoe--left {
+  left: 76px;
+  transform: rotate(4deg);
+}
+
+.anime-companion__shoe--right {
+  right: 76px;
+  transform: rotate(-4deg);
+}
+
+.themed-orb--anime .anime-companion__neck {
+  left: 97px;
+  top: 120px;
+  z-index: 6;
+}
+
+.themed-orb--anime .anime-companion__head {
+  left: 72px;
+  top: 43px;
+  width: 76px;
+  height: 82px;
+  z-index: 7;
+  transform: translateZ(28px);
+}
+
+.themed-orb--anime .anime-companion__bang {
+  z-index: 8;
+}
+
+.themed-orb--anime .anime-companion__bang--left {
+  left: 9px;
+}
+
+.themed-orb--anime .anime-companion__bang--middle {
+  left: 25px;
+  height: 52px;
+}
+
+.themed-orb--anime .anime-companion__bang--right {
+  right: 9px;
+}
+
+.themed-orb--anime .anime-companion__ribbon {
+  top: 48px;
+  z-index: 9;
+}
+
+.themed-orb--anime .anime-companion__ribbon--left {
+  left: 48px;
+}
+
+.themed-orb--anime .anime-companion__ribbon--right {
+  right: 48px;
+}
+
+.themed-orb--speaking.themed-orb--anime .anime-companion__arm--right {
+  animation-duration: 0.92s;
+}
+
+.themed-orb--speaking.themed-orb--anime .anime-companion__tie {
+  animation-duration: 0.8s;
+}
+
+.themed-orb--kitsune {
+  --themed-orb-primary: var(--orb-visual-primary, #ff4a35);
+  --themed-orb-secondary: var(--orb-visual-secondary, #ffd47a);
+  --themed-orb-tertiary: var(--orb-visual-tertiary, #fff3db);
+  --themed-orb-surface: var(--orb-visual-surface, rgba(36, 10, 8, 0.96));
+  --themed-orb-highlight: var(--orb-visual-highlight, #fff8e8);
+  --themed-orb-shadow: var(--orb-visual-shadow, rgba(18, 3, 2, 0.84));
+  --themed-orb-grid: var(--orb-visual-grid, rgba(255, 74, 53, 0.18));
+  --themed-orb-trace: var(--orb-visual-trace, rgba(255, 212, 122, 0.32));
+}
+
+.themed-orb--kitsune .themed-orb__stage {
+  border-radius: 34px;
+  animation: kitsune-orb-sway 5.2s ease-in-out infinite;
+}
+
+.kitsune-orb__gate,
+.kitsune-orb__post,
+.kitsune-orb__cord,
+.kitsune-orb__lantern,
+.kitsune-orb__mask,
+.kitsune-orb__ear,
+.kitsune-orb__eye,
+.kitsune-orb__mark,
+.kitsune-orb__petal {
+  position: absolute;
+}
+
+.kitsune-orb__gate {
+  left: 31px;
+  right: 31px;
+  height: 14px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 142, 102, 0.98) 0%, rgba(154, 22, 18, 0.98) 100%);
+  border: 1px solid rgba(255, 212, 122, 0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 246, 218, 0.28),
+    0 0 18px rgba(255, 74, 53, 0.24);
+}
+
+.kitsune-orb__gate--top {
+  top: 34px;
+  transform: rotate(-2deg);
+}
+
+.kitsune-orb__gate--cross {
+  top: 56px;
+  left: 42px;
+  right: 42px;
+  height: 10px;
+  opacity: 0.92;
+}
+
+.kitsune-orb__post {
+  top: 50px;
+  width: 12px;
+  height: 92px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 142, 102, 0.92) 0%, rgba(92, 12, 12, 0.98) 100%);
+  border: 1px solid rgba(255, 212, 122, 0.18);
+}
+
+.kitsune-orb__post--left {
+  left: 56px;
+  transform: rotate(3deg);
+}
+
+.kitsune-orb__post--right {
+  right: 56px;
+  transform: rotate(-3deg);
+}
+
+.kitsune-orb__cord {
+  left: 90px;
+  top: 64px;
+  width: 8px;
+  height: 46px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 233, 188, 0.92) 0%, rgba(255, 170, 82, 0.42) 100%);
+  box-shadow: 0 0 12px rgba(255, 212, 122, 0.28);
+}
+
+.kitsune-orb__lantern {
+  left: 69px;
+  top: 100px;
+  width: 50px;
+  height: 58px;
+  border-radius: 46% 46% 42% 42%;
+  background:
+    repeating-linear-gradient(90deg, rgba(84, 18, 12, 0.18) 0 2px, transparent 2px 9px),
+    radial-gradient(circle at 50% 36%, rgba(255, 245, 207, 0.96) 0%, rgba(255, 212, 122, 0.56) 44%, rgba(154, 22, 18, 0.88) 100%);
+  border: 1px solid rgba(255, 212, 122, 0.34);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    0 0 26px rgba(255, 150, 66, 0.3);
+  animation: kitsune-lantern-breathe 2.8s ease-in-out infinite;
+}
+
+.kitsune-orb__mask {
+  left: 53px;
+  top: 62px;
+  width: 82px;
+  height: 70px;
+  border-radius: 52% 52% 60% 60%;
+  background:
+    radial-gradient(circle at 32% 40%, rgba(255, 255, 255, 0.92) 0%, transparent 9%),
+    radial-gradient(circle at 68% 40%, rgba(255, 255, 255, 0.92) 0%, transparent 9%),
+    linear-gradient(180deg, rgba(255, 246, 226, 0.98) 0%, rgba(235, 209, 174, 0.98) 100%);
+  border: 1px solid rgba(255, 212, 122, 0.32);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.46),
+    0 12px 24px var(--themed-orb-shadow),
+    0 0 24px rgba(255, 74, 53, 0.18);
+  transform-origin: 50% 85%;
+  animation: kitsune-mask-hover 4.4s ease-in-out infinite;
+}
+
+.kitsune-orb__ear {
+  top: -22px;
+  width: 34px;
+  height: 42px;
+  background: linear-gradient(180deg, rgba(255, 246, 226, 0.98) 0%, rgba(229, 196, 158, 0.98) 100%);
+  border: 1px solid rgba(255, 212, 122, 0.26);
+  clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+}
+
+.kitsune-orb__ear--left {
+  left: 6px;
+  transform: rotate(-16deg);
+}
+
+.kitsune-orb__ear--right {
+  right: 6px;
+  transform: rotate(16deg);
+}
+
+.kitsune-orb__eye {
+  top: 32px;
+  width: 16px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(86, 12, 18, 0.92);
+  box-shadow: 0 0 10px rgba(255, 74, 53, 0.26);
+}
+
+.kitsune-orb__eye--left {
+  left: 19px;
+  transform: rotate(14deg);
+}
+
+.kitsune-orb__eye--right {
+  right: 19px;
+  transform: rotate(-14deg);
+}
+
+.kitsune-orb__mark {
+  background: linear-gradient(180deg, rgba(255, 74, 53, 0.98) 0%, rgba(133, 13, 17, 0.98) 100%);
+  box-shadow: 0 0 10px rgba(255, 74, 53, 0.2);
+}
+
+.kitsune-orb__mark--center {
+  left: 36px;
+  top: 12px;
+  width: 10px;
+  height: 24px;
+  border-radius: 999px 999px 4px 4px;
+}
+
+.kitsune-orb__mark--left,
+.kitsune-orb__mark--right {
+  top: 50px;
+  width: 22px;
+  height: 6px;
+  border-radius: 999px;
+}
+
+.kitsune-orb__mark--left {
+  left: 14px;
+  transform: rotate(24deg);
+}
+
+.kitsune-orb__mark--right {
+  right: 14px;
+  transform: rotate(-24deg);
+}
+
+.kitsune-orb__petal {
+  width: 12px;
+  height: 18px;
+  border-radius: 70% 30% 70% 30%;
+  background: linear-gradient(135deg, rgba(255, 202, 221, 0.94) 0%, rgba(255, 99, 132, 0.62) 100%);
+  box-shadow: 0 0 12px rgba(255, 99, 132, 0.22);
+  transform: rotate(var(--kitsune-petal-rotate, 0deg));
+  animation: kitsune-petal-drift 4.8s ease-in-out infinite;
+}
+
+.themed-orb--speaking .kitsune-orb__lantern,
+.themed-orb--listening .kitsune-orb__lantern {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 0 36px rgba(255, 150, 66, 0.44),
+    0 0 52px rgba(255, 74, 53, 0.22);
+}
+
 @keyframes themed-orb-float {
   0%,
   100% {
@@ -1607,5 +2397,230 @@
   45% {
     opacity: 0.92;
     transform: rotate(24deg) translateX(14px);
+  }
+}
+
+@keyframes anime-companion-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-0.6deg);
+  }
+
+  50% {
+    transform: translateY(-7px) rotate(0.8deg);
+  }
+}
+
+@keyframes anime-companion-idle-3d {
+  0%,
+  100% {
+    transform: translateY(0) rotateX(0deg) rotateY(-4deg) rotateZ(-0.6deg);
+  }
+
+  50% {
+    transform: translateY(-8px) rotateX(2deg) rotateY(5deg) rotateZ(0.8deg);
+  }
+}
+
+@keyframes anime-companion-shadow {
+  0%,
+  100% {
+    transform: rotateX(62deg) scale(0.94);
+    opacity: 0.58;
+  }
+
+  50% {
+    transform: rotateX(62deg) scale(1.08);
+    opacity: 0.82;
+  }
+}
+
+@keyframes anime-companion-arm-left {
+  0%,
+  100% {
+    transform: rotate(20deg) translateZ(14px);
+  }
+
+  50% {
+    transform: rotate(10deg) translateY(-4px) translateZ(18px);
+  }
+}
+
+@keyframes anime-companion-arm-right {
+  0%,
+  100% {
+    transform: rotate(-22deg) translateZ(16px);
+  }
+
+  35% {
+    transform: rotate(-46deg) translateY(-8px) translateZ(24px);
+  }
+
+  70% {
+    transform: rotate(-14deg) translateY(-2px) translateZ(18px);
+  }
+}
+
+@keyframes anime-companion-skirt {
+  0%,
+  100% {
+    transform: translateZ(12px) skewX(-1deg);
+    filter: brightness(0.98);
+  }
+
+  50% {
+    transform: translateZ(18px) skewX(1deg);
+    filter: brightness(1.14);
+  }
+}
+
+@keyframes anime-companion-leg-left {
+  0%,
+  100% {
+    transform: rotate(5deg) translateY(0);
+  }
+
+  50% {
+    transform: rotate(1deg) translateY(-2px);
+  }
+}
+
+@keyframes anime-companion-leg-right {
+  0%,
+  100% {
+    transform: rotate(-5deg) translateY(-2px);
+  }
+
+  50% {
+    transform: rotate(-1deg) translateY(0);
+  }
+}
+
+@keyframes anime-companion-halo {
+  0%,
+  100% {
+    transform: rotate(-5deg) translateY(0);
+    opacity: 0.78;
+  }
+
+  50% {
+    transform: rotate(4deg) translateY(-3px);
+    opacity: 1;
+  }
+}
+
+@keyframes anime-companion-wave {
+  0% {
+    transform: scale(0.72);
+    opacity: 0.62;
+  }
+
+  100% {
+    transform: scale(1.22);
+    opacity: 0;
+  }
+}
+
+@keyframes anime-companion-sparkle {
+  0%,
+  100% {
+    transform: scale(calc(var(--anime-spark-scale, 1) * 0.74)) rotate(0deg);
+    opacity: 0.34;
+  }
+
+  50% {
+    transform: scale(calc(var(--anime-spark-scale, 1) * 1.26)) rotate(45deg);
+    opacity: 1;
+  }
+}
+
+@keyframes anime-companion-hair {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+
+  50% {
+    filter: brightness(1.16);
+  }
+}
+
+@keyframes anime-companion-ribbon {
+  0%,
+  100% {
+    filter: brightness(0.98);
+  }
+
+  50% {
+    filter: brightness(1.24);
+  }
+}
+
+@keyframes anime-companion-blink {
+  0%,
+  88%,
+  100% {
+    transform: scaleY(1);
+  }
+
+  92% {
+    transform: scaleY(0.12);
+  }
+}
+
+@keyframes anime-companion-talk {
+  0%,
+  100% {
+    transform: scaleY(0.68);
+  }
+
+  50% {
+    transform: scaleY(1.16);
+  }
+}
+
+@keyframes kitsune-orb-sway {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-0.8deg);
+  }
+
+  50% {
+    transform: translateY(-5px) rotate(1deg);
+  }
+}
+
+@keyframes kitsune-lantern-breathe {
+  0%,
+  100% {
+    filter: brightness(0.96);
+  }
+
+  50% {
+    filter: brightness(1.2);
+  }
+}
+
+@keyframes kitsune-mask-hover {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-1deg);
+  }
+
+  50% {
+    transform: translateY(-3px) rotate(1deg);
+  }
+}
+
+@keyframes kitsune-petal-drift {
+  0%,
+  100% {
+    opacity: 0.32;
+    transform: rotate(var(--kitsune-petal-rotate, 0deg)) translate(0, 0);
+  }
+
+  50% {
+    opacity: 0.9;
+    transform: rotate(var(--kitsune-petal-rotate, 0deg)) translate(10px, 12px);
   }
 }
