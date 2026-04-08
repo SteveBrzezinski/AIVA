@@ -111,6 +111,7 @@ export type HostedAccountStatus = {
   baseUrl: string;
   user?: HostedUserSummary | null;
   currentTeam?: HostedWorkspaceSummary | null;
+  activeTeam?: HostedWorkspaceSummary | null;
   teams: HostedWorkspaceSummary[];
   subscription?: HostedSubscriptionSummary | null;
   entitlements: HostedEntitlementSummary[];

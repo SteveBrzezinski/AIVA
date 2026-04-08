@@ -263,6 +263,7 @@ export default function App() {
     initialStateLoaded,
     savedSettings.hostedAccessToken,
     savedSettings.hostedApiBaseUrl,
+    savedSettings.hostedWorkspaceSlug,
     settings.aiProviderMode,
   ]);
 
@@ -305,6 +306,7 @@ export default function App() {
     initialStateLoaded,
     savedSettings.hostedAccessToken,
     savedSettings.hostedApiBaseUrl,
+    savedSettings.hostedWorkspaceSlug,
     settings.aiProviderMode,
   ]);
 
@@ -363,6 +365,8 @@ export default function App() {
       setMessage(
         i18n.t('app.hostedLoginSuccess', {
           workspace:
+            result.account.activeTeam?.name ??
+            result.account.activeTeam?.slug ??
             result.account.currentTeam?.name ??
             result.account.currentTeam?.slug ??
             i18n.t('settings.hostedWorkspaceCurrentDefault'),

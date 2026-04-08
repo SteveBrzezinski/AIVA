@@ -80,6 +80,7 @@ export function SettingsSection(props: SettingsSectionProps): JSX.Element {
   const [hostedEmail, setHostedEmail] = useState(settings.hostedAccountEmail);
   const [hostedPassword, setHostedPassword] = useState('');
   const isHostedMode = settings.aiProviderMode === 'hosted';
+  const activeHostedTeam = hostedAccount?.activeTeam ?? hostedAccount?.currentTeam ?? null;
   const hostedRealtimeEnabled = Boolean(
     hostedAccount?.entitlements.some((item) => item.feature === 'hosted_realtime' && item.enabled),
   );
@@ -383,8 +384,8 @@ export function SettingsSection(props: SettingsSectionProps): JSX.Element {
                         ? t('settings.hostedAccountSummary', {
                             email: hostedAccount.user?.email ?? hostedEmail.trim(),
                             workspace:
-                              hostedAccount.currentTeam?.name ??
-                              hostedAccount.currentTeam?.slug ??
+                              activeHostedTeam?.name ??
+                              activeHostedTeam?.slug ??
                               t('settings.hostedWorkspaceCurrentDefault'),
                           })
                         : t('settings.hostedAccountSummaryDisconnected')}

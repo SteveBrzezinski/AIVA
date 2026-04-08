@@ -85,6 +85,7 @@ pub struct HostedAccountStatus {
     pub base_url: String,
     pub user: Option<HostedUserSummary>,
     pub current_team: Option<HostedWorkspaceSummary>,
+    pub active_team: Option<HostedWorkspaceSummary>,
     pub teams: Vec<HostedWorkspaceSummary>,
     pub subscription: Option<HostedSubscriptionSummary>,
     pub entitlements: Vec<HostedEntitlementSummary>,
@@ -137,13 +138,15 @@ struct ApiTokenResponseData {
     #[allow(dead_code)]
     token_type: String,
     #[serde(flatten)]
-    account: ApiAccountSnapshot,
+    _account: ApiAccountSnapshot,
 }
 
 #[derive(Debug, Deserialize)]
 struct ApiAccountSnapshot {
     user: ApiUserSummary,
     current_team: Option<ApiWorkspaceSummary>,
+    #[serde(default)]
+    active_team: Option<ApiWorkspaceSummary>,
     #[serde(default)]
     teams: Vec<ApiWorkspaceSummary>,
     subscription: Option<ApiSubscriptionSummary>,
@@ -241,6 +244,12 @@ struct ApiHostedSpeechData {
     voice: String,
 }
 
+#[derive(Debug)]
+struct HostedAccountFetchOutcome {
+    account: HostedAccountStatus,
+    cleared_workspace_slug: bool,
+}
+
 #[tauri::command]
 pub fn login_hosted_account_command(
     base_url: String,
@@ -279,12 +288,20 @@ pub fn login_hosted_account_command(
     next_settings.hosted_api_base_url = normalized_base_url.clone();
     next_settings.hosted_account_email = normalized_email;
     next_settings.hosted_access_token = payload.data.token;
-    let saved_settings = settings.update(next_settings)?;
+    let mut saved_settings = settings.update(next_settings)?;
 
-    Ok(HostedAccountSyncResult {
-        settings: saved_settings,
-        account: map_account_snapshot(&normalized_base_url, payload.data.account),
-    })
+    let account = match fetch_hosted_account_status_with_fallback(&saved_settings)? {
+        HostedAccountFetchOutcome { account, cleared_workspace_slug: true } => {
+            let mut fallback_settings = saved_settings.clone();
+            fallback_settings.hosted_workspace_slug.clear();
+            saved_settings = settings.update(fallback_settings)?;
+
+            account
+        }
+        HostedAccountFetchOutcome { account, .. } => account,
+    };
+
+    Ok(HostedAccountSyncResult { settings: saved_settings, account })
 }
 
 #[tauri::command]
@@ -299,7 +316,16 @@ pub fn get_hosted_account_status_command(
         return Ok(disconnected_account_status(&app_settings.hosted_api_base_url));
     }
 
-    fetch_hosted_account_status(&app_settings)
+    match fetch_hosted_account_status_with_fallback(&app_settings)? {
+        HostedAccountFetchOutcome { account, cleared_workspace_slug: true } => {
+            let mut fallback_settings = app_settings.clone();
+            fallback_settings.hosted_workspace_slug.clear();
+            settings.update(fallback_settings)?;
+
+            Ok(account)
+        }
+        HostedAccountFetchOutcome { account, .. } => Ok(account),
+    }
 }
 
 #[tauri::command]
@@ -548,28 +574,64 @@ pub fn synthesize_speech_with_hosted_backend(
     })
 }
 
-fn fetch_hosted_account_status(settings: &AppSettings) -> Result<HostedAccountStatus, String> {
+fn fetch_hosted_account_status_with_fallback(
+    settings: &AppSettings,
+) -> Result<HostedAccountFetchOutcome, String> {
     let base_url = resolve_hosted_base_url(settings)?;
     let access_token = resolve_hosted_access_token(settings)?;
-    let response = api_client()?
-        .get(api_url(&base_url, "/api/v1/me"))
-        .bearer_auth(access_token)
-        .send()
-        .map_err(|error| format!("Hosted account status request failed: {error}"))?;
+    let selected_team = selected_team_slug(settings);
+    let response =
+        send_hosted_account_status_request(&base_url, &access_token, selected_team.as_deref())?;
 
-    if !response.status().is_success() {
-        return Err(parse_api_error(
-            response,
-            "Hosted account status request failed",
-            "The hosted backend rejected the profile request.",
-        ));
+    if response.status().is_success() {
+        return Ok(HostedAccountFetchOutcome {
+            account: decode_hosted_account_status(&base_url, response)?,
+            cleared_workspace_slug: false,
+        });
     }
 
+    if selected_team.is_some() && response.status() == StatusCode::FORBIDDEN {
+        let fallback_response = send_hosted_account_status_request(&base_url, &access_token, None)?;
+
+        if fallback_response.status().is_success() {
+            return Ok(HostedAccountFetchOutcome {
+                account: decode_hosted_account_status(&base_url, fallback_response)?,
+                cleared_workspace_slug: true,
+            });
+        }
+    }
+
+    Err(parse_api_error(
+        response,
+        "Hosted account status request failed",
+        "The hosted backend rejected the profile request.",
+    ))
+}
+
+fn send_hosted_account_status_request(
+    base_url: &str,
+    access_token: &str,
+    team: Option<&str>,
+) -> Result<Response, String> {
+    let client = api_client()?;
+    let mut request = client.get(api_url(base_url, "/api/v1/me")).bearer_auth(access_token);
+
+    if let Some(team) = team {
+        request = request.query(&[("team", team)]);
+    }
+
+    request.send().map_err(|error| format!("Hosted account status request failed: {error}"))
+}
+
+fn decode_hosted_account_status(
+    base_url: &str,
+    response: Response,
+) -> Result<HostedAccountStatus, String> {
     let payload: ApiEnvelope<ApiAccountSnapshot> = response
         .json()
         .map_err(|error| format!("Failed to decode hosted account status response: {error}"))?;
 
-    Ok(map_account_snapshot(&base_url, payload.data))
+    Ok(map_account_snapshot(base_url, payload.data))
 }
 
 fn get_hosted_billing_plans(settings: &AppSettings) -> Result<Vec<HostedBillingPlan>, String> {
@@ -735,6 +797,7 @@ fn disconnected_account_status(base_url: &str) -> HostedAccountStatus {
         base_url: base_url.trim().trim_end_matches('/').to_string(),
         user: None,
         current_team: None,
+        active_team: None,
         teams: Vec::new(),
         subscription: None,
         entitlements: Vec::new(),
@@ -743,6 +806,11 @@ fn disconnected_account_status(base_url: &str) -> HostedAccountStatus {
 
 fn map_account_snapshot(base_url: &str, snapshot: ApiAccountSnapshot) -> HostedAccountStatus {
     let current_team = snapshot.current_team.as_ref().map(|team| map_workspace(team.clone()));
+    let active_team = snapshot
+        .active_team
+        .as_ref()
+        .map(|team| map_workspace(team.clone()))
+        .or_else(|| current_team.clone());
     let mut teams = snapshot.teams.into_iter().map(map_workspace).collect::<Vec<_>>();
 
     if let Some(team) = current_team.clone() {
@@ -761,6 +829,7 @@ fn map_account_snapshot(base_url: &str, snapshot: ApiAccountSnapshot) -> HostedA
             email_verified_at: snapshot.user.email_verified_at,
         }),
         current_team,
+        active_team,
         teams,
         subscription: snapshot.subscription.map(|subscription| HostedSubscriptionSummary {
             provider: subscription.provider,
