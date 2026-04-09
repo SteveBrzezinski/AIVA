@@ -387,17 +387,13 @@ pub fn open_external_url_command(url: String) -> Result<(), String> {
 
 pub fn create_hosted_realtime_session(
     settings: &AppSettings,
-    instructions: String,
-    model: String,
-    voice: String,
+    session: Value,
 ) -> Result<HostedRealtimeSessionBootstrap, String> {
     let base_url = resolve_hosted_base_url(settings)?;
     let access_token = resolve_hosted_access_token(settings)?;
     let client = api_client()?;
     let mut payload = json!({
-        "model": model,
-        "voice": voice,
-        "instructions": instructions,
+        "session": session,
         "metadata": {
             "source": "aiva-desktop",
             "assistant_name": settings.assistant_name.trim(),
@@ -818,8 +814,63 @@ fn parse_api_error(response: Response, action: &str, fallback: &str) -> String {
     }
 
     if !body.trim().is_empty() {
-        return format!("{action} ({status}): {body}");
+        return format!("{action} ({status}): {}", summarize_plain_error_body(&body));
     }
 
     format!("{action} ({status}): {fallback}")
+}
+
+fn summarize_plain_error_body(body: &str) -> String {
+    let trimmed = body.trim();
+    let normalized = if looks_like_html(trimmed) {
+        extract_html_title(trimmed)
+            .or_else(|| {
+                let stripped = strip_html_tags(trimmed);
+                if stripped.is_empty() { None } else { Some(stripped) }
+            })
+            .unwrap_or_else(|| "The backend returned an HTML error page.".to_string())
+    } else {
+        trimmed.to_string()
+    };
+
+    truncate_error_message(&normalized, 320)
+}
+
+fn looks_like_html(value: &str) -> bool {
+    let lower = value.to_ascii_lowercase();
+    lower.contains("<html") || lower.contains("<!doctype html") || lower.contains("<body")
+}
+
+fn extract_html_title(value: &str) -> Option<String> {
+    let lower = value.to_ascii_lowercase();
+    let start = lower.find("<title>")?;
+    let end = lower[start + 7..].find("</title>")?;
+    let raw = &value[start + 7..start + 7 + end];
+    let title = raw.trim();
+    if title.is_empty() { None } else { Some(title.to_string()) }
+}
+
+fn strip_html_tags(value: &str) -> String {
+    let mut result = String::with_capacity(value.len());
+    let mut inside_tag = false;
+
+    for ch in value.chars() {
+        match ch {
+            '<' => inside_tag = true,
+            '>' => inside_tag = false,
+            _ if !inside_tag => result.push(ch),
+            _ => {}
+        }
+    }
+
+    result.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn truncate_error_message(value: &str, max_len: usize) -> String {
+    if value.chars().count() <= max_len {
+        return value.to_string();
+    }
+
+    let truncated = value.chars().take(max_len.saturating_sub(3)).collect::<String>();
+    format!("{truncated}...")
 }

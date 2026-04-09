@@ -95,6 +95,7 @@ export default function App() {
   const [selectedHostedPlanKey, setSelectedHostedPlanKey] = useState('');
   const [hostedBillingError, setHostedBillingError] = useState<string | null>(null);
   const [isHostedCheckoutBusy, setIsHostedCheckoutBusy] = useState(false);
+  const [pendingVoiceSessionRestartReason, setPendingVoiceSessionRestartReason] = useState<string | null>(null);
   const appWindowRef = useRef(getCurrentWindow());
   const composerVisibleRef = useRef(false);
   const composerTransitionRef = useRef<Promise<void> | null>(null);
@@ -407,6 +408,7 @@ export default function App() {
         credentials.password,
       );
       syncHostedSettings(result.settings);
+      setPendingVoiceSessionRestartReason('hosted-login');
       setHostedAccount(result.account);
       setHostedAccountError(null);
       setHostedBillingError(null);
@@ -434,6 +436,7 @@ export default function App() {
     try {
       const nextSettings = await logoutHostedAccount();
       syncHostedSettings(nextSettings);
+      setPendingVoiceSessionRestartReason('hosted-logout');
       setHostedAccount(null);
       setHostedAccountError(null);
       setHostedBillingPlans([]);
@@ -476,6 +479,35 @@ export default function App() {
     initialStateLoaded,
     ensureSavedSettings,
   });
+  const restartVoiceAgentSession = voiceRuntime.restartVoiceAgentSession;
+  const assistantVoiceActive = voiceRuntime.assistantActive;
+
+  useEffect(() => {
+    if (!pendingVoiceSessionRestartReason) {
+      return;
+    }
+
+    let active = true;
+    const reason = pendingVoiceSessionRestartReason;
+    setPendingVoiceSessionRestartReason(null);
+
+    void restartVoiceAgentSession(reason, assistantVoiceActive).catch((error: unknown) => {
+      if (!active) {
+        return;
+      }
+      const detail = error instanceof Error ? error.message : String(error);
+      setUiState('error');
+      setMessage(i18n.t('app.settingsSavedRestartFailed', { detail }));
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [
+    pendingVoiceSessionRestartReason,
+    assistantVoiceActive,
+    restartVoiceAgentSession,
+  ]);
 
   const {
     assistantTrainingReadyName,

@@ -33,6 +33,21 @@ pub struct RunVoiceAgentToolResult {
     pub result: Value,
 }
 
+fn build_realtime_session_config(profile: &VoiceAgentProfile, instructions: &str) -> Value {
+    json!({
+        "type": "realtime",
+        "model": profile.model,
+        "instructions": instructions,
+        "audio": {
+            "output": {
+                "voice": profile.voice,
+            }
+        },
+        "tools": realtime_tools(),
+        "tool_choice": "auto",
+    })
+}
+
 #[tauri::command]
 pub fn create_voice_agent_session_command(
     settings: State<'_, SettingsState>,
@@ -41,14 +56,10 @@ pub fn create_voice_agent_session_command(
     let mut profile = build_voice_agent_profile(&app_settings);
     let mut assistant_state = build_voice_agent_state(&app_settings);
     let instructions = build_assistant_instructions(&app_settings);
+    let session = build_realtime_session_config(&profile, &instructions);
 
     if app_settings.ai_provider_mode == "hosted" {
-        let hosted_session = create_hosted_realtime_session(
-            &app_settings,
-            instructions,
-            profile.model.clone(),
-            profile.voice.clone(),
-        )?;
+        let hosted_session = create_hosted_realtime_session(&app_settings, session.clone())?;
 
         profile.model = hosted_session.model;
         profile.voice = hosted_session.voice;
@@ -69,20 +80,7 @@ pub fn create_voice_agent_session_command(
 
     let api_key = resolve_openai_api_key(&app_settings)?;
 
-    let session_payload = json!({
-        "session": {
-            "type": "realtime",
-            "model": profile.model,
-            "instructions": instructions,
-            "audio": {
-                "output": {
-                    "voice": profile.voice,
-                }
-            },
-            "tools": realtime_tools(),
-            "tool_choice": "auto",
-        }
-    });
+    let session_payload = json!({ "session": session });
 
     let client = reqwest::blocking::Client::new();
     let response = client
