@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
 import {
@@ -77,16 +77,13 @@ export function SettingsSection(props: SettingsSectionProps): JSX.Element {
     onHostedCheckout,
     onOpenAssistantTraining,
   } = props;
-  const [hostedEmail, setHostedEmail] = useState(settings.hostedAccountEmail);
+  const [hostedEmailDraft, setHostedEmailDraft] = useState<string | null>(null);
   const [hostedPassword, setHostedPassword] = useState('');
+  const hostedEmail = hostedEmailDraft ?? settings.hostedAccountEmail;
   const isHostedMode = settings.aiProviderMode === 'hosted';
   const hostedRealtimeEnabled = Boolean(
     hostedAccount?.entitlements.some((item) => item.feature === 'hosted_realtime' && item.enabled),
   );
-
-  useEffect(() => {
-    setHostedEmail(settings.hostedAccountEmail);
-  }, [settings.hostedAccountEmail]);
 
   return (
     <section className="settings-card">
@@ -346,6 +343,23 @@ export function SettingsSection(props: SettingsSectionProps): JSX.Element {
           <span className="field-note">{t('settings.backgroundStartupNote')}</span>
         </label>
 
+        <label className="settings-field">
+          <span className="info-label">{t('settings.actionBarDisplay')}</span>
+          <select
+            value={settings.actionBarDisplayMode}
+            onChange={(event) =>
+              onSettingsChange({
+                ...settings,
+                actionBarDisplayMode: event.target.value as 'icons-only' | 'text-only' | 'icons-and-text',
+              })
+            }
+          >
+            <option value="icons-only">{t('settings.actionBarDisplayIconsOnly')}</option>
+            <option value="text-only">{t('settings.actionBarDisplayTextOnly')}</option>
+            <option value="icons-and-text">{t('settings.actionBarDisplayIconsAndText')}</option>
+          </select>
+        </label>
+
         {isHostedMode ? (
           <>
             <label className="settings-field settings-field--wide">
@@ -413,7 +427,7 @@ export function SettingsSection(props: SettingsSectionProps): JSX.Element {
                     autoComplete="username"
                     placeholder="name@example.com"
                     value={hostedEmail}
-                    onChange={(event) => setHostedEmail(event.target.value)}
+                    onChange={(event) => setHostedEmailDraft(event.target.value)}
                   />
                   <input
                     type="password"
@@ -441,6 +455,7 @@ export function SettingsSection(props: SettingsSectionProps): JSX.Element {
                         email: hostedEmail,
                         password: hostedPassword,
                       });
+                      setHostedEmailDraft(null);
                       setHostedPassword('');
                     }}
                   >
@@ -471,6 +486,7 @@ export function SettingsSection(props: SettingsSectionProps): JSX.Element {
                     }
                     onClick={async () => {
                       await onHostedLogout();
+                      setHostedEmailDraft(null);
                       setHostedPassword('');
                     }}
                   >

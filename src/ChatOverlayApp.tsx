@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   getSettings,
   onChatWindowVisibility,
+  onSettingsUpdated,
   onVoiceChatState,
   requestVoiceChatSync,
   submitVoiceChatMessage,
@@ -162,6 +163,7 @@ export default function ChatOverlayApp() {
   const [recordingElapsedMs, setRecordingElapsedMs] = useState(0);
   const [recordingStartedAtMs, setRecordingStartedAtMs] = useState<number | null>(null);
   const [sttLanguage, setSttLanguage] = useState('de');
+  const [assistantName, setAssistantName] = useState('Ava');
   const [localError, setLocalError] = useState('');
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const messagesRef = useRef<HTMLDivElement | null>(null);
@@ -190,10 +192,16 @@ export default function ChatOverlayApp() {
     recordedChunksRef.current = [];
   }
 
+  function syncSettingsState(settings: { sttLanguage?: string | null; assistantName?: string | null }): void {
+    setSttLanguage(settings.sttLanguage || 'de');
+    setAssistantName(settings.assistantName?.trim() || 'Ava');
+  }
+
   useEffect(() => {
     let isMounted = true;
     let unlistenChatState: (() => void | Promise<void>) | undefined;
     let unlistenChatVisibility: (() => void | Promise<void>) | undefined;
+    let unlistenSettings: (() => void | Promise<void>) | undefined;
 
     document.documentElement.classList.add('overlay-html');
     document.body.classList.add('overlay-body');
@@ -201,14 +209,25 @@ export default function ChatOverlayApp() {
     void getSettings()
       .then((settings) => {
         if (isMounted) {
-          setSttLanguage(settings.sttLanguage || 'de');
+          syncSettingsState(settings);
         }
       })
       .catch(() => {
         if (isMounted) {
-          setSttLanguage('de');
+          syncSettingsState({
+            sttLanguage: 'de',
+            assistantName: 'Ava',
+          });
         }
       });
+
+    void onSettingsUpdated((settings) => {
+      if (isMounted) {
+        syncSettingsState(settings);
+      }
+    }).then((cleanup) => {
+      unlistenSettings = cleanup;
+    });
 
     void onVoiceChatState((state) => {
       if (isMounted) {
@@ -240,6 +259,7 @@ export default function ChatOverlayApp() {
       document.body.classList.remove('overlay-body');
       void unlistenChatState?.();
       void unlistenChatVisibility?.();
+      void unlistenSettings?.();
     };
   }, []);
 
@@ -423,7 +443,7 @@ export default function ChatOverlayApp() {
                   {message.role === 'user'
                     ? 'Du'
                     : message.role === 'assistant'
-                      ? 'AIVA'
+                      ? assistantName
                       : 'System'}
                 </span>
                 <p>{message.text}</p>
@@ -438,7 +458,7 @@ export default function ChatOverlayApp() {
 
           {chatState.isAssistantResponding ? (
             <div className="voice-chat-message voice-chat-message--assistant voice-chat-message--typing">
-              <span className="voice-chat-message-role">AIVA</span>
+              <span className="voice-chat-message-role">{assistantName}</span>
               <div className="voice-chat-typing-dots" aria-hidden="true">
                 <span />
                 <span />

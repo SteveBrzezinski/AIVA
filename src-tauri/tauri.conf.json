@@ -18,8 +18,11 @@
         "height": 720,
         "resizable": true,
         "fullscreen": false,
-        "decorations": true,
-        "visible": true,
+        "decorations": false,
+        "shadow": true,
+        "theme": "Dark",
+        "focus": false,
+        "visible": false,
         "center": true
       }
     ],

@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { emitTo, listen, type UnlistenFn } from '@tauri-apps/api/event';
+import type { DesignThemeId } from '../designThemes.js';
 
 export type CaptureOptions = {
   copyDelayMs?: number;
@@ -8,10 +9,13 @@ export type CaptureOptions = {
 
 export type SpeakOptions = {
   autoplay?: boolean;
+  format?: 'wav' | 'mp3';
+  mode?: 'classic' | 'live' | 'realtime';
   maxChunkChars?: number;
   maxParallelRequests?: number;
   model?: string;
   voice?: string;
+  firstChunkLeadingSilenceMs?: number;
 };
 
 export type TranslateOptions = {
@@ -21,6 +25,12 @@ export type TranslateOptions = {
 };
 
 export type AppSettings = {
+  ttsMode: 'classic' | 'live' | 'realtime';
+  realtimeAllowLiveFallback: boolean;
+  designThemeId: DesignThemeId;
+  actionBarActiveGlowColor: string;
+  ttsFormat: 'wav' | 'mp3';
+  firstChunkLeadingSilenceMs: number;
   uiLanguage: string;
   translationTargetLanguage: string;
   playbackSpeed: number;
@@ -47,6 +57,7 @@ export type AppSettings = {
   assistantSampleLanguage: string;
   assistantWakeThreshold: number;
   assistantCueCooldownMs: number;
+  actionBarDisplayMode: 'icons-only' | 'text-only' | 'icons-and-text';
 };
 
 export type LanguageOption = {
@@ -391,6 +402,7 @@ export type TranscribeChatAudioResult = {
 
 const HOTKEY_STATUS_EVENT = 'hotkey-status';
 const LIVE_STT_CONTROL_EVENT = 'live-stt-control';
+const SETTINGS_EVENT = 'settings-updated';
 const VOICE_AGENT_TASK_EVENT = 'voice-agent-task';
 const MAIN_WINDOW_VISIBILITY_EVENT = 'main-window-visibility-changed';
 const CHAT_WINDOW_VISIBILITY_EVENT = 'chat-window-visibility-changed';
@@ -500,6 +512,10 @@ export async function onLiveSttControl(callback: (event: LiveSttControlEvent) =>
   return listen<LiveSttControlEvent>(LIVE_STT_CONTROL_EVENT, (event) => callback(event.payload));
 }
 
+export async function onSettingsUpdated(callback: (settings: AppSettings) => void): Promise<UnlistenFn> {
+  return listen<AppSettings>(SETTINGS_EVENT, (event) => callback(event.payload));
+}
+
 export async function onMainWindowVisibility(
   callback: (payload: MainWindowVisibilityPayload) => void,
 ): Promise<UnlistenFn> {
@@ -583,10 +599,32 @@ export async function captureAndSpeak(
     },
     speakOptions: {
       autoplay: speakOptions.autoplay ?? true,
+      format: speakOptions.format,
+      mode: speakOptions.mode,
       maxChunkChars: speakOptions.maxChunkChars,
       maxParallelRequests: speakOptions.maxParallelRequests,
       model: speakOptions.model,
       voice: speakOptions.voice ?? 'alloy',
+      firstChunkLeadingSilenceMs: speakOptions.firstChunkLeadingSilenceMs,
+    },
+  });
+}
+
+export async function speakText(
+  text: string,
+  speakOptions: SpeakOptions = {},
+): Promise<CaptureAndSpeakResult['speech']> {
+  return invoke<CaptureAndSpeakResult['speech']>('speak_text_command', {
+    options: {
+      text,
+      autoplay: speakOptions.autoplay ?? true,
+      format: speakOptions.format,
+      mode: speakOptions.mode,
+      maxChunkChars: speakOptions.maxChunkChars,
+      maxParallelRequests: speakOptions.maxParallelRequests,
+      model: speakOptions.model,
+      voice: speakOptions.voice ?? 'alloy',
+      firstChunkLeadingSilenceMs: speakOptions.firstChunkLeadingSilenceMs,
     },
   });
 }

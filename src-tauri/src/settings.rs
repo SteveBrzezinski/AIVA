@@ -12,6 +12,8 @@ pub const DEFAULT_PAUSE_RESUME_HOTKEY: &str = "Ctrl+Shift+P";
 pub const DEFAULT_CANCEL_HOTKEY: &str = "Ctrl+Shift+X";
 pub const SETTINGS_EVENT: &str = "settings-updated";
 pub const CONFIG_FILE_NAME: &str = ".voice-overlay-assistant.config.json";
+const DEFAULT_DESIGN_THEME_ID: &str = "obsidian-halo";
+const DEFAULT_ACTION_BAR_ACTIVE_GLOW_COLOR: &str = "#b63131";
 const DEFAULT_PLAYBACK_SPEED: f32 = 1.0;
 const DEFAULT_ASSISTANT_WAKE_THRESHOLD: u8 = 68;
 const DEFAULT_ASSISTANT_CUE_COOLDOWN_MS: u32 = 1200;
@@ -25,6 +27,13 @@ const DEFAULT_VOICE_AGENT_EXTRA_INSTRUCTIONS: &str =
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
 pub struct AppSettings {
+    pub tts_mode: String,
+    pub realtime_allow_live_fallback: bool,
+    pub design_theme_id: String,
+    pub action_bar_active_glow_color: String,
+    pub action_bar_display_mode: String,
+    pub tts_format: String,
+    pub first_chunk_leading_silence_ms: u32,
     pub ui_language: String,
     pub translation_target_language: String,
     pub playback_speed: f32,
@@ -56,6 +65,13 @@ pub struct AppSettings {
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
+            tts_mode: "classic".to_string(),
+            realtime_allow_live_fallback: false,
+            design_theme_id: DEFAULT_DESIGN_THEME_ID.to_string(),
+            action_bar_active_glow_color: DEFAULT_ACTION_BAR_ACTIVE_GLOW_COLOR.to_string(),
+            action_bar_display_mode: "icons-and-text".to_string(),
+            tts_format: "wav".to_string(),
+            first_chunk_leading_silence_ms: 180,
             ui_language: "en".to_string(),
             translation_target_language: "en".to_string(),
             playback_speed: DEFAULT_PLAYBACK_SPEED,
@@ -66,9 +82,9 @@ impl Default for AppSettings {
             hosted_access_token: String::new(),
             hosted_workspace_slug: String::new(),
             stt_language: "de".to_string(),
+            assistant_name: "Ava".to_string(),
             launch_at_login: false,
             start_hidden_on_launch: true,
-            assistant_name: "AIVA".to_string(),
             voice_agent_model: "gpt-realtime".to_string(),
             voice_agent_voice: "marin".to_string(),
             voice_agent_personality: DEFAULT_VOICE_AGENT_PERSONALITY.to_string(),
@@ -166,6 +182,45 @@ impl SettingsState {
 }
 
 pub fn sanitize_settings(mut settings: AppSettings) -> AppSettings {
+    settings.tts_mode = match settings.tts_mode.trim().to_lowercase().as_str() {
+        "live" | "low_latency" | "low-latency" => "live".to_string(),
+        "realtime" | "realtime_experimental" | "realtime-experimental" => "realtime".to_string(),
+        _ => "classic".to_string(),
+    };
+    settings.design_theme_id = match settings.design_theme_id.trim().to_lowercase().as_str() {
+        "shadow-satin" => "shadow-satin".to_string(),
+        "olympian-marble" => "olympian-marble".to_string(),
+        "retro-signal" => "retro-signal".to_string(),
+        "fantasy-relic" => "fantasy-relic".to_string(),
+        "retro-arcade" => "retro-arcade".to_string(),
+        "modern-glass" => "modern-glass".to_string(),
+        "universe-drift" => "universe-drift".to_string(),
+        "creed-eclipse" => "creed-eclipse".to_string(),
+        "volt-forge" => "volt-forge".to_string(),
+        "brass-engine" => "brass-engine".to_string(),
+        "shadow-monarch" => "shadow-monarch".to_string(),
+        "tsukuyomi-veil" => "tsukuyomi-veil".to_string(),
+        "anime-companion" => "anime-companion".to_string(),
+        "kitsune-matsuri" => "kitsune-matsuri".to_string(),
+        _ => DEFAULT_DESIGN_THEME_ID.to_string(),
+    };
+    settings.action_bar_display_mode =
+        match settings.action_bar_display_mode.trim().to_lowercase().as_str() {
+            "icons-only" => "icons-only".to_string(),
+            "text-only" => "text-only".to_string(),
+            _ => "icons-and-text".to_string(),
+        };
+    settings.action_bar_active_glow_color = sanitize_hex_color(
+        settings.action_bar_active_glow_color,
+        DEFAULT_ACTION_BAR_ACTIVE_GLOW_COLOR,
+    );
+    settings.tts_format = match settings.tts_format.trim().to_lowercase().as_str() {
+        "mp3" => "mp3".to_string(),
+        _ => "wav".to_string(),
+    };
+
+    settings.first_chunk_leading_silence_ms =
+        settings.first_chunk_leading_silence_ms.clamp(0, 1000);
     let ui_language = settings.ui_language.trim().to_lowercase();
     settings.ui_language = if matches!(ui_language.as_str(), "en" | "de") {
         ui_language
@@ -193,10 +248,12 @@ pub fn sanitize_settings(mut settings: AppSettings) -> AppSettings {
     } else {
         settings.stt_language.trim().to_lowercase()
     };
-    settings.assistant_name = if settings.assistant_name.trim().is_empty() {
-        "AIVA".to_string()
+    let trimmed_assistant_name = settings.assistant_name.trim();
+    let migrate_default_name = trimmed_assistant_name.eq_ignore_ascii_case("AIVA");
+    settings.assistant_name = if trimmed_assistant_name.is_empty() || migrate_default_name {
+        "Ava".to_string()
     } else {
-        settings.assistant_name.trim().to_string()
+        trimmed_assistant_name.to_string()
     };
     settings.voice_agent_model = sanitize_non_empty_line(
         settings.voice_agent_model,
@@ -227,6 +284,10 @@ pub fn sanitize_settings(mut settings: AppSettings) -> AppSettings {
     };
     settings.assistant_wake_samples = sanitize_phrase_samples(settings.assistant_wake_samples, 4);
     settings.assistant_name_samples = sanitize_phrase_samples(settings.assistant_name_samples, 2);
+    if migrate_default_name {
+        settings.assistant_wake_samples.clear();
+        settings.assistant_name_samples.clear();
+    }
     settings.assistant_wake_threshold =
         sanitize_assistant_threshold(settings.assistant_wake_threshold);
     settings.assistant_cue_cooldown_ms =
@@ -321,6 +382,19 @@ fn sanitize_provider_mode(value: String) -> String {
 
 fn sanitize_api_base_url(value: String) -> String {
     value.trim().trim_end_matches('/').to_string()
+}
+
+fn sanitize_hex_color(value: String, fallback: &str) -> String {
+    let normalized = value.trim().to_lowercase();
+    let is_valid = normalized.len() == 7
+        && normalized.starts_with('#')
+        && normalized.chars().skip(1).all(|character| character.is_ascii_hexdigit());
+
+    if is_valid {
+        normalized
+    } else {
+        fallback.to_string()
+    }
 }
 
 fn sanitize_assistant_threshold(value: u8) -> u8 {

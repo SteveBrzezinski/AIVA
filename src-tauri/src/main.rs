@@ -7,7 +7,7 @@ use voice_overlay_assistant::{
 
 #[tauri::command]
 fn app_status() -> &'static str {
-    "Voice Overlay Assistant is ready: the tray keeps the app alive in the background, WebView2 handles wake-word listening, read/translate uses live TTS, and the voice assistant uses OpenAI Realtime over WebRTC."
+    "Voice Overlay Assistant is ready: the tray keeps the app alive in the background, overlay windows stay available, WebView2 handles wake-word listening, and the voice assistant uses OpenAI Realtime over WebRTC."
 }
 
 fn main() {
@@ -26,6 +26,8 @@ fn main() {
                 .expect("failed to apply the AIVA window icon");
             background::setup_background(app.handle())
                 .expect("failed to initialize background tray support");
+            background::setup_overlay_windows(app.handle())
+                .expect("failed to initialize overlay windows");
             hotkey::init_hotkey(app.handle());
             let settings = app.state::<settings::SettingsState>().get();
             background::apply_launch_behavior(app.handle(), &settings);

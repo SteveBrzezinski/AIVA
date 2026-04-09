@@ -1,4 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Window, getCurrentWindow } from '@tauri-apps/api/window';
+import { applyDesignTheme } from './designThemes';
+import SettingsView from './SettingsView';
 import {
   captureAndSpeak,
   captureAndTranslate,
@@ -36,9 +39,19 @@ import { LatestRunSection } from './components/app/LatestRunSection';
 import { ReadinessGrid } from './components/app/ReadinessGrid';
 import { ResetSettingsDialog } from './components/app/ResetSettingsDialog';
 import { RunHistorySection } from './components/app/RunHistorySection';
-import { SettingsSection } from './components/app/SettingsSection';
 import { UsageSection } from './components/app/UsageSection';
 import { VoiceFeedsSection } from './components/app/VoiceFeedsSection';
+import {
+  ACTION_BAR_WINDOW_LABEL,
+  OVERLAY_ACTION_EVENT,
+  OVERLAY_COMPOSER_WINDOW_LABEL,
+  OVERLAY_STATE_EVENT,
+  VOICE_OVERLAY_WINDOW_LABEL,
+  type OverlayAction,
+  type OverlayState,
+} from './lib/overlayBridge';
+
+type AppView = 'dashboard' | 'settings';
 
 export default function App() {
   const [uiState, setUiState] = useState<UiState>('idle');
@@ -71,6 +84,10 @@ export default function App() {
   const [runHistory, setRunHistory] = useState<RunHistoryEntry[]>([]);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [showResetDialog, setShowResetDialog] = useState(false);
+  const [activeView, setActiveView] = useState<AppView>('dashboard');
+  const [composerVisible, setComposerVisible] = useState(false);
+  const [voiceOrbPinned, setVoiceOrbPinned] = useState(false);
+  const [isMainWindowMaximized, setIsMainWindowMaximized] = useState(false);
   const [hostedAccount, setHostedAccount] = useState<HostedAccountStatus | null>(null);
   const [hostedAccountError, setHostedAccountError] = useState<string | null>(null);
   const [isHostedAccountBusy, setIsHostedAccountBusy] = useState(false);
@@ -78,6 +95,13 @@ export default function App() {
   const [selectedHostedPlanKey, setSelectedHostedPlanKey] = useState('');
   const [hostedBillingError, setHostedBillingError] = useState<string | null>(null);
   const [isHostedCheckoutBusy, setIsHostedCheckoutBusy] = useState(false);
+  const appWindowRef = useRef(getCurrentWindow());
+  const composerVisibleRef = useRef(false);
+  const composerTransitionRef = useRef<Promise<void> | null>(null);
+  const listenerDesiredRunningRef = useRef(false);
+  const listenerTransitionRef = useRef<Promise<void> | null>(null);
+  const liveTranscribingRef = useRef(false);
+  const overlayBridgeStateRef = useRef<OverlayState | null>(null);
   const applyHotkeyStatus = useCallback((status: HotkeyStatus, appendHistory = false): void => {
     setMessage(status.message);
     setCapturedPreview(status.lastCapturedText ?? '');
@@ -160,6 +184,33 @@ export default function App() {
     }
     document.documentElement.lang = nextLanguage;
   }, [settings.uiLanguage]);
+
+  useEffect(() => {
+    void applyDesignTheme(settings.designThemeId, appWindowRef.current);
+  }, [settings.designThemeId]);
+
+  const syncMainWindowMaximized = useCallback(async (): Promise<void> => {
+    try {
+      setIsMainWindowMaximized(await appWindowRef.current.isMaximized());
+    } catch {
+      // Window chrome state is best-effort for the custom titlebar.
+    }
+  }, []);
+
+  useEffect(() => {
+    let unlistenResize: (() => void | Promise<void>) | undefined;
+
+    void syncMainWindowMaximized();
+    void appWindowRef.current.onResized(() => {
+      void syncMainWindowMaximized();
+    }).then((cleanup) => {
+      unlistenResize = cleanup;
+    });
+
+    return () => {
+      void unlistenResize?.();
+    };
+  }, [syncMainWindowMaximized]);
 
   const persistSettings = async (
     next: AppSettings,
@@ -572,117 +623,465 @@ export default function App() {
     ],
   );
 
+  const assistantClosePhrase = useMemo(
+    () => `Bye ${settings.assistantName || 'Ava'}`,
+    [settings.assistantName],
+  );
+
+  const overlayBridgeState = useMemo<OverlayState>(
+    () => ({
+      assistantActive: voiceRuntime.assistantActive,
+      isLiveTranscribing: voiceRuntime.isLiveTranscribing,
+      voiceOrbPinned,
+      composerVisible,
+      settingsVisible: activeView === 'settings',
+      assistantStateDetail: voiceRuntime.assistantStateDetail,
+      liveTranscriptionStatus: voiceRuntime.liveTranscriptionStatus,
+      assistantWakePhrase: voiceRuntime.assistantWakePhrase,
+      assistantClosePhrase,
+      statusMessage: message,
+      uiState,
+    }),
+    [
+      activeView,
+      assistantClosePhrase,
+      composerVisible,
+      message,
+      uiState,
+      voiceOrbPinned,
+      voiceRuntime.assistantActive,
+      voiceRuntime.assistantStateDetail,
+      voiceRuntime.assistantWakePhrase,
+      voiceRuntime.isLiveTranscribing,
+      voiceRuntime.liveTranscriptionStatus,
+    ],
+  );
+
+  const broadcastOverlayState = useCallback((state: OverlayState): void => {
+    [ACTION_BAR_WINDOW_LABEL, VOICE_OVERLAY_WINDOW_LABEL, OVERLAY_COMPOSER_WINDOW_LABEL].forEach(
+      (label) => {
+        void appWindowRef.current
+          .emitTo<OverlayState>(label, OVERLAY_STATE_EVENT, state)
+          .catch(() => undefined);
+      },
+    );
+  }, []);
+
+  useEffect(() => {
+    overlayBridgeStateRef.current = overlayBridgeState;
+    broadcastOverlayState(overlayBridgeState);
+  }, [broadcastOverlayState, overlayBridgeState]);
+
+  useEffect(() => {
+    composerVisibleRef.current = composerVisible;
+  }, [composerVisible]);
+
+  useEffect(() => {
+    liveTranscribingRef.current = voiceRuntime.isLiveTranscribing;
+    if (!listenerTransitionRef.current) {
+      listenerDesiredRunningRef.current = voiceRuntime.isLiveTranscribing;
+    }
+  }, [voiceRuntime.isLiveTranscribing]);
+
+  const handleOverlayActionError = useCallback((error: unknown): void => {
+    const detail = error instanceof Error ? error.message : String(error);
+    setMessage(detail);
+  }, []);
+
+  const processComposerWindowTransition = useCallback(async (): Promise<void> => {
+    if (composerTransitionRef.current) {
+      await composerTransitionRef.current;
+      return;
+    }
+
+    composerTransitionRef.current = (async () => {
+      try {
+        while (true) {
+          const targetVisible = composerVisibleRef.current;
+          const composerWindow = await Window.getByLabel(OVERLAY_COMPOSER_WINDOW_LABEL);
+
+          setComposerVisible(targetVisible);
+
+          if (composerWindow) {
+            const isVisible = await composerWindow.isVisible();
+            if (isVisible !== targetVisible) {
+              if (targetVisible) {
+                await composerWindow.show();
+                await composerWindow.setFocus();
+              } else {
+                await composerWindow.hide();
+              }
+            }
+          }
+
+          if (targetVisible === composerVisibleRef.current) {
+            break;
+          }
+        }
+      } finally {
+        composerTransitionRef.current = null;
+      }
+    })();
+
+    await composerTransitionRef.current;
+  }, []);
+
+  const closeComposerWindow = useCallback(async (): Promise<void> => {
+    composerVisibleRef.current = false;
+    await processComposerWindowTransition();
+  }, [processComposerWindowTransition]);
+
+  const toggleComposerWindow = useCallback(async (): Promise<void> => {
+    composerVisibleRef.current = !composerVisibleRef.current;
+    await processComposerWindowTransition();
+  }, [processComposerWindowTransition]);
+
+  const processListenerTransition = useCallback(async (): Promise<void> => {
+    if (listenerTransitionRef.current) {
+      await listenerTransitionRef.current;
+      return;
+    }
+
+    listenerTransitionRef.current = (async () => {
+      try {
+        while (true) {
+          const shouldRun = listenerDesiredRunningRef.current;
+          const isRunning = liveTranscribingRef.current;
+
+          if (shouldRun !== isRunning) {
+            if (shouldRun) {
+              await voiceRuntime.startLiveTranscription();
+            } else {
+              await voiceRuntime.stopLiveTranscription();
+            }
+          }
+
+          if (
+            shouldRun === listenerDesiredRunningRef.current &&
+            liveTranscribingRef.current === shouldRun
+          ) {
+            break;
+          }
+        }
+      } finally {
+        listenerTransitionRef.current = null;
+        if (listenerDesiredRunningRef.current !== liveTranscribingRef.current) {
+          void processListenerTransition();
+        }
+      }
+    })();
+
+    await listenerTransitionRef.current;
+  }, [voiceRuntime.startLiveTranscription, voiceRuntime.stopLiveTranscription]);
+
+  const toggleListenerRunning = useCallback(async (): Promise<void> => {
+    listenerDesiredRunningRef.current = !listenerDesiredRunningRef.current;
+    await processListenerTransition();
+  }, [processListenerTransition]);
+
+  const openSettingsWindow = useCallback(async (): Promise<void> => {
+    setActiveView('settings');
+
+    try {
+      await appWindowRef.current.unminimize();
+    } catch {
+      // Some platforms may not expose a minimized state.
+    }
+
+    try {
+      await appWindowRef.current.show();
+      await appWindowRef.current.setFocus();
+    } catch {
+      // Focusing the main window is best-effort when called from overlay windows.
+    }
+  }, []);
+
+  useEffect(() => {
+    void Window.getByLabel(ACTION_BAR_WINDOW_LABEL)
+      .then((window) => window?.show())
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    void Window.getByLabel(VOICE_OVERLAY_WINDOW_LABEL)
+      .then(async (window) => {
+        if (!window) {
+          return;
+        }
+
+        if (voiceRuntime.assistantActive || voiceOrbPinned) {
+          await window.show();
+        } else {
+          await window.hide();
+        }
+      })
+      .catch(() => undefined);
+  }, [voiceOrbPinned, voiceRuntime.assistantActive]);
+
+  useEffect(() => {
+    let unlistenOverlayAction: (() => void | Promise<void>) | undefined;
+
+    void appWindowRef.current
+      .listen<OverlayAction>(OVERLAY_ACTION_EVENT, (event) => {
+        switch (event.payload.type) {
+          case 'request-state': {
+            const currentState = overlayBridgeStateRef.current;
+            if (currentState) {
+              broadcastOverlayState(currentState);
+            }
+            break;
+          }
+          case 'toggle-live':
+          case 'toggle-listener':
+            void toggleListenerRunning().catch(handleOverlayActionError);
+            break;
+          case 'activate':
+            void voiceRuntime.activateAssistantVoice('manual').catch(handleOverlayActionError);
+            break;
+          case 'deactivate':
+            void voiceRuntime.deactivateAssistantVoice('manual').catch(handleOverlayActionError);
+            break;
+          case 'toggle-composer':
+            void toggleComposerWindow().catch(handleOverlayActionError);
+            break;
+          case 'close-composer':
+            void closeComposerWindow().catch(handleOverlayActionError);
+            break;
+          case 'open-settings':
+            void openSettingsWindow().catch(handleOverlayActionError);
+            break;
+          case 'pin-voice-orb':
+            setVoiceOrbPinned(true);
+            break;
+          case 'unpin-voice-orb':
+            setVoiceOrbPinned(false);
+            break;
+        }
+      })
+      .then((cleanup) => {
+        unlistenOverlayAction = cleanup;
+      });
+
+    return () => {
+      void unlistenOverlayAction?.();
+    };
+  }, [
+    broadcastOverlayState,
+    closeComposerWindow,
+    handleOverlayActionError,
+    openSettingsWindow,
+    toggleComposerWindow,
+    toggleListenerRunning,
+    voiceRuntime.activateAssistantVoice,
+    voiceRuntime.deactivateAssistantVoice,
+  ]);
+
+  const handleWindowMinimize = async (): Promise<void> => {
+    await appWindowRef.current.minimize();
+  };
+
+  const handleWindowMaximizeToggle = async (): Promise<void> => {
+    await appWindowRef.current.toggleMaximize();
+    await syncMainWindowMaximized();
+  };
+
+  const handleWindowClose = async (): Promise<void> => {
+    try {
+      await appWindowRef.current.close();
+    } catch {
+      await appWindowRef.current.hide();
+    }
+  };
+
   return (
     <>
-      <main className="app-shell">
-        <HeroSection
-          hotkeyRegistered={hotkeyStatus.registered}
-          speakHotkey={hotkeyStatus.accelerator}
-          translateHotkey={hotkeyStatus.translateAccelerator}
-          isBusy={uiState === 'working'}
-          isSavingSettings={isSavingSettings}
-          assistantActive={voiceRuntime.assistantActive}
-          voiceAgentState={voiceRuntime.voiceAgentState}
-          onReadSelectedText={() => void runReadSelectedText()}
-          onTranslateSelectedText={() => void runTranslateSelectedText()}
-          onActivateAssistant={() => void voiceRuntime.activateAssistantVoice('manual')}
-          onDeactivateAssistant={() => void voiceRuntime.deactivateAssistantVoice('manual')}
-        />
+      <div className={`app-frame ${isMainWindowMaximized ? 'app-frame--maximized' : ''}`}>
+        <header className="window-titlebar">
+          <div
+            className="window-titlebar__drag"
+            data-tauri-drag-region
+            onDoubleClick={() => void handleWindowMaximizeToggle()}
+          >
+            <span className="window-titlebar__mark" aria-hidden="true" />
+            <span className="window-titlebar__title">Voice Overlay Assistant</span>
+          </div>
+          <div className="window-titlebar__controls" aria-label="Window controls">
+            <button
+              type="button"
+              className="window-titlebar__control"
+              aria-label="Minimize window"
+              onClick={() => void handleWindowMinimize()}
+            >
+              <svg
+                viewBox="0 0 12 12"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+              >
+                <path d="M2 9.2h8" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              className="window-titlebar__control"
+              aria-label={isMainWindowMaximized ? 'Restore window' : 'Maximize window'}
+              onClick={() => void handleWindowMaximizeToggle()}
+            >
+              <svg
+                viewBox="0 0 12 12"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                strokeLinejoin="round"
+              >
+                {isMainWindowMaximized ? (
+                  <>
+                    <path d="M3 4.2h5.2V9.4H3z" />
+                    <path d="M4.8 2.6H10v5.2" />
+                  </>
+                ) : (
+                  <path d="M2.6 2.6h6.8v6.8H2.6z" />
+                )}
+              </svg>
+            </button>
+            <button
+              type="button"
+              className="window-titlebar__control window-titlebar__control--close"
+              aria-label="Hide window"
+              onClick={() => void handleWindowClose()}
+            >
+              <svg
+                viewBox="0 0 12 12"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+              >
+                <path d="M2.5 2.5l7 7" />
+                <path d="M9.5 2.5l-7 7" />
+              </svg>
+            </button>
+          </div>
+        </header>
 
-        <ReadinessGrid items={readinessItems} />
+        <main className="app-shell">
+          {activeView === 'dashboard' ? (
+            <>
+              <HeroSection
+                hotkeyRegistered={hotkeyStatus.registered}
+                speakHotkey={hotkeyStatus.accelerator}
+                translateHotkey={hotkeyStatus.translateAccelerator}
+                isBusy={uiState === 'working'}
+                isSavingSettings={isSavingSettings}
+                assistantActive={voiceRuntime.assistantActive}
+                voiceAgentState={voiceRuntime.voiceAgentState}
+                onReadSelectedText={() => void runReadSelectedText()}
+                onTranslateSelectedText={() => void runTranslateSelectedText()}
+                onActivateAssistant={() => void voiceRuntime.activateAssistantVoice('manual')}
+                onDeactivateAssistant={() => void voiceRuntime.deactivateAssistantVoice('manual')}
+                onOpenSettings={() => void openSettingsWindow()}
+              />
 
-        <SettingsSection
-          settings={settings}
-          languageOptions={languageOptions}
-          hasUnsavedChanges={hasUnsavedChanges}
-          isSavingSettings={isSavingSettings}
-          isBusy={uiState === 'working'}
-          canSaveSettings={canSaveSettings}
-          hostedAccount={hostedAccount}
-          hostedAccountError={hostedAccountError}
-          isHostedAccountBusy={isHostedAccountBusy}
-          hostedBillingPlans={hostedBillingPlans}
-          selectedHostedPlanKey={selectedHostedPlanKey}
-          hostedBillingError={hostedBillingError}
-          isHostedCheckoutBusy={isHostedCheckoutBusy}
-          assistantNameError={assistantNameError}
-          assistantCalibrationRequired={assistantCalibrationRequired}
-          assistantCalibrationComplete={assistantCalibrationComplete}
-          assistantTrainingReadyName={assistantTrainingReadyName}
-          onSettingsChange={setSettings}
-          onSaveSettings={() => void persistSettings(settings)}
-          onResetSettings={() => setShowResetDialog(true)}
-          onHostedLogin={handleHostedLogin}
-          onHostedRefresh={refreshHostedAccount}
-          onHostedLogout={handleHostedLogout}
-          onHostedPlanChange={setSelectedHostedPlanKey}
-          onHostedCheckout={handleHostedCheckout}
-          onOpenAssistantTraining={() => void openAssistantTrainingDialog()}
-        />
+              <ReadinessGrid items={readinessItems} />
 
-        <AssistantStatusSection
-          voiceAgentState={voiceRuntime.voiceAgentState}
-          assistantActive={voiceRuntime.assistantActive}
-          isLiveTranscribing={voiceRuntime.isLiveTranscribing}
-          liveTranscriptionStatus={voiceRuntime.liveTranscriptionStatus}
-          assistantStateDetail={voiceRuntime.assistantStateDetail}
-          voiceAgentDetail={voiceRuntime.voiceAgentDetail}
-          voiceAgentSession={voiceRuntime.voiceAgentSession}
-          assistantWakePhrase={voiceRuntime.assistantWakePhrase}
-          wakeThreshold={settings.assistantWakeThreshold}
-          cueCooldownMs={settings.assistantCueCooldownMs}
-          liveTranscript={voiceRuntime.liveTranscript}
-          sttProviderSnapshots={voiceRuntime.providerSnapshots}
-          lastSttDebugLogPath={voiceRuntime.lastSttDebugLogPath}
-        />
+              <AssistantStatusSection
+                voiceAgentState={voiceRuntime.voiceAgentState}
+                assistantActive={voiceRuntime.assistantActive}
+                isLiveTranscribing={voiceRuntime.isLiveTranscribing}
+                liveTranscriptionStatus={voiceRuntime.liveTranscriptionStatus}
+                assistantStateDetail={voiceRuntime.assistantStateDetail}
+                voiceAgentDetail={voiceRuntime.voiceAgentDetail}
+                voiceAgentSession={voiceRuntime.voiceAgentSession}
+                assistantWakePhrase={voiceRuntime.assistantWakePhrase}
+                wakeThreshold={settings.assistantWakeThreshold}
+                cueCooldownMs={settings.assistantCueCooldownMs}
+                liveTranscript={voiceRuntime.liveTranscript}
+                sttProviderSnapshots={voiceRuntime.providerSnapshots}
+                lastSttDebugLogPath={voiceRuntime.lastSttDebugLogPath}
+              />
 
-        <VoiceFeedsSection
-          voiceAgentState={voiceRuntime.voiceAgentState}
-          voiceEventFeed={voiceRuntime.voiceEventFeed}
-          voiceTaskFeed={voiceRuntime.voiceTaskFeed}
-        />
+              <VoiceFeedsSection
+                voiceAgentState={voiceRuntime.voiceAgentState}
+                voiceEventFeed={voiceRuntime.voiceEventFeed}
+                voiceTaskFeed={voiceRuntime.voiceTaskFeed}
+              />
 
-        <LatestRunSection
-          uiState={uiState}
-          message={message}
-          capturedPreview={capturedPreview}
-          translatedPreview={translatedPreview}
-          lastTtsMode={lastTtsMode}
-          lastRequestedTtsMode={lastRequestedTtsMode}
-          lastSessionStrategy={lastSessionStrategy}
-          lastSessionId={lastSessionId}
-          lastSessionFallbackReason={lastSessionFallbackReason}
-          lastSttProvider={voiceRuntime.lastSttProvider}
-          lastSttActiveTranscript={voiceRuntime.lastSttActiveTranscript}
-          lastSttDebugLogPath={voiceRuntime.lastSttDebugLogPath}
-          startLatencyMs={startLatencyMs}
-          hotkeyToFirstAudioMs={hotkeyToFirstAudioMs}
-          hotkeyToFirstPlaybackMs={hotkeyToFirstPlaybackMs}
-          captureDurationMs={captureDurationMs}
-          captureToTtsStartMs={captureToTtsStartMs}
-          ttsToFirstAudioMs={ttsToFirstAudioMs}
-          firstAudioToPlaybackMs={firstAudioToPlaybackMs}
-          hotkeyStartedAtMs={hotkeyStartedAtMs}
-          captureStartedAtMs={captureStartedAtMs}
-          captureFinishedAtMs={captureFinishedAtMs}
-          ttsStartedAtMs={ttsStartedAtMs}
-          firstAudioReceivedAtMs={firstAudioReceivedAtMs}
-          firstAudioPlaybackStartedAtMs={firstAudioPlaybackStartedAtMs}
-          lastAudioPath={lastAudioPath}
-          lastAudioOutputDirectory={lastAudioOutputDirectory}
-          lastAudioChunkCount={lastAudioChunkCount}
-        />
+              <LatestRunSection
+                uiState={uiState}
+                message={message}
+                capturedPreview={capturedPreview}
+                translatedPreview={translatedPreview}
+                lastTtsMode={lastTtsMode}
+                lastRequestedTtsMode={lastRequestedTtsMode}
+                lastSessionStrategy={lastSessionStrategy}
+                lastSessionId={lastSessionId}
+                lastSessionFallbackReason={lastSessionFallbackReason}
+                lastSttProvider={voiceRuntime.lastSttProvider}
+                lastSttActiveTranscript={voiceRuntime.lastSttActiveTranscript}
+                lastSttDebugLogPath={voiceRuntime.lastSttDebugLogPath}
+                startLatencyMs={startLatencyMs}
+                hotkeyToFirstAudioMs={hotkeyToFirstAudioMs}
+                hotkeyToFirstPlaybackMs={hotkeyToFirstPlaybackMs}
+                captureDurationMs={captureDurationMs}
+                captureToTtsStartMs={captureToTtsStartMs}
+                ttsToFirstAudioMs={ttsToFirstAudioMs}
+                firstAudioToPlaybackMs={firstAudioToPlaybackMs}
+                hotkeyStartedAtMs={hotkeyStartedAtMs}
+                captureStartedAtMs={captureStartedAtMs}
+                captureFinishedAtMs={captureFinishedAtMs}
+                ttsStartedAtMs={ttsStartedAtMs}
+                firstAudioReceivedAtMs={firstAudioReceivedAtMs}
+                firstAudioPlaybackStartedAtMs={firstAudioPlaybackStartedAtMs}
+                lastAudioPath={lastAudioPath}
+                lastAudioOutputDirectory={lastAudioOutputDirectory}
+                lastAudioChunkCount={lastAudioChunkCount}
+              />
 
-        <RunHistorySection entries={runHistory} onClear={() => setRunHistory([])} />
+              <RunHistorySection entries={runHistory} onClear={() => setRunHistory([])} />
 
-        <UsageSection
-          assistantWakePhrase={voiceRuntime.assistantWakePhrase}
-          activateHotkey={hotkeyStatus.activateAccelerator}
-          deactivateHotkey={hotkeyStatus.deactivateAccelerator}
-          speakHotkey={hotkeyStatus.accelerator}
-          translateHotkey={hotkeyStatus.translateAccelerator}
-        />
-      </main>
+              <UsageSection
+                assistantWakePhrase={voiceRuntime.assistantWakePhrase}
+                activateHotkey={hotkeyStatus.activateAccelerator}
+                deactivateHotkey={hotkeyStatus.deactivateAccelerator}
+                speakHotkey={hotkeyStatus.accelerator}
+                translateHotkey={hotkeyStatus.translateAccelerator}
+              />
+            </>
+          ) : (
+            <SettingsView
+              settings={settings}
+              setSettings={setSettings}
+              languageOptions={languageOptions}
+              assistantNameError={assistantNameError}
+              assistantCalibrationRequired={assistantCalibrationRequired}
+              assistantCalibrationComplete={assistantCalibrationComplete}
+              assistantTrainingReadyName={assistantTrainingReadyName}
+              isSavingSettings={isSavingSettings}
+              isWorking={uiState === 'working'}
+              hasUnsavedChanges={hasUnsavedChanges}
+              canSaveSettings={canSaveSettings}
+              onSave={() => persistSettings(settings)}
+              onReset={() => setShowResetDialog(true)}
+              onBack={() => setActiveView('dashboard')}
+              onOpenTraining={openAssistantTrainingDialog}
+              hostedAccount={hostedAccount}
+              hostedAccountError={hostedAccountError}
+              isHostedAccountBusy={isHostedAccountBusy}
+              hostedBillingPlans={hostedBillingPlans}
+              selectedHostedPlanKey={selectedHostedPlanKey}
+              hostedBillingError={hostedBillingError}
+              isHostedCheckoutBusy={isHostedCheckoutBusy}
+              onHostedLogin={handleHostedLogin}
+              onHostedRefresh={refreshHostedAccount}
+              onHostedLogout={handleHostedLogout}
+              onHostedPlanChange={setSelectedHostedPlanKey}
+              onHostedCheckout={handleHostedCheckout}
+              normalizeLanguageCode={normalizeLanguageCode}
+            />
+          )}
+        </main>
+      </div>
 
       {showAssistantTrainingDialog ? (
         <AssistantTrainingDialog

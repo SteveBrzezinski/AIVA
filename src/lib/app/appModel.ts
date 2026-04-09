@@ -84,6 +84,12 @@ export function defaultVoiceAgentExtraInstructions(): string {
 }
 
 export const fallbackSettings: AppSettings = {
+  ttsMode: 'classic',
+  realtimeAllowLiveFallback: false,
+  designThemeId: 'obsidian-halo',
+  actionBarActiveGlowColor: '#b63131',
+  ttsFormat: 'wav',
+  firstChunkLeadingSilenceMs: 180,
   uiLanguage: 'en',
   translationTargetLanguage: 'en',
   playbackSpeed: 1,
@@ -96,7 +102,7 @@ export const fallbackSettings: AppSettings = {
   sttLanguage: 'de',
   launchAtLogin: false,
   startHiddenOnLaunch: true,
-  assistantName: 'AIVA',
+  assistantName: 'Ava',
   voiceAgentModel: 'gpt-realtime',
   voiceAgentVoice: 'marin',
   voiceAgentPersonality: 'Composed, technically precise, friendly, and concise.',
@@ -111,6 +117,7 @@ export const fallbackSettings: AppSettings = {
   assistantSampleLanguage: 'de',
   assistantWakeThreshold: DEFAULT_ASSISTANT_WAKE_THRESHOLD,
   assistantCueCooldownMs: DEFAULT_ASSISTANT_CUE_COOLDOWN_MS,
+  actionBarDisplayMode: 'icons-and-text',
 };
 
 export function mergeHostedSettings(target: AppSettings, source: AppSettings): AppSettings {
@@ -173,7 +180,7 @@ export function getAssistantNameError(value: string): string | null {
   if (!trimmed) {
     return i18n.t('validation.assistantNameRequired');
   }
-  if (trimmed.length < 4 || trimmed.length > 8) {
+  if (trimmed.length < 3 || trimmed.length > 8) {
     return i18n.t('validation.assistantNameLength');
   }
   if (!/^[A-Za-z0-9]+$/.test(trimmed)) {

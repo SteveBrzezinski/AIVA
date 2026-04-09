@@ -13,7 +13,9 @@ use tauri::{
 };
 
 const MAIN_WINDOW_LABEL: &str = "main";
-const ACTION_BAR_WINDOW_LABEL: &str = "action-bar";
+pub const ACTION_BAR_WINDOW_LABEL: &str = "action-bar";
+pub const VOICE_OVERLAY_WINDOW_LABEL: &str = "voice-overlay";
+pub const OVERLAY_COMPOSER_WINDOW_LABEL: &str = "overlay-composer";
 const CHAT_WINDOW_LABEL: &str = "chat-overlay";
 const TRAY_ICON_ID: &str = "voice-overlay-assistant-tray";
 const TRAY_OPEN_MENU_ID: &str = "tray-open-main-window";
@@ -23,9 +25,6 @@ const MAIN_WINDOW_VISIBILITY_EVENT: &str = "main-window-visibility-changed";
 const CHAT_WINDOW_VISIBILITY_EVENT: &str = "chat-window-visibility-changed";
 const ASSISTANT_STATE_EVENT: &str = "assistant-state-changed";
 const ASSISTANT_CONTROL_EVENT: &str = "assistant-control-request";
-const ACTION_BAR_WIDTH: f64 = 252.0;
-const ACTION_BAR_HEIGHT: f64 = 96.0;
-const ACTION_BAR_BOTTOM_MARGIN: f64 = 14.0;
 const CHAT_WINDOW_WIDTH: f64 = 860.0;
 const CHAT_WINDOW_HEIGHT: f64 = 620.0;
 const CHAT_WINDOW_BOTTOM_MARGIN: f64 = 18.0;
@@ -33,6 +32,12 @@ const CHAT_WINDOW_BOTTOM_MARGIN: f64 = 18.0;
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MainWindowVisibilityPayload {
+    pub visible: bool,
+}
+
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatWindowVisibilityPayload {
     pub visible: bool,
 }
 
@@ -125,8 +130,60 @@ pub fn setup_background<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
         .build(app)
         .map_err(|error| format!("Failed to create tray icon: {error}"))?;
 
-    ensure_action_bar_window(app)?;
     ensure_chat_overlay_window(app)?;
+
+    Ok(())
+}
+
+pub fn setup_overlay_windows<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
+    ensure_overlay_window(app, ACTION_BAR_WINDOW_LABEL, "Action Bar Overlay", 22.0, 84.0, true)?;
+    ensure_overlay_window(
+        app,
+        VOICE_OVERLAY_WINDOW_LABEL,
+        "Voice Overlay Orb",
+        224.0,
+        224.0,
+        true,
+    )?;
+    ensure_overlay_window(
+        app,
+        OVERLAY_COMPOSER_WINDOW_LABEL,
+        "Overlay Composer",
+        320.0,
+        208.0,
+        false,
+    )?;
+    Ok(())
+}
+
+fn ensure_overlay_window<R: Runtime>(
+    app: &AppHandle<R>,
+    label: &str,
+    title: &str,
+    width: f64,
+    height: f64,
+    visible: bool,
+) -> Result<(), String> {
+    if app.get_webview_window(label).is_some() {
+        return Ok(());
+    }
+
+    let window = WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
+        .title(title)
+        .inner_size(width, height)
+        .resizable(false)
+        .decorations(false)
+        .always_on_top(true)
+        .transparent(true)
+        .shadow(false)
+        .skip_taskbar(true)
+        .visible(visible)
+        .build()
+        .map_err(|error| format!("Failed to create overlay window '{label}': {error}"))?;
+
+    if visible {
+        let _ = window.show();
+    }
 
     Ok(())
 }
@@ -134,14 +191,13 @@ pub fn setup_background<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
 pub fn apply_launch_behavior<R: Runtime>(app: &AppHandle<R>, settings: &AppSettings) {
     if should_start_hidden(settings) {
         let _ = hide_main_window(app);
+    } else {
+        let _ = show_main_window_on_launch(app);
     }
 }
 
 pub fn handle_window_event<R: Runtime>(window: &Window<R>, event: &WindowEvent) {
-    if window.label() != MAIN_WINDOW_LABEL
-        && window.label() != ACTION_BAR_WINDOW_LABEL
-        && window.label() != CHAT_WINDOW_LABEL
-    {
+    if window.label() != MAIN_WINDOW_LABEL && window.label() != CHAT_WINDOW_LABEL {
         return;
     }
 
@@ -155,7 +211,7 @@ pub fn handle_window_event<R: Runtime>(window: &Window<R>, event: &WindowEvent) 
         if window.label() == MAIN_WINDOW_LABEL {
             let _ = window.hide();
             emit_main_window_visibility(window.app_handle(), false);
-        } else if window.label() == CHAT_WINDOW_LABEL {
+        } else {
             let _ = window.hide();
             emit_chat_window_visibility(window.app_handle(), false);
         }
@@ -189,53 +245,19 @@ fn request_exit<R: Runtime>(app: &AppHandle<R>) {
 }
 
 fn emit_main_window_visibility<R: Runtime>(app: &AppHandle<R>, visible: bool) {
-    let _ = app.emit_to(
-        ACTION_BAR_WINDOW_LABEL,
-        MAIN_WINDOW_VISIBILITY_EVENT,
-        MainWindowVisibilityPayload { visible },
-    );
+    let payload = MainWindowVisibilityPayload { visible };
+    let _ = app.emit_to(ACTION_BAR_WINDOW_LABEL, MAIN_WINDOW_VISIBILITY_EVENT, payload);
+    let _ = app.emit_to(CHAT_WINDOW_LABEL, MAIN_WINDOW_VISIBILITY_EVENT, payload);
 }
 
 fn emit_chat_window_visibility<R: Runtime>(app: &AppHandle<R>, visible: bool) {
-    let _ = app.emit_to(
-        ACTION_BAR_WINDOW_LABEL,
-        CHAT_WINDOW_VISIBILITY_EVENT,
-        MainWindowVisibilityPayload { visible },
-    );
-    let _ = app.emit_to(
-        CHAT_WINDOW_LABEL,
-        CHAT_WINDOW_VISIBILITY_EVENT,
-        MainWindowVisibilityPayload { visible },
-    );
+    let payload = ChatWindowVisibilityPayload { visible };
+    let _ = app.emit_to(ACTION_BAR_WINDOW_LABEL, CHAT_WINDOW_VISIBILITY_EVENT, payload);
+    let _ = app.emit_to(CHAT_WINDOW_LABEL, CHAT_WINDOW_VISIBILITY_EVENT, payload);
 }
 
 fn emit_assistant_state<R: Runtime>(app: &AppHandle<R>, active: bool) {
     let _ = app.emit(ASSISTANT_STATE_EVENT, AssistantStatePayload { active });
-}
-
-fn ensure_action_bar_window<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
-    if app.get_webview_window(ACTION_BAR_WINDOW_LABEL).is_some() {
-        return Ok(());
-    }
-
-    let (x, y) = resolve_action_bar_position(app)?;
-
-    WebviewWindowBuilder::new(app, ACTION_BAR_WINDOW_LABEL, WebviewUrl::default())
-        .title("Voice Overlay Assistant Action Bar")
-        .inner_size(ACTION_BAR_WIDTH, ACTION_BAR_HEIGHT)
-        .position(x, y)
-        .resizable(false)
-        .focused(false)
-        .visible(true)
-        .decorations(false)
-        .always_on_top(true)
-        .transparent(true)
-        .shadow(false)
-        .skip_taskbar(true)
-        .build()
-        .map_err(|error| format!("Failed to create action bar window: {error}"))?;
-
-    Ok(())
 }
 
 fn ensure_chat_overlay_window<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
@@ -245,7 +267,7 @@ fn ensure_chat_overlay_window<R: Runtime>(app: &AppHandle<R>) -> Result<(), Stri
 
     let (x, y) = resolve_chat_window_position(app)?;
 
-    WebviewWindowBuilder::new(app, CHAT_WINDOW_LABEL, WebviewUrl::default())
+    WebviewWindowBuilder::new(app, CHAT_WINDOW_LABEL, WebviewUrl::App("index.html".into()))
         .title("Voice Overlay Assistant Chat")
         .inner_size(CHAT_WINDOW_WIDTH, CHAT_WINDOW_HEIGHT)
         .position(x, y)
@@ -261,23 +283,6 @@ fn ensure_chat_overlay_window<R: Runtime>(app: &AppHandle<R>) -> Result<(), Stri
         .map_err(|error| format!("Failed to create chat overlay window: {error}"))?;
 
     Ok(())
-}
-
-fn resolve_action_bar_position<R: Runtime>(app: &AppHandle<R>) -> Result<(f64, f64), String> {
-    let monitor = app
-        .get_webview_window(MAIN_WINDOW_LABEL)
-        .and_then(|window| window.current_monitor().ok().flatten())
-        .or_else(|| app.primary_monitor().ok().flatten())
-        .ok_or_else(|| "Failed to resolve a monitor for the action bar window.".to_string())?;
-
-    let work_area = monitor.work_area();
-    let scale_factor = monitor.scale_factor().max(1.0);
-    let x = work_area.position.x as f64 / scale_factor;
-    let y = ((work_area.position.y as f64 + work_area.size.height as f64) / scale_factor)
-        - ACTION_BAR_HEIGHT
-        - ACTION_BAR_BOTTOM_MARGIN;
-
-    Ok((x, y.max(0.0)))
 }
 
 fn resolve_chat_window_position<R: Runtime>(app: &AppHandle<R>) -> Result<(f64, f64), String> {
@@ -332,8 +337,10 @@ fn chat_window_is_visible<R: Runtime>(app: &AppHandle<R>) -> Result<bool, String
     Ok(is_visible && !is_minimized)
 }
 
-fn show_main_window<R: Runtime>(app: &AppHandle<R>) -> Result<bool, String> {
-    let window = get_main_window(app)?;
+fn show_main_window<R: Runtime, M: Manager<R>>(manager: &M) -> Result<bool, String> {
+    let window = manager
+        .get_webview_window(MAIN_WINDOW_LABEL)
+        .ok_or_else(|| "Main window is unavailable.".to_string())?;
 
     if window
         .is_minimized()
@@ -347,6 +354,39 @@ fn show_main_window<R: Runtime>(app: &AppHandle<R>) -> Result<bool, String> {
     window.show().map_err(|error| format!("Failed to show the main window: {error}"))?;
     window.set_focus().map_err(|error| format!("Failed to focus the main window: {error}"))?;
 
+    let app = manager.app_handle();
+    emit_main_window_visibility(app, true);
+    Ok(true)
+}
+
+fn show_main_window_on_launch<R: Runtime, M: Manager<R>>(manager: &M) -> Result<bool, String> {
+    let window = manager
+        .get_webview_window(MAIN_WINDOW_LABEL)
+        .ok_or_else(|| "Main window is unavailable.".to_string())?;
+
+    if window
+        .is_minimized()
+        .map_err(|error| format!("Failed to check main window minimized state: {error}"))?
+    {
+        window
+            .unminimize()
+            .map_err(|error| format!("Failed to restore the main window: {error}"))?;
+    }
+
+    window
+        .set_focusable(false)
+        .map_err(|error| format!("Failed to disable main window focus during launch: {error}"))?;
+    let show_result = window
+        .show()
+        .map_err(|error| format!("Failed to show the main window during launch: {error}"));
+    let restore_focusable_result = window.set_focusable(true).map_err(|error| {
+        format!("Failed to restore main window focusability after launch: {error}")
+    });
+
+    show_result?;
+    restore_focusable_result?;
+
+    let app = manager.app_handle();
     emit_main_window_visibility(app, true);
     Ok(true)
 }
@@ -370,11 +410,14 @@ fn show_chat_window<R: Runtime>(app: &AppHandle<R>) -> Result<bool, String> {
     Ok(true)
 }
 
-fn hide_main_window<R: Runtime>(app: &AppHandle<R>) -> Result<bool, String> {
-    let window = get_main_window(app)?;
+fn hide_main_window<R: Runtime, M: Manager<R>>(manager: &M) -> Result<bool, String> {
+    let window = manager
+        .get_webview_window(MAIN_WINDOW_LABEL)
+        .ok_or_else(|| "Main window is unavailable.".to_string())?;
 
     window.hide().map_err(|error| format!("Failed to hide the main window: {error}"))?;
 
+    let app = manager.app_handle();
     emit_main_window_visibility(app, false);
     Ok(false)
 }
@@ -421,15 +464,15 @@ pub fn toggle_main_window_command(
 #[tauri::command]
 pub fn get_chat_window_visibility_command(
     app: tauri::AppHandle,
-) -> Result<MainWindowVisibilityPayload, String> {
-    Ok(MainWindowVisibilityPayload { visible: chat_window_is_visible(&app)? })
+) -> Result<ChatWindowVisibilityPayload, String> {
+    Ok(ChatWindowVisibilityPayload { visible: chat_window_is_visible(&app)? })
 }
 
 #[tauri::command]
 pub fn toggle_chat_window_command(
     app: tauri::AppHandle,
-) -> Result<MainWindowVisibilityPayload, String> {
-    Ok(MainWindowVisibilityPayload { visible: toggle_chat_window(&app)? })
+) -> Result<ChatWindowVisibilityPayload, String> {
+    Ok(ChatWindowVisibilityPayload { visible: toggle_chat_window(&app)? })
 }
 
 #[tauri::command]
