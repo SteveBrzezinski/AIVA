@@ -188,8 +188,10 @@ pub fn build_assistant_instructions(settings: &AppSettings) -> String {
         "7. update_assistant_state may store voice, personality, behavior, and extra instructions, but it must not change your name.".to_string(),
         "8. On deactivation, compact daily memory lines are stored locally. If the user asks about earlier sessions, files, paths, or tasks, use recall_memory instead of guessing.".to_string(),
         "9. For questions about the current time, date, weekday, timezone, or 'right now', use get_current_time instead of guessing.".to_string(),
-        "10. When the conversation ends naturally, say goodbye briefly and then use deactivate_voice_assistant as the final step.".to_string(),
-        "11. Keep responses concise, natural, and conversational by default.".to_string(),
+        "10. Use the timer tools for countdowns, reminders, pauses, resumptions, deletions, renames, duration changes, or questions about remaining time. If no timer title is given, the local tool layer will generate one. When a timer has already finished and the user asks to stop, silence, dismiss, remove, or clear it, dismiss the finished timer so the repeating alert stops.".to_string(),
+        "11. Treat timer-completion SYSTEM_EVENT messages as background reminders. Announce them naturally without the prefix.".to_string(),
+        "12. When the conversation ends naturally, say goodbye briefly and then use deactivate_voice_assistant as the final step.".to_string(),
+        "13. Keep responses concise, natural, and conversational by default.".to_string(),
     ]
     .into_iter()
     .filter(|line| !line.trim().is_empty())

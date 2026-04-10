@@ -2,6 +2,10 @@ use crate::{
     settings::SettingsState,
     voice_memory::{recall_voice_memory, RecallVoiceMemoryRequest},
     voice_profile::{build_assistant_instructions, build_voice_agent_state},
+    voice_timers::{
+        format_duration_label, format_remaining_label, timer_candidates_to_json,
+        timer_to_json, TimerResolveResult, VoiceTimer, VoiceTimerState,
+    },
     voice_tasks::VoiceTaskState,
 };
 use chrono::{Local, Offset, Utc};
@@ -22,6 +26,12 @@ struct SearchPathItem {
     name: String,
 }
 
+enum CompletedTimerDismissResolution {
+    Matched(VoiceTimer),
+    Clarify(Value),
+    None,
+}
+
 pub fn realtime_tools() -> Vec<Value> {
     vec![
         json!({
@@ -35,6 +45,96 @@ pub fn realtime_tools() -> Vec<Value> {
             "name": "get_current_time",
             "description": "Returns the current local date and time from this PC. Use this for questions about the current time, date, weekday, timezone offset, or 'right now'.",
             "parameters": { "type": "object", "properties": {}, "additionalProperties": false }
+        }),
+        json!({
+            "type": "function",
+            "name": "create_timer",
+            "description": "Creates a local background timer. If no title is provided, a default title based on the duration is generated automatically.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": { "type": "string", "description": "Optional timer title." },
+                    "durationMinutes": { "type": "integer", "minimum": 0, "maximum": 1440 },
+                    "durationSeconds": { "type": "integer", "minimum": 0, "maximum": 86400 },
+                    "durationMs": { "type": "integer", "minimum": 1000, "maximum": 86400000 }
+                },
+                "additionalProperties": false
+            }
+        }),
+        json!({
+            "type": "function",
+            "name": "list_timers",
+            "description": "Lists the currently known local timers and their current status.",
+            "parameters": { "type": "object", "properties": {}, "additionalProperties": false }
+        }),
+        json!({
+            "type": "function",
+            "name": "get_timer_status",
+            "description": "Returns the remaining time and status for a timer.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "timerId": { "type": "string" },
+                    "query": { "type": "string", "description": "Timer title or a distinctive part of it." }
+                },
+                "additionalProperties": false
+            }
+        }),
+        json!({
+            "type": "function",
+            "name": "pause_timer",
+            "description": "Stops a timer. Running timers are paused. Completed timers are dismissed and removed, which also stops any repeating alert.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "timerId": { "type": "string" },
+                    "query": { "type": "string", "description": "Timer title or a distinctive part of it." }
+                },
+                "additionalProperties": false
+            }
+        }),
+        json!({
+            "type": "function",
+            "name": "resume_timer",
+            "description": "Resumes a paused timer.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "timerId": { "type": "string" },
+                    "query": { "type": "string", "description": "Timer title or a distinctive part of it." }
+                },
+                "additionalProperties": false
+            }
+        }),
+        json!({
+            "type": "function",
+            "name": "update_timer",
+            "description": "Renames a timer and or restarts it from a new duration.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "timerId": { "type": "string" },
+                    "query": { "type": "string", "description": "Timer title or a distinctive part of it." },
+                    "title": { "type": "string", "description": "New timer title." },
+                    "durationMinutes": { "type": "integer", "minimum": 0, "maximum": 1440 },
+                    "durationSeconds": { "type": "integer", "minimum": 0, "maximum": 86400 },
+                    "durationMs": { "type": "integer", "minimum": 1000, "maximum": 86400000 }
+                },
+                "additionalProperties": false
+            }
+        }),
+        json!({
+            "type": "function",
+            "name": "delete_timer",
+            "description": "Deletes a timer. Use this to remove finished timers and stop their repeating alert.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "timerId": { "type": "string" },
+                    "query": { "type": "string", "description": "Timer title or a distinctive part of it." }
+                },
+                "additionalProperties": false
+            }
         }),
         json!({
             "type": "function",
@@ -303,6 +403,13 @@ pub fn run_voice_agent_tool(
     match tool_name {
         "discover_environment" | "get_pc_context" => discover_environment_tool(),
         "get_current_time" | "get_local_time" | "get_time" => get_current_time_tool(),
+        "create_timer" => create_timer_tool(&args, app),
+        "list_timers" => list_timers_tool(app),
+        "get_timer_status" => get_timer_status_tool(&args, app),
+        "pause_timer" => pause_timer_tool(&args, app),
+        "resume_timer" => resume_timer_tool(&args, app),
+        "update_timer" => update_timer_tool(&args, app),
+        "delete_timer" => delete_timer_tool(&args, app),
         "search_paths" | "find_paths" => search_paths_tool(&args),
         "stat_path" => stat_path_tool(&args),
         "open_target" => open_target_tool(&args),
@@ -370,6 +477,314 @@ fn get_current_time_tool() -> Result<Value, String> {
             format_offset_label(offset_seconds)
         ),
     }))
+}
+
+fn create_timer_tool(args: &Value, app: &AppHandle) -> Result<Value, String> {
+    let duration_ms = parse_timer_duration_ms(args)?;
+    let state = app.state::<VoiceTimerState>();
+    let timer = state.create_timer(args.get("title").and_then(Value::as_str), duration_ms)?;
+    state.emit_timer(app, "created", &timer);
+
+    Ok(json!({
+        "ok": true,
+        "timer": timer_to_json(&timer),
+        "message": format!(
+            "Started timer {} for {}.",
+            timer.title,
+            format_duration_label(duration_ms)
+        ),
+    }))
+}
+
+fn list_timers_tool(app: &AppHandle) -> Result<Value, String> {
+    let state = app.state::<VoiceTimerState>();
+    let timers = state.list_timers();
+    let active_count = timers.iter().filter(|timer| timer.status == "running").count();
+    let paused_count = timers.iter().filter(|timer| timer.status == "paused").count();
+
+    Ok(json!({
+        "ok": true,
+        "timers": timers.iter().map(timer_to_json).collect::<Vec<_>>(),
+        "activeCount": active_count,
+        "pausedCount": paused_count,
+        "message": if timers.is_empty() {
+            "No timers are currently active.".to_string()
+        } else {
+            format!("There are {} timers in the local timer list.", timers.len())
+        },
+    }))
+}
+
+fn get_timer_status_tool(args: &Value, app: &AppHandle) -> Result<Value, String> {
+    let timer = match resolve_timer_from_args(args, app)? {
+        Some(timer) => timer,
+        None => return Ok(timer_resolution_payload(args, app)),
+    };
+
+    Ok(json!({
+        "ok": true,
+        "timer": timer_to_json(&timer),
+        "remainingLabel": format_remaining_label(&timer),
+        "message": if timer.status == "completed" {
+            format!(
+                "Timer {} is already finished and will keep alerting until it is dismissed.",
+                timer.title
+            )
+        } else if timer.status == "paused" {
+            format!(
+                "Timer {} is paused with {} remaining.",
+                timer.title,
+                format_remaining_label(&timer)
+            )
+        } else {
+            format!(
+                "Timer {} has {} remaining.",
+                timer.title,
+                format_remaining_label(&timer)
+            )
+        },
+    }))
+}
+
+fn pause_timer_tool(args: &Value, app: &AppHandle) -> Result<Value, String> {
+    let state = app.state::<VoiceTimerState>();
+    let timer = match resolve_completed_timer_for_dismissal(args, app) {
+        CompletedTimerDismissResolution::Matched(timer) => timer,
+        CompletedTimerDismissResolution::Clarify(payload) => return Ok(payload),
+        CompletedTimerDismissResolution::None => match resolve_timer_from_args(args, app)? {
+            Some(timer) => timer,
+            None => return Ok(timer_resolution_payload(args, app)),
+        },
+    };
+    if timer.status == "completed" {
+        let deleted = state.delete_timer(&timer.id)?;
+        state.emit_timer(app, "deleted", &deleted);
+
+        return Ok(json!({
+            "ok": true,
+            "timer": timer_to_json(&deleted),
+            "dismissedCompleted": true,
+            "message": format!(
+                "Dismissed finished timer {} and stopped its alert.",
+                deleted.title
+            ),
+        }));
+    }
+
+    let updated = state.pause_timer(&timer.id)?;
+    state.emit_timer(app, "paused", &updated);
+
+    Ok(json!({
+        "ok": true,
+        "timer": timer_to_json(&updated),
+        "message": format!(
+            "Paused timer {} with {} remaining.",
+            updated.title,
+            format_remaining_label(&updated)
+        ),
+    }))
+}
+
+fn resume_timer_tool(args: &Value, app: &AppHandle) -> Result<Value, String> {
+    let timer = match resolve_timer_from_args(args, app)? {
+        Some(timer) => timer,
+        None => return Ok(timer_resolution_payload(args, app)),
+    };
+    let state = app.state::<VoiceTimerState>();
+    let updated = state.resume_timer(&timer.id)?;
+    state.emit_timer(app, "resumed", &updated);
+
+    Ok(json!({
+        "ok": true,
+        "timer": timer_to_json(&updated),
+        "message": format!(
+            "Resumed timer {} with {} remaining.",
+            updated.title,
+            format_remaining_label(&updated)
+        ),
+    }))
+}
+
+fn update_timer_tool(args: &Value, app: &AppHandle) -> Result<Value, String> {
+    let timer = match resolve_timer_from_args(args, app)? {
+        Some(timer) => timer,
+        None => return Ok(timer_resolution_payload(args, app)),
+    };
+
+    let new_title = args.get("title").and_then(Value::as_str);
+    let new_duration_ms = parse_optional_timer_duration_ms(args)?;
+    if new_title.map(str::trim).unwrap_or("").is_empty() && new_duration_ms.is_none() {
+        return Ok(json!({
+            "ok": false,
+            "status": "needs_clarification",
+            "message": "The timer update is missing a new title or a new duration.",
+            "question": "What should be changed for the timer?"
+        }));
+    }
+
+    let state = app.state::<VoiceTimerState>();
+    let updated = state.update_timer(&timer.id, new_title, new_duration_ms)?;
+    state.emit_timer(app, "updated", &updated);
+
+    Ok(json!({
+        "ok": true,
+        "timer": timer_to_json(&updated),
+        "message": if new_duration_ms.is_some() {
+            format!(
+                "Updated timer {}. It is now set to {}.",
+                updated.title,
+                if updated.status == "completed" {
+                    "done".to_string()
+                } else {
+                    format_remaining_label(&updated)
+                }
+            )
+        } else {
+            format!("Renamed the timer to {}.", updated.title)
+        },
+    }))
+}
+
+fn delete_timer_tool(args: &Value, app: &AppHandle) -> Result<Value, String> {
+    let timer = match resolve_completed_timer_for_dismissal(args, app) {
+        CompletedTimerDismissResolution::Matched(timer) => timer,
+        CompletedTimerDismissResolution::Clarify(payload) => return Ok(payload),
+        CompletedTimerDismissResolution::None => match resolve_timer_from_args(args, app)? {
+            Some(timer) => timer,
+            None => return Ok(timer_resolution_payload(args, app)),
+        },
+    };
+    let state = app.state::<VoiceTimerState>();
+    let deleted = state.delete_timer(&timer.id)?;
+    state.emit_timer(app, "deleted", &deleted);
+
+    Ok(json!({
+        "ok": true,
+        "timer": timer_to_json(&deleted),
+        "message": if deleted.status == "completed" {
+            format!("Dismissed finished timer {} and stopped its alert.", deleted.title)
+        } else {
+            format!("Deleted timer {}.", deleted.title)
+        },
+    }))
+}
+
+fn parse_timer_duration_ms(args: &Value) -> Result<u64, String> {
+    parse_optional_timer_duration_ms(args)?
+        .ok_or_else(|| "A timer duration is required.".to_string())
+}
+
+fn parse_optional_timer_duration_ms(args: &Value) -> Result<Option<u64>, String> {
+    let duration_ms = args.get("durationMs").and_then(Value::as_u64);
+    let duration_minutes = args.get("durationMinutes").and_then(Value::as_u64);
+    let duration_seconds = args.get("durationSeconds").and_then(Value::as_u64);
+
+    if duration_ms.is_none() && duration_minutes.is_none() && duration_seconds.is_none() {
+        return Ok(None);
+    }
+
+    if let Some(duration_ms) = duration_ms {
+        if duration_ms < 1_000 {
+            return Err("The timer duration must be at least one second.".to_string());
+        }
+        return Ok(Some(duration_ms.min(24 * 60 * 60 * 1000)));
+    }
+
+    let total_seconds = duration_minutes.unwrap_or(0).saturating_mul(60)
+        + duration_seconds.unwrap_or(0);
+    if total_seconds == 0 {
+        return Err("The timer duration must be at least one second.".to_string());
+    }
+
+    Ok(Some(total_seconds.saturating_mul(1000)))
+}
+
+fn resolve_timer_from_args(args: &Value, app: &AppHandle) -> Result<Option<crate::voice_timers::VoiceTimer>, String> {
+    let state = app.state::<VoiceTimerState>();
+    match state.resolve_timer(
+        args.get("timerId").and_then(Value::as_str),
+        args.get("query").and_then(Value::as_str),
+    ) {
+        TimerResolveResult::Matched(timer) => Ok(Some(timer)),
+        TimerResolveResult::NoTimers
+        | TimerResolveResult::NotFound(_)
+        | TimerResolveResult::Ambiguous(_, _) => Ok(None),
+    }
+}
+
+fn resolve_completed_timer_for_dismissal(
+    args: &Value,
+    app: &AppHandle,
+) -> CompletedTimerDismissResolution {
+    let has_explicit_reference = args
+        .get("timerId")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .is_some()
+        || args
+            .get("query")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .is_some();
+    if has_explicit_reference {
+        return CompletedTimerDismissResolution::None;
+    }
+
+    let state = app.state::<VoiceTimerState>();
+    let completed = state
+        .list_timers()
+        .into_iter()
+        .filter(|timer| timer.status == "completed")
+        .collect::<Vec<_>>();
+    match completed.len() {
+        0 => CompletedTimerDismissResolution::None,
+        1 => CompletedTimerDismissResolution::Matched(completed[0].clone()),
+        _ => CompletedTimerDismissResolution::Clarify(json!({
+            "ok": false,
+            "status": "needs_clarification",
+            "reason": "completed_timer_ambiguous",
+            "message": "More than one finished timer is waiting to be dismissed.",
+            "question": "Which finished timer should I dismiss?",
+            "candidates": timer_candidates_to_json(&completed),
+        })),
+    }
+}
+
+fn timer_resolution_payload(args: &Value, app: &AppHandle) -> Value {
+    let state = app.state::<VoiceTimerState>();
+    match state.resolve_timer(
+        args.get("timerId").and_then(Value::as_str),
+        args.get("query").and_then(Value::as_str),
+    ) {
+        TimerResolveResult::Matched(timer) => json!({
+            "ok": true,
+            "timer": timer_to_json(&timer),
+        }),
+        TimerResolveResult::NoTimers => json!({
+            "ok": false,
+            "status": "needs_clarification",
+            "reason": "no_timers",
+            "message": "There are no timers yet.",
+            "question": "Should I create a new timer first?"
+        }),
+        TimerResolveResult::NotFound(message) => json!({
+            "ok": false,
+            "status": "needs_clarification",
+            "reason": "timer_not_found",
+            "message": message,
+            "question": "Which timer should I use?"
+        }),
+        TimerResolveResult::Ambiguous(message, candidates) => json!({
+            "ok": false,
+            "status": "needs_clarification",
+            "reason": "timer_ambiguous",
+            "message": message,
+            "question": "Which timer should I use?",
+            "candidates": timer_candidates_to_json(&candidates),
+        }),
+    }
 }
 
 fn search_paths_tool(args: &Value) -> Result<Value, String> {

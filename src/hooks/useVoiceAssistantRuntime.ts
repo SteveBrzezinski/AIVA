@@ -5,6 +5,7 @@ import {
   emitVoiceChatState,
   onAssistantControlRequest,
   onLiveSttControl,
+  onVoiceTimerEvent,
   onVoiceChatSubmitRequest,
   onVoiceChatSyncRequest,
   setAssistantState,
@@ -12,8 +13,10 @@ import {
   type CreateVoiceAgentSessionResult,
   type SttDebugEntry,
   type VoiceChatMessage,
+  type VoiceTimerEvent,
 } from '../lib/voiceOverlay';
 import i18n from '../i18n';
+import { startTimerSignalAlert, stopTimerSignalAlert } from '../lib/timerSignals';
 import { LiveSttController, type AssistantStateSnapshot, type ProviderSnapshot } from '../lib/liveStt';
 import {
   RealtimeVoiceAgentController,
@@ -107,6 +110,7 @@ export function useVoiceAssistantRuntime(
   const pendingChatMessageIdRef = useRef<string | null>(null);
   const ensureSavedSettingsRef = useRef(ensureSavedSettings);
   const publishChatStateRef = useRef<() => void>(() => {});
+  const completedTimerIdsRef = useRef<Set<string>>(new Set());
 
   const appendChatMessage = useCallback((message: VoiceChatMessage): void => {
     setChatMessages((current) => [...current, message].slice(-40));
@@ -393,6 +397,159 @@ export function useVoiceAssistantRuntime(
   }, []);
 
   useEffect(() => {
+    let unlistenTimerEvents: (() => void | Promise<void>) | undefined;
+
+    const formatTimerFeedBody = (event: VoiceTimerEvent): string => {
+      const completedAt = event.timer.completedAtMs ?? event.timer.updatedAtMs;
+      const completedAtLabel = new Date(completedAt).toLocaleTimeString(
+        i18n.resolvedLanguage || i18n.language || undefined,
+        {
+          hour: '2-digit',
+          minute: '2-digit',
+        },
+      );
+      switch (event.kind) {
+        case 'created':
+          return i18n.t('timers.messages.created', { title: event.timer.title });
+        case 'paused':
+          return i18n.t('timers.messages.paused', { title: event.timer.title });
+        case 'resumed':
+          return i18n.t('timers.messages.resumed', { title: event.timer.title });
+        case 'updated':
+          return i18n.t('timers.messages.updated', { title: event.timer.title });
+        case 'deleted':
+          return i18n.t('timers.messages.deleted', { title: event.timer.title });
+        case 'completed':
+          return i18n.t('timers.messages.completed', {
+            title: event.timer.title,
+            time: completedAtLabel,
+          });
+        default:
+          return i18n.t('timers.messages.changed', { title: event.timer.title });
+      }
+    };
+
+    void onVoiceTimerEvent((event) => {
+      const completedTimerIds = completedTimerIdsRef.current;
+      if (event.kind === 'completed') {
+        completedTimerIds.add(event.timer.id);
+      } else if (event.kind === 'deleted') {
+        completedTimerIds.delete(event.timer.id);
+      } else if (event.timer.status !== 'completed') {
+        completedTimerIds.delete(event.timer.id);
+      }
+
+      setVoiceTaskFeed((current) =>
+        prependFeedItem(current, {
+          id: `timer-${event.kind}-${event.timer.id}-${event.timer.updatedAtMs}`,
+          section: 'tasks',
+          kind: event.kind === 'completed' ? 'task' : 'lifecycle',
+          title: i18n.t(`timers.feedTitles.${event.kind}`),
+          body: formatTimerFeedBody(event),
+          timestampMs: Date.now(),
+        }),
+      );
+
+      if (event.kind !== 'completed') {
+        if (completedTimerIds.size === 0) {
+          void stopTimerSignalAlert().catch((error: unknown) => {
+            setVoiceEventFeed((current) =>
+              prependFeedItem(current, {
+                id: `timer-signal-stop-failed-${Date.now()}`,
+                section: 'events',
+                kind: 'error',
+                title: i18n.t('timers.feedTitles.signalStopFailed'),
+                body: i18n.t('timers.errors.signalStop', {
+                  detail: error instanceof Error ? error.message : String(error),
+                }),
+                timestampMs: Date.now(),
+              }),
+            );
+          });
+        }
+        return;
+      }
+
+      void (async () => {
+        if (settings.timerNotificationMode === 'voice') {
+          try {
+            await startVoiceAgent();
+            await realtimeVoiceAgentRef.current?.announceExternalSystemEvent(
+              i18n.t('timers.messages.completedVoice', { title: event.timer.title }),
+              { temporaryMute: true },
+            );
+            return;
+          } catch (error: unknown) {
+            setVoiceEventFeed((current) =>
+              prependFeedItem(current, {
+                id: `timer-complete-fallback-${event.timer.id}-${Date.now()}`,
+                section: 'events',
+                kind: 'error',
+                title: i18n.t('timers.feedTitles.voiceNotificationFailed'),
+                body: i18n.t('timers.errors.voiceNotification', {
+                  detail: error instanceof Error ? error.message : String(error),
+                }),
+                timestampMs: Date.now(),
+              }),
+            );
+          }
+        }
+
+        try {
+          await startTimerSignalAlert(settings.timerSignalTone);
+        } catch (error: unknown) {
+          setVoiceEventFeed((current) =>
+            prependFeedItem(current, {
+              id: `timer-signal-failed-${event.timer.id}-${Date.now()}`,
+              section: 'events',
+              kind: 'error',
+              title: i18n.t('timers.feedTitles.signalFailed'),
+              body: i18n.t('timers.errors.signal', {
+                detail: error instanceof Error ? error.message : String(error),
+              }),
+              timestampMs: Date.now(),
+            }),
+          );
+        }
+      })();
+    }).then((cleanup) => {
+      unlistenTimerEvents = cleanup;
+    });
+
+    return () => {
+      void unlistenTimerEvents?.();
+    };
+  }, [settings.timerNotificationMode, settings.timerSignalTone, startVoiceAgent]);
+
+  useEffect(() => {
+    if (settings.timerNotificationMode !== 'signal') {
+      completedTimerIdsRef.current.clear();
+      void stopTimerSignalAlert();
+      return;
+    }
+
+    if (completedTimerIdsRef.current.size === 0) {
+      void stopTimerSignalAlert();
+      return;
+    }
+
+    void startTimerSignalAlert(settings.timerSignalTone).catch((error: unknown) => {
+      setVoiceEventFeed((current) =>
+        prependFeedItem(current, {
+          id: `timer-signal-refresh-failed-${Date.now()}`,
+          section: 'events',
+          kind: 'error',
+          title: i18n.t('timers.feedTitles.signalFailed'),
+          body: i18n.t('timers.errors.signal', {
+            detail: error instanceof Error ? error.message : String(error),
+          }),
+          timestampMs: Date.now(),
+        }),
+      );
+    });
+  }, [settings.timerNotificationMode, settings.timerSignalTone]);
+
+  useEffect(() => {
     activateAssistantVoiceRef.current = activateAssistantVoice;
     deactivateAssistantVoiceRef.current = deactivateAssistantVoice;
     startLiveTranscriptionRef.current = startLiveTranscription;
@@ -504,6 +661,7 @@ export function useVoiceAssistantRuntime(
 
   useEffect(() => {
     return () => {
+      void stopTimerSignalAlert();
       if (sttDebugWriteTimerRef.current !== null) {
         window.clearTimeout(sttDebugWriteTimerRef.current);
       }

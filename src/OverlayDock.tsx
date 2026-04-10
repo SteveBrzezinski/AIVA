@@ -18,22 +18,29 @@ import {
   toggleChatWindow,
   toggleMainWindow,
 } from './lib/voiceOverlay';
+import type { VoiceTimer } from './lib/voiceOverlay';
 import {
   OVERLAY_ACTION_EVENT,
   OVERLAY_STATE_EVENT,
   type OverlayAction,
   type OverlayState,
 } from './lib/overlayBridge';
+import { useVoiceTimers } from './hooks/useVoiceTimers';
+import { TimerEditorDialog } from './components/timers/TimerEditorDialog';
+import { TimerListPanel } from './components/timers/TimerListPanel';
+import i18n from './i18n';
 
 const EDGE_INSET = 0;
 const BOTTOM_INSET = 10;
 const WINDOW_PADDING = { top: 8, right: 6, bottom: 8 };
 const COLLAPSED_LAYOUT = { width: 22, height: 84 };
 const EXPANDED_LAYOUTS = {
-  'icons-only': { width: 212, height: 84 },
-  'text-only': { width: 280, height: 84 },
-  'icons-and-text': { width: 360, height: 84 },
+  'icons-only': { width: 260, height: 84 },
+  'text-only': { width: 360, height: 84 },
+  'icons-and-text': { width: 470, height: 84 },
 } as const;
+const TIMER_FLYOUT_HEIGHT = 286;
+const TIMER_DIALOG_LAYOUT = { minWidth: 440, height: 600 };
 const DEFAULT_ACTION_BAR_ACTIVE_GLOW_COLOR = '#b63131';
 
 type ActionBarDisplayMode = keyof typeof EXPANDED_LAYOUTS;
@@ -55,6 +62,8 @@ const fallbackOverlayState: OverlayState = {
 async function syncOverlayWindowLayout(
   expanded: boolean,
   displayMode: ActionBarDisplayMode,
+  timerFlyoutOpen: boolean,
+  timerDialogOpen: boolean,
 ): Promise<void> {
   const overlayWindow = getCurrentWindow();
   const monitor = await currentMonitor() ?? await primaryMonitor();
@@ -62,7 +71,16 @@ async function syncOverlayWindowLayout(
     return;
   }
 
-  const nextLayout = expanded ? EXPANDED_LAYOUTS[displayMode] : COLLAPSED_LAYOUT;
+  const baseLayout = expanded ? EXPANDED_LAYOUTS[displayMode] : COLLAPSED_LAYOUT;
+  const nextLayout = timerDialogOpen
+    ? {
+        width: Math.max(baseLayout.width, TIMER_DIALOG_LAYOUT.minWidth),
+        height: TIMER_DIALOG_LAYOUT.height,
+      }
+    : {
+        width: baseLayout.width,
+        height: baseLayout.height + (timerFlyoutOpen ? TIMER_FLYOUT_HEIGHT : 0),
+      };
   const workAreaPosition = monitor.workArea.position.toLogical(monitor.scaleFactor);
   const workAreaSize = monitor.workArea.size.toLogical(monitor.scaleFactor);
 
@@ -104,12 +122,23 @@ export default function OverlayDock() {
   const overlayWindowRef = useRef(getCurrentWindow());
   const collapseTimerRef = useRef<number | null>(null);
   const pendingSpeakTimerRef = useRef<number | null>(null);
+  const timerFlyoutTimerRef = useRef<number | null>(null);
+  const timerFlyoutHoldUntilRef = useRef(0);
   const hasShownWindowRef = useRef(false);
   const isExpandedRef = useRef(false);
   const isPointerInsideRef = useRef(false);
   const armedActionRef = useRef<string | null>(null);
   const actionBarDisplayModeRef = useRef<ActionBarDisplayMode>('icons-and-text');
+  const timerFlyoutOpenRef = useRef(false);
+  const timerDialogOpenRef = useRef(false);
+  const isTimerButtonHoveredRef = useRef(false);
+  const isTimerFlyoutHoveredRef = useRef(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isTimerFlyoutOpen, setIsTimerFlyoutOpen] = useState(false);
+  const [isTimerFlyoutVisible, setIsTimerFlyoutVisible] = useState(false);
+  const [timerEditorMode, setTimerEditorMode] = useState<'create' | 'edit' | null>(null);
+  const [timerEditorTimer, setTimerEditorTimer] = useState<VoiceTimer | null>(null);
+  const [isTimerEditorBusy, setIsTimerEditorBusy] = useState(false);
   const [overlayState, setOverlayState] = useState<OverlayState>(fallbackOverlayState);
   const [assistantStateActive, setAssistantStateActive] = useState(false);
   const [isChatVisible, setIsChatVisible] = useState(false);
@@ -120,14 +149,15 @@ export default function OverlayDock() {
     DEFAULT_ACTION_BAR_ACTIVE_GLOW_COLOR,
   );
   const [pendingSpeakActive, setPendingSpeakActive] = useState<boolean | null>(null);
-  const [statusNote, setStatusNote] = useState(
-    'Hover the edge glow to open the action bar.',
-  );
+  const [statusNote, setStatusNote] = useState(() => i18n.t('overlayDock.status.default'));
+  const voiceTimers = useVoiceTimers();
 
   const resolvedSpeakActive =
     assistantStateActive || overlayState.assistantActive || overlayState.voiceOrbPinned;
   const isSpeakActive = pendingSpeakActive ?? resolvedSpeakActive;
   const isSettingsActive = isMainWindowVisible && overlayState.settingsVisible;
+  const hasFinishedTimers = voiceTimers.timers.some((timer) => timer.status === 'completed');
+  const isTimerButtonActive = Boolean(voiceTimers.timers.length) || hasFinishedTimers || isTimerFlyoutOpen;
   const showIcons = actionBarDisplayMode !== 'text-only';
   const showLabels = actionBarDisplayMode !== 'icons-only';
 
@@ -149,6 +179,9 @@ export default function OverlayDock() {
     return () => {
       if (pendingSpeakTimerRef.current !== null) {
         window.clearTimeout(pendingSpeakTimerRef.current);
+      }
+      if (timerFlyoutTimerRef.current !== null) {
+        window.clearTimeout(timerFlyoutTimerRef.current);
       }
       document.documentElement.classList.remove('overlay-html');
       document.body.classList.remove('overlay-body');
@@ -244,6 +277,8 @@ export default function OverlayDock() {
         void syncOverlayWindowLayout(
           isExpandedRef.current,
           actionBarDisplayModeRef.current,
+          timerFlyoutOpenRef.current,
+          timerDialogOpenRef.current,
         );
       })
       .then((cleanup) => {
@@ -258,6 +293,8 @@ export default function OverlayDock() {
     void syncOverlayWindowLayout(
       isExpandedRef.current,
       actionBarDisplayModeRef.current,
+      timerFlyoutOpenRef.current,
+      timerDialogOpenRef.current,
     );
 
     return () => {
@@ -266,6 +303,9 @@ export default function OverlayDock() {
       }
       if (pendingSpeakTimerRef.current !== null) {
         window.clearTimeout(pendingSpeakTimerRef.current);
+      }
+      if (timerFlyoutTimerRef.current !== null) {
+        window.clearTimeout(timerFlyoutTimerRef.current);
       }
       void unlistenOverlayState?.();
       void unlistenAssistantState?.();
@@ -281,22 +321,63 @@ export default function OverlayDock() {
   }, [isExpanded]);
 
   useEffect(() => {
+    timerFlyoutOpenRef.current = isTimerFlyoutOpen;
+  }, [isTimerFlyoutOpen]);
+
+  useEffect(() => {
+    timerDialogOpenRef.current = timerEditorMode !== null;
+  }, [timerEditorMode]);
+
+  useEffect(() => {
     actionBarDisplayModeRef.current = actionBarDisplayMode;
   }, [actionBarDisplayMode]);
 
   useEffect(() => {
-    void syncOverlayWindowLayout(isExpanded, actionBarDisplayMode)
+    let cancelled = false;
+    const waitForPaint = async (): Promise<void> =>
+      new Promise((resolve) => {
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(() => resolve());
+        });
+      });
+
+    if (!isTimerFlyoutOpen || timerEditorMode !== null) {
+      setIsTimerFlyoutVisible(false);
+    }
+
+    void syncOverlayWindowLayout(
+      isExpanded,
+      actionBarDisplayMode,
+      isTimerFlyoutOpen,
+      timerEditorMode !== null,
+    )
       .then(async () => {
+        if (cancelled) {
+          return;
+        }
         if (!hasShownWindowRef.current) {
           hasShownWindowRef.current = true;
           await overlayWindowRef.current.show();
         }
+        if (isTimerFlyoutOpen && timerEditorMode === null) {
+          await waitForPaint();
+          if (!cancelled && timerFlyoutOpenRef.current && !timerDialogOpenRef.current) {
+            setIsTimerFlyoutVisible(true);
+          }
+        }
       })
       .catch((error: unknown) => {
+        if (cancelled) {
+          return;
+        }
         const text = error instanceof Error ? error.message : String(error);
-        setStatusNote(`Action bar layout failed: ${text}`);
+        setStatusNote(i18n.t('overlayDock.status.layoutFailed', { detail: text }));
       });
-  }, [actionBarDisplayMode, isExpanded]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [actionBarDisplayMode, isExpanded, isTimerFlyoutOpen, timerEditorMode]);
 
   const clearCollapseTimer = (): void => {
     if (collapseTimerRef.current !== null) {
@@ -308,10 +389,68 @@ export default function OverlayDock() {
   const scheduleCollapse = (): void => {
     clearCollapseTimer();
     collapseTimerRef.current = window.setTimeout(() => {
-      if (!isPointerInsideRef.current) {
+      if (!isPointerInsideRef.current && !timerDialogOpenRef.current) {
         setIsExpanded(false);
+        setIsTimerFlyoutOpen(false);
       }
     }, 260);
+  };
+
+  const clearTimerFlyoutTimer = (): void => {
+    if (timerFlyoutTimerRef.current !== null) {
+      window.clearTimeout(timerFlyoutTimerRef.current);
+      timerFlyoutTimerRef.current = null;
+    }
+  };
+
+  const closeTimerFlyout = (): void => {
+    clearTimerFlyoutTimer();
+    timerFlyoutHoldUntilRef.current = 0;
+    isTimerButtonHoveredRef.current = false;
+    isTimerFlyoutHoveredRef.current = false;
+    setIsTimerFlyoutVisible(false);
+    setIsTimerFlyoutOpen(false);
+  };
+
+  const openTimerFlyout = (): void => {
+    clearTimerFlyoutTimer();
+    clearCollapseTimer();
+    timerFlyoutHoldUntilRef.current = Date.now() + 320;
+    if (!timerFlyoutOpenRef.current) {
+      setIsTimerFlyoutVisible(false);
+    }
+    setIsExpanded(true);
+    setIsTimerFlyoutOpen(true);
+  };
+
+  const scheduleTimerFlyoutClose = (): void => {
+    clearTimerFlyoutTimer();
+    const runCloseCheck = (): void => {
+      timerFlyoutTimerRef.current = null;
+      const holdRemainingMs = timerFlyoutHoldUntilRef.current - Date.now();
+      if (holdRemainingMs > 0) {
+        timerFlyoutTimerRef.current = window.setTimeout(
+          runCloseCheck,
+          Math.max(40, holdRemainingMs + 16),
+        );
+        return;
+      }
+      if (
+        !timerDialogOpenRef.current
+        && !isTimerButtonHoveredRef.current
+        && !isTimerFlyoutHoveredRef.current
+      ) {
+        setIsTimerFlyoutVisible(false);
+        setIsTimerFlyoutOpen(false);
+      }
+    };
+    timerFlyoutTimerRef.current = window.setTimeout(runCloseCheck, 220);
+  };
+
+  const handleNonTimerActionHover = (): void => {
+    if (timerFlyoutOpenRef.current) {
+      closeTimerFlyout();
+    }
   };
 
   const armPendingSpeakState = (active: boolean): void => {
@@ -360,13 +499,13 @@ export default function OverlayDock() {
         armPendingSpeakState(false);
         await requestOverlayAction({ type: 'deactivate' });
         await requestOverlayAction({ type: 'unpin-voice-orb' });
-        setStatusNote('Voice overlay closed.');
+        setStatusNote(i18n.t('overlayDock.status.voiceOverlayClosed'));
         return;
       }
 
       armPendingSpeakState(true);
       await requestOverlayAction({ type: 'activate' });
-      setStatusNote('Voice overlay opened.');
+      setStatusNote(i18n.t('overlayDock.status.voiceOverlayOpened'));
     } catch (error: unknown) {
       if (pendingSpeakTimerRef.current !== null) {
         window.clearTimeout(pendingSpeakTimerRef.current);
@@ -374,7 +513,7 @@ export default function OverlayDock() {
       }
       setPendingSpeakActive(null);
       const text = error instanceof Error ? error.message : String(error);
-      setStatusNote(`Speak trigger failed: ${text}`);
+      setStatusNote(i18n.t('overlayDock.status.speakTriggerFailed', { detail: text }));
     }
   };
 
@@ -387,16 +526,20 @@ export default function OverlayDock() {
       if (mainWindowVisible && overlayState.settingsVisible) {
         const visible = await toggleMainWindow();
         setIsMainWindowVisible(visible);
-        setStatusNote(visible ? 'Settings page opened.' : 'Settings page closed.');
+        setStatusNote(
+          visible
+            ? i18n.t('overlayDock.status.settingsOpened')
+            : i18n.t('overlayDock.status.settingsClosed'),
+        );
         return;
       }
 
       await requestOverlayAction({ type: 'open-settings' });
       setIsMainWindowVisible(true);
-      setStatusNote('Settings page opened.');
+      setStatusNote(i18n.t('overlayDock.status.settingsOpened'));
     } catch (error: unknown) {
       const text = error instanceof Error ? error.message : String(error);
-      setStatusNote(`Could not open the settings page: ${text}`);
+      setStatusNote(i18n.t('overlayDock.status.settingsFailed', { detail: text }));
     }
   };
 
@@ -405,10 +548,82 @@ export default function OverlayDock() {
     try {
       const visible = await toggleChatWindow();
       setIsChatVisible(visible);
-      setStatusNote(visible ? 'Chat window opened.' : 'Chat window closed.');
+      setStatusNote(
+        visible
+          ? i18n.t('overlayDock.status.chatOpened')
+          : i18n.t('overlayDock.status.chatClosed'),
+      );
     } catch (error: unknown) {
       const text = error instanceof Error ? error.message : String(error);
-      setStatusNote(`Could not toggle the chat window: ${text}`);
+      setStatusNote(i18n.t('overlayDock.status.chatFailed', { detail: text }));
+    }
+  };
+
+  const handlePauseTimer = async (timer: VoiceTimer): Promise<void> => {
+    try {
+      await voiceTimers.pauseTimer(timer.id);
+      setStatusNote(i18n.t('timers.messages.paused', { title: timer.title }));
+    } catch (error: unknown) {
+      const text = error instanceof Error ? error.message : String(error);
+      setStatusNote(i18n.t('timers.errors.pause', { detail: text }));
+    }
+  };
+
+  const handleResumeTimer = async (timer: VoiceTimer): Promise<void> => {
+    try {
+      await voiceTimers.resumeTimer(timer.id);
+      setStatusNote(i18n.t('timers.messages.resumed', { title: timer.title }));
+    } catch (error: unknown) {
+      const text = error instanceof Error ? error.message : String(error);
+      setStatusNote(i18n.t('timers.errors.resume', { detail: text }));
+    }
+  };
+
+  const handleDeleteTimer = async (timer: VoiceTimer): Promise<void> => {
+    try {
+      await voiceTimers.deleteTimer(timer.id);
+      setStatusNote(i18n.t('timers.messages.deleted', { title: timer.title }));
+    } catch (error: unknown) {
+      const text = error instanceof Error ? error.message : String(error);
+      setStatusNote(i18n.t('timers.errors.delete', { detail: text }));
+    }
+  };
+
+  const handleSubmitTimerEditor = async (payload: {
+    title: string;
+    durationMinutes: number;
+    durationSeconds: number;
+  }): Promise<void> => {
+    setIsTimerEditorBusy(true);
+    try {
+      if (timerEditorMode === 'edit' && timerEditorTimer) {
+        await voiceTimers.updateTimer({
+          timerId: timerEditorTimer.id,
+          title: payload.title || undefined,
+          durationMinutes: payload.durationMinutes,
+          durationSeconds: payload.durationSeconds,
+        });
+        setStatusNote(
+          i18n.t('timers.messages.updated', {
+            title: payload.title || timerEditorTimer.title,
+          }),
+        );
+      } else {
+        const timer = await voiceTimers.createTimer({
+          title: payload.title || undefined,
+          durationMinutes: payload.durationMinutes,
+          durationSeconds: payload.durationSeconds,
+        });
+        setStatusNote(i18n.t('timers.messages.created', { title: timer.title }));
+      }
+      setTimerEditorMode(null);
+      setTimerEditorTimer(null);
+      openTimerFlyout();
+    } catch (error: unknown) {
+      const text = error instanceof Error ? error.message : String(error);
+      setStatusNote(i18n.t('timers.errors.save', { detail: text }));
+    } finally {
+      setIsTimerEditorBusy(false);
     }
   };
 
@@ -436,7 +651,17 @@ export default function OverlayDock() {
         <button
           type="button"
           className="edge-nav-trigger"
-          aria-label="Open action bar"
+          aria-label={i18n.t('overlayDock.openActionBar')}
+          onMouseEnter={() => {
+            isPointerInsideRef.current = true;
+            clearCollapseTimer();
+            setIsExpanded(true);
+          }}
+          onFocus={() => {
+            isPointerInsideRef.current = true;
+            clearCollapseTimer();
+            setIsExpanded(true);
+          }}
           onClick={() => setIsExpanded((current) => !current)}
         >
           <span className="edge-nav-trigger-indicator" />
@@ -444,7 +669,7 @@ export default function OverlayDock() {
 
         <nav
           className="edge-nav-panel"
-          aria-label="AI overlay quick actions"
+          aria-label={i18n.t('overlayDock.quickActions')}
           data-display-mode={actionBarDisplayMode}
           title={statusNote}
         >
@@ -454,11 +679,18 @@ export default function OverlayDock() {
               isSpeakActive ? 'edge-nav-btn--active' : ''
             }`}
             data-display-mode={actionBarDisplayMode}
-            aria-label="Speak"
-            title="Speak"
+            aria-label={i18n.t('overlayDock.speak')}
+            title={i18n.t('overlayDock.speak')}
             onPointerDown={() => armAction('speak')}
+            onMouseEnter={handleNonTimerActionHover}
+            onFocus={handleNonTimerActionHover}
             onPointerLeave={clearArmedAction}
             onPointerUp={() => handleArmedAction('speak', handleSpeak)}
+            onClick={(event) => {
+              if (event.detail === 0) {
+                void handleSpeak();
+              }
+            }}
           >
             {showIcons ? (
               <span className="edge-nav-icon" aria-hidden="true">
@@ -474,18 +706,27 @@ export default function OverlayDock() {
                 </svg>
               </span>
             ) : null}
-            {showLabels ? <span className="edge-nav-label">Speak</span> : null}
+            {showLabels ? (
+              <span className="edge-nav-label">{i18n.t('overlayDock.speak')}</span>
+            ) : null}
           </button>
 
           <button
             type="button"
             className={`edge-nav-btn ${isChatVisible ? 'edge-nav-btn--active' : ''}`}
             data-display-mode={actionBarDisplayMode}
-            aria-label="Chat"
-            title="Chat"
+            aria-label={i18n.t('overlayDock.chat')}
+            title={i18n.t('overlayDock.chat')}
             onPointerDown={() => armAction('chat')}
+            onMouseEnter={handleNonTimerActionHover}
+            onFocus={handleNonTimerActionHover}
             onPointerLeave={clearArmedAction}
             onPointerUp={() => handleArmedAction('chat', handleToggleChatWindow)}
+            onClick={(event) => {
+              if (event.detail === 0) {
+                void handleToggleChatWindow();
+              }
+            }}
           >
             {showIcons ? (
               <span className="edge-nav-icon" aria-hidden="true">
@@ -501,18 +742,84 @@ export default function OverlayDock() {
                 </svg>
               </span>
             ) : null}
-            {showLabels ? <span className="edge-nav-label">Chat</span> : null}
+            {showLabels ? (
+              <span className="edge-nav-label">{i18n.t('overlayDock.chat')}</span>
+            ) : null}
+          </button>
+
+          <button
+            type="button"
+            className={`edge-nav-btn ${isTimerButtonActive ? 'edge-nav-btn--active' : ''}`}
+            data-display-mode={actionBarDisplayMode}
+            aria-label={i18n.t('timers.dockTitle')}
+            title={i18n.t('timers.dockTitle')}
+            onMouseEnter={() => {
+              isTimerButtonHoveredRef.current = true;
+              openTimerFlyout();
+            }}
+            onMouseLeave={() => {
+              isTimerButtonHoveredRef.current = false;
+            }}
+            onFocus={() => {
+              isTimerButtonHoveredRef.current = true;
+              openTimerFlyout();
+            }}
+            onBlur={() => {
+              isTimerButtonHoveredRef.current = false;
+              scheduleTimerFlyoutClose();
+            }}
+            onClick={() => {
+              setIsExpanded(true);
+              setIsTimerFlyoutVisible(false);
+              setIsTimerFlyoutOpen((current) => !current);
+            }}
+          >
+            {showIcons ? (
+              <span className="edge-nav-icon" aria-hidden="true">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="13" r="8" />
+                  <path d="M12 13V9" />
+                  <path d="M15 5H9" />
+                  <path d="M12 13l3 2" />
+                </svg>
+              </span>
+            ) : null}
+            {showLabels ? (
+              <span className="edge-nav-label">{i18n.t('overlayDock.timer')}</span>
+            ) : null}
           </button>
 
           <button
             type="button"
             className={`edge-nav-btn ${isSettingsActive ? 'edge-nav-btn--active' : ''}`}
             data-display-mode={actionBarDisplayMode}
-            aria-label={isSettingsActive ? 'Close settings' : 'Open settings'}
-            title={isSettingsActive ? 'Close settings' : 'Open settings'}
+            aria-label={
+              isSettingsActive
+                ? i18n.t('overlayDock.closeSettings')
+                : i18n.t('overlayDock.openSettings')
+            }
+            title={
+              isSettingsActive
+                ? i18n.t('overlayDock.closeSettings')
+                : i18n.t('overlayDock.openSettings')
+            }
             onPointerDown={() => armAction('settings')}
+            onMouseEnter={handleNonTimerActionHover}
+            onFocus={handleNonTimerActionHover}
             onPointerLeave={clearArmedAction}
             onPointerUp={() => handleArmedAction('settings', handleOpenSettings)}
+            onClick={(event) => {
+              if (event.detail === 0) {
+                void handleOpenSettings();
+              }
+            }}
           >
             {showIcons ? (
               <span className="edge-nav-icon" aria-hidden="true">
@@ -529,10 +836,63 @@ export default function OverlayDock() {
                 </svg>
               </span>
             ) : null}
-            {showLabels ? <span className="edge-nav-label">Settings</span> : null}
+            {showLabels ? (
+              <span className="edge-nav-label">{i18n.t('overlayDock.settings')}</span>
+            ) : null}
           </button>
         </nav>
+
+        <div
+          className={`edge-nav-timer-flyout ${isTimerFlyoutVisible ? 'edge-nav-timer-flyout--open' : ''}`}
+          onMouseEnter={() => {
+            isTimerFlyoutHoveredRef.current = true;
+            openTimerFlyout();
+          }}
+          onMouseLeave={() => {
+            isTimerFlyoutHoveredRef.current = false;
+          }}
+        >
+          <TimerListPanel
+            title={i18n.t('timers.dockTitle')}
+            subtitle={i18n.t('timers.dockSubtitle')}
+            variant="dock"
+            timers={voiceTimers.timers}
+            nowMs={voiceTimers.nowMs}
+            isLoaded={voiceTimers.isLoaded}
+            error={voiceTimers.error}
+            onAdd={() => {
+              setTimerEditorMode('create');
+              setTimerEditorTimer(null);
+              setIsTimerFlyoutVisible(false);
+              setIsTimerFlyoutOpen(false);
+              setIsExpanded(true);
+            }}
+            onEdit={(timer) => {
+              setTimerEditorMode('edit');
+              setTimerEditorTimer(timer);
+              setIsTimerFlyoutVisible(false);
+              setIsTimerFlyoutOpen(false);
+              setIsExpanded(true);
+            }}
+            onPause={(timer) => void handlePauseTimer(timer)}
+            onResume={(timer) => void handleResumeTimer(timer)}
+            onDelete={(timer) => void handleDeleteTimer(timer)}
+          />
+        </div>
       </div>
+
+      <TimerEditorDialog
+        open={timerEditorMode !== null}
+        timer={timerEditorMode === 'edit' ? timerEditorTimer : null}
+        variant="dock"
+        isBusy={isTimerEditorBusy}
+        onClose={() => {
+          setTimerEditorMode(null);
+          setTimerEditorTimer(null);
+          openTimerFlyout();
+        }}
+        onSubmit={(payload) => void handleSubmitTimerEditor(payload)}
+      />
     </div>
   );
 }

@@ -2,7 +2,8 @@
 
 use tauri::Manager;
 use voice_overlay_assistant::{
-    app_icon, background, hotkey, run_controller, settings, voice_tasks,
+    app_icon, background, hotkey, run_controller, settings, timer_audio, voice_tasks,
+    voice_timers,
 };
 
 #[tauri::command]
@@ -20,6 +21,8 @@ fn main() {
         .manage(hotkey::HotkeyState::default())
         .manage(run_controller::RunController::default())
         .manage(settings_state)
+        .manage(timer_audio::TimerSignalPlayerState::default())
+        .manage(voice_timers::VoiceTimerState::default())
         .manage(voice_tasks::VoiceTaskState::default())
         .setup(|app| {
             app_icon::apply_main_window_icon(app.handle())
@@ -29,6 +32,7 @@ fn main() {
             background::setup_overlay_windows(app.handle())
                 .expect("failed to initialize overlay windows");
             hotkey::init_hotkey(app.handle());
+            voice_timers::start_voice_timer_worker(app.handle().clone());
             let settings = app.state::<settings::SettingsState>().get();
             background::apply_launch_behavior(app.handle(), &settings);
             Ok(())
@@ -66,6 +70,14 @@ fn main() {
             voice_overlay_assistant::create_voice_agent_session_command,
             voice_overlay_assistant::run_voice_agent_tool_command,
             voice_overlay_assistant::get_voice_agent_task_command,
+            voice_overlay_assistant::list_voice_timers_command,
+            voice_overlay_assistant::create_voice_timer_command,
+            voice_overlay_assistant::update_voice_timer_command,
+            voice_overlay_assistant::pause_voice_timer_command,
+            voice_overlay_assistant::resume_voice_timer_command,
+            voice_overlay_assistant::delete_voice_timer_command,
+            voice_overlay_assistant::start_timer_signal_alert_command,
+            voice_overlay_assistant::stop_timer_signal_alert_command,
             voice_overlay_assistant::store_voice_session_memory_command,
             voice_overlay_assistant::recall_voice_memory_command,
             voice_overlay_assistant::get_recent_voice_memory_command

@@ -6,11 +6,13 @@ pub mod run_controller;
 pub mod selection_capture;
 pub mod settings;
 pub mod stt;
+pub mod timer_audio;
 pub mod translation;
 pub mod tts;
 pub mod voice_agent;
 pub mod voice_memory;
 pub mod voice_profile;
+pub mod voice_timers;
 pub mod voice_tasks;
 pub mod voice_tools;
 
@@ -260,6 +262,7 @@ pub use commands::{
     get_settings, pause_resume_current_run, reset_settings, speak_text_command,
     transcribe_chat_audio_command, translate_text_command, update_settings,
 };
+pub use timer_audio::{start_timer_signal_alert_command, stop_timer_signal_alert_command};
 pub use hosted_backend::{
     create_hosted_checkout_session_command, get_hosted_account_status_command,
     get_hosted_billing_plans_command, login_hosted_account_command, logout_hosted_account_command,
@@ -269,5 +272,9 @@ pub use voice_agent::{create_voice_agent_session_command, run_voice_agent_tool_c
 pub use voice_memory::{
     get_recent_voice_memory_command, recall_voice_memory_command,
     store_voice_session_memory_command,
+};
+pub use voice_timers::{
+    create_voice_timer_command, delete_voice_timer_command, list_voice_timers_command,
+    pause_voice_timer_command, resume_voice_timer_command, update_voice_timer_command,
 };
 pub use voice_tasks::get_voice_agent_task_command;

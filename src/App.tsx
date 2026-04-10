@@ -39,9 +39,11 @@ import { LatestRunSection } from './components/app/LatestRunSection';
 import { ReadinessGrid } from './components/app/ReadinessGrid';
 import { ResetSettingsDialog } from './components/app/ResetSettingsDialog';
 import { RunHistorySection } from './components/app/RunHistorySection';
+import { TimerSection } from './components/app/TimerSection';
 import { UsageSection } from './components/app/UsageSection';
 import { VoiceFeedsSection } from './components/app/VoiceFeedsSection';
 import { VoiceStyleRestartDialog } from './components/app/VoiceStyleRestartDialog';
+import { TimerEditorDialog } from './components/timers/TimerEditorDialog';
 import {
   ACTION_BAR_WINDOW_LABEL,
   OVERLAY_ACTION_EVENT,
@@ -51,6 +53,8 @@ import {
   type OverlayAction,
   type OverlayState,
 } from './lib/overlayBridge';
+import { useVoiceTimers } from './hooks/useVoiceTimers';
+import type { VoiceTimer } from './lib/voiceOverlay';
 
 type AppView = 'dashboard' | 'settings';
 
@@ -99,6 +103,9 @@ export default function App() {
   const [pendingVoiceSessionRestartReason, setPendingVoiceSessionRestartReason] = useState<string | null>(null);
   const [pendingVoiceStyleRestartSettings, setPendingVoiceStyleRestartSettings] =
     useState<AppSettings | null>(null);
+  const [timerEditorMode, setTimerEditorMode] = useState<'create' | 'edit' | null>(null);
+  const [timerEditorTimer, setTimerEditorTimer] = useState<VoiceTimer | null>(null);
+  const [isTimerEditorBusy, setIsTimerEditorBusy] = useState(false);
   const appWindowRef = useRef(getCurrentWindow());
   const composerVisibleRef = useRef(false);
   const composerTransitionRef = useRef<Promise<void> | null>(null);
@@ -491,6 +498,7 @@ export default function App() {
     initialStateLoaded,
     ensureSavedSettings,
   });
+  const voiceTimers = useVoiceTimers();
   const restartVoiceAgentSession = voiceRuntime.restartVoiceAgentSession;
   const assistantVoiceActive = voiceRuntime.assistantActive;
 
@@ -575,6 +583,79 @@ export default function App() {
       setMessage(errorMessage);
     },
   });
+
+  const handlePauseTimer = useCallback(async (timer: VoiceTimer): Promise<void> => {
+    try {
+      await voiceTimers.pauseTimer(timer.id);
+      setUiState('success');
+      setMessage(i18n.t('timers.messages.paused', { title: timer.title }));
+    } catch (error: unknown) {
+      const detail = error instanceof Error ? error.message : String(error);
+      setUiState('error');
+      setMessage(detail);
+    }
+  }, [voiceTimers]);
+
+  const handleResumeTimer = useCallback(async (timer: VoiceTimer): Promise<void> => {
+    try {
+      await voiceTimers.resumeTimer(timer.id);
+      setUiState('success');
+      setMessage(i18n.t('timers.messages.resumed', { title: timer.title }));
+    } catch (error: unknown) {
+      const detail = error instanceof Error ? error.message : String(error);
+      setUiState('error');
+      setMessage(detail);
+    }
+  }, [voiceTimers]);
+
+  const handleDeleteTimer = useCallback(async (timer: VoiceTimer): Promise<void> => {
+    try {
+      await voiceTimers.deleteTimer(timer.id);
+      setUiState('success');
+      setMessage(i18n.t('timers.messages.deleted', { title: timer.title }));
+    } catch (error: unknown) {
+      const detail = error instanceof Error ? error.message : String(error);
+      setUiState('error');
+      setMessage(detail);
+    }
+  }, [voiceTimers]);
+
+  const handleSubmitTimerEditor = useCallback(async (payload: {
+    title: string;
+    durationMinutes: number;
+    durationSeconds: number;
+  }): Promise<void> => {
+    setIsTimerEditorBusy(true);
+    try {
+      if (timerEditorMode === 'edit' && timerEditorTimer) {
+        await voiceTimers.updateTimer({
+          timerId: timerEditorTimer.id,
+          title: payload.title || undefined,
+          durationMinutes: payload.durationMinutes,
+          durationSeconds: payload.durationSeconds,
+        });
+        setMessage(i18n.t('timers.messages.updated', {
+          title: payload.title || timerEditorTimer.title,
+        }));
+      } else {
+        const created = await voiceTimers.createTimer({
+          title: payload.title || undefined,
+          durationMinutes: payload.durationMinutes,
+          durationSeconds: payload.durationSeconds,
+        });
+        setMessage(i18n.t('timers.messages.created', { title: created.title }));
+      }
+      setUiState('success');
+      setTimerEditorMode(null);
+      setTimerEditorTimer(null);
+    } catch (error: unknown) {
+      const detail = error instanceof Error ? error.message : String(error);
+      setUiState('error');
+      setMessage(detail);
+    } finally {
+      setIsTimerEditorBusy(false);
+    }
+  }, [timerEditorMode, timerEditorTimer, voiceTimers]);
 
   const runReadSelectedText = async (): Promise<void> => {
     try {
@@ -1069,6 +1150,24 @@ export default function App() {
                 lastSttDebugLogPath={voiceRuntime.lastSttDebugLogPath}
               />
 
+              <TimerSection
+                timers={voiceTimers.timers}
+                nowMs={voiceTimers.nowMs}
+                isLoaded={voiceTimers.isLoaded}
+                error={voiceTimers.error}
+                onAdd={() => {
+                  setTimerEditorMode('create');
+                  setTimerEditorTimer(null);
+                }}
+                onEdit={(timer) => {
+                  setTimerEditorMode('edit');
+                  setTimerEditorTimer(timer);
+                }}
+                onPause={(timer) => void handlePauseTimer(timer)}
+                onResume={(timer) => void handleResumeTimer(timer)}
+                onDelete={(timer) => void handleDeleteTimer(timer)}
+              />
+
               <VoiceFeedsSection
                 voiceAgentState={voiceRuntime.voiceAgentState}
                 voiceEventFeed={voiceRuntime.voiceEventFeed}
@@ -1178,6 +1277,17 @@ export default function App() {
         isBusy={isSavingSettings}
         onClose={() => setPendingVoiceStyleRestartSettings(null)}
         onConfirm={() => void handleConfirmVoiceStyleRestart()}
+      />
+
+      <TimerEditorDialog
+        open={timerEditorMode !== null}
+        timer={timerEditorMode === 'edit' ? timerEditorTimer : null}
+        isBusy={isTimerEditorBusy}
+        onClose={() => {
+          setTimerEditorMode(null);
+          setTimerEditorTimer(null);
+        }}
+        onSubmit={(payload) => void handleSubmitTimerEditor(payload)}
       />
     </>
   );

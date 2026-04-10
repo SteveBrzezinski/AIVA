@@ -53,6 +53,8 @@ export type AppSettings = {
   voiceAgentGender: 'feminine' | 'masculine' | 'neutral';
   voiceAgentToneNotes: string;
   voiceAgentOnboardingComplete: boolean;
+  timerNotificationMode: 'signal' | 'voice';
+  timerSignalTone: 'soft-bell' | 'digital-pulse' | 'glass-rise';
   assistantWakeSamples: string[];
   assistantNameSamples: string[];
   assistantSampleLanguage: string;
@@ -197,6 +199,38 @@ export type VoiceTask = {
 
 export type VoiceTaskEvent = {
   task: VoiceTask;
+};
+
+export type VoiceTimer = {
+  id: string;
+  title: string;
+  status: 'running' | 'paused' | 'completed';
+  durationMs: number;
+  remainingMs: number;
+  createdAtMs: number;
+  updatedAtMs: number;
+  endAtMs?: number | null;
+  completedAtMs?: number | null;
+};
+
+export type VoiceTimerEvent = {
+  kind: 'created' | 'updated' | 'paused' | 'resumed' | 'deleted' | 'completed';
+  timer: VoiceTimer;
+};
+
+export type CreateVoiceTimerRequest = {
+  title?: string;
+  durationMs?: number;
+  durationMinutes?: number;
+  durationSeconds?: number;
+};
+
+export type UpdateVoiceTimerRequest = {
+  timerId: string;
+  title?: string;
+  durationMs?: number;
+  durationMinutes?: number;
+  durationSeconds?: number;
 };
 
 export type StoreVoiceSessionMemoryRequest = {
@@ -406,6 +440,7 @@ const HOTKEY_STATUS_EVENT = 'hotkey-status';
 const LIVE_STT_CONTROL_EVENT = 'live-stt-control';
 const SETTINGS_EVENT = 'settings-updated';
 const VOICE_AGENT_TASK_EVENT = 'voice-agent-task';
+const VOICE_TIMER_EVENT = 'voice-timer';
 const MAIN_WINDOW_VISIBILITY_EVENT = 'main-window-visibility-changed';
 const CHAT_WINDOW_VISIBILITY_EVENT = 'chat-window-visibility-changed';
 const ASSISTANT_STATE_EVENT = 'assistant-state-changed';
@@ -550,6 +585,46 @@ export async function onAssistantControlRequest(
 
 export async function onVoiceAgentTask(callback: (event: VoiceTaskEvent) => void): Promise<UnlistenFn> {
   return listen<VoiceTaskEvent>(VOICE_AGENT_TASK_EVENT, (event) => callback(event.payload));
+}
+
+export async function listVoiceTimers(): Promise<VoiceTimer[]> {
+  return invoke<VoiceTimer[]>('list_voice_timers_command');
+}
+
+export async function createVoiceTimer(request: CreateVoiceTimerRequest): Promise<VoiceTimer> {
+  return invoke<VoiceTimer>('create_voice_timer_command', { request });
+}
+
+export async function updateVoiceTimer(request: UpdateVoiceTimerRequest): Promise<VoiceTimer> {
+  return invoke<VoiceTimer>('update_voice_timer_command', { request });
+}
+
+export async function pauseVoiceTimer(timerId: string): Promise<VoiceTimer> {
+  return invoke<VoiceTimer>('pause_voice_timer_command', { timerId });
+}
+
+export async function resumeVoiceTimer(timerId: string): Promise<VoiceTimer> {
+  return invoke<VoiceTimer>('resume_voice_timer_command', { timerId });
+}
+
+export async function deleteVoiceTimer(timerId: string): Promise<VoiceTimer> {
+  return invoke<VoiceTimer>('delete_voice_timer_command', { timerId });
+}
+
+export async function onVoiceTimerEvent(
+  callback: (event: VoiceTimerEvent) => void,
+): Promise<UnlistenFn> {
+  return listen<VoiceTimerEvent>(VOICE_TIMER_EVENT, (event) => callback(event.payload));
+}
+
+export async function startTimerSignalAlert(
+  tone: AppSettings['timerSignalTone'],
+): Promise<void> {
+  await invoke('start_timer_signal_alert_command', { tone });
+}
+
+export async function stopTimerSignalAlert(): Promise<void> {
+  await invoke('stop_timer_signal_alert_command');
 }
 
 export async function emitVoiceChatState(state: VoiceChatState): Promise<void> {

@@ -335,6 +335,42 @@ export default function SettingsView({
               </select>
               <span className="field-note">{t('settings.uiLanguageNote')}</span>
             </label>
+
+            <label className="settings-field">
+              <span className="info-label">{t('settings.timerNotificationMode')}</span>
+              <select
+                value={settings.timerNotificationMode}
+                onChange={(event) =>
+                  setSettings({
+                    ...settings,
+                    timerNotificationMode: event.target.value as AppSettings['timerNotificationMode'],
+                  })
+                }
+              >
+                <option value="signal">{t('settings.timerNotificationModeSignal')}</option>
+                <option value="voice">{t('settings.timerNotificationModeVoice')}</option>
+              </select>
+              <span className="field-note">{t('settings.timerNotificationModeNote')}</span>
+            </label>
+
+            <label className="settings-field">
+              <span className="info-label">{t('settings.timerSignalTone')}</span>
+              <select
+                value={settings.timerSignalTone}
+                disabled={settings.timerNotificationMode !== 'signal'}
+                onChange={(event) =>
+                  setSettings({
+                    ...settings,
+                    timerSignalTone: event.target.value as AppSettings['timerSignalTone'],
+                  })
+                }
+              >
+                <option value="soft-bell">{t('settings.timerSignalToneOptionSoftBell')}</option>
+                <option value="digital-pulse">{t('settings.timerSignalToneOptionDigitalPulse')}</option>
+                <option value="glass-rise">{t('settings.timerSignalToneOptionGlassRise')}</option>
+              </select>
+              <span className="field-note">{t('settings.timerSignalToneNote')}</span>
+            </label>
           </div>
         </div>
       );

@@ -24,6 +24,8 @@ const DEFAULT_VOICE_AGENT_BEHAVIOR: &str =
 const DEFAULT_VOICE_AGENT_EXTRA_INSTRUCTIONS: &str =
     "Keep using the stored assistant name unchanged and do not rename yourself.";
 const DEFAULT_VOICE_AGENT_GENDER: &str = "neutral";
+const DEFAULT_TIMER_NOTIFICATION_MODE: &str = "signal";
+const DEFAULT_TIMER_SIGNAL_TONE: &str = "soft-bell";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
@@ -57,6 +59,8 @@ pub struct AppSettings {
     pub voice_agent_gender: String,
     pub voice_agent_tone_notes: String,
     pub voice_agent_onboarding_complete: bool,
+    pub timer_notification_mode: String,
+    pub timer_signal_tone: String,
     pub assistant_wake_samples: Vec<String>,
     pub assistant_name_samples: Vec<String>,
     pub assistant_sample_language: String,
@@ -97,6 +101,8 @@ impl Default for AppSettings {
             voice_agent_gender: DEFAULT_VOICE_AGENT_GENDER.to_string(),
             voice_agent_tone_notes: String::new(),
             voice_agent_onboarding_complete: true,
+            timer_notification_mode: DEFAULT_TIMER_NOTIFICATION_MODE.to_string(),
+            timer_signal_tone: DEFAULT_TIMER_SIGNAL_TONE.to_string(),
             assistant_wake_samples: Vec::new(),
             assistant_name_samples: Vec::new(),
             assistant_sample_language: "de".to_string(),
@@ -280,6 +286,9 @@ pub fn sanitize_settings(mut settings: AppSettings) -> AppSettings {
         .to_string();
     settings.voice_agent_tone_notes =
         sanitize_multiline(settings.voice_agent_tone_notes, String::new());
+    settings.timer_notification_mode =
+        sanitize_timer_notification_mode(settings.timer_notification_mode);
+    settings.timer_signal_tone = sanitize_timer_signal_tone(settings.timer_signal_tone);
     settings.assistant_sample_language = if settings.assistant_sample_language.trim().is_empty() {
         settings.stt_language.clone()
     } else {
@@ -400,6 +409,21 @@ pub fn default_voice_agent_voice_for_gender(gender: &str) -> &'static str {
         "masculine" => "cedar",
         "neutral" => "sage",
         _ => "marin",
+    }
+}
+
+fn sanitize_timer_notification_mode(value: String) -> String {
+    match value.trim().to_lowercase().as_str() {
+        "voice" => "voice".to_string(),
+        _ => DEFAULT_TIMER_NOTIFICATION_MODE.to_string(),
+    }
+}
+
+fn sanitize_timer_signal_tone(value: String) -> String {
+    match value.trim().to_lowercase().as_str() {
+        "digital-pulse" => "digital-pulse".to_string(),
+        "glass-rise" => "glass-rise".to_string(),
+        _ => DEFAULT_TIMER_SIGNAL_TONE.to_string(),
     }
 }
 

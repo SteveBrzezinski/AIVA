@@ -70,6 +70,7 @@ export type RealtimeVoiceAgentCallbacks = {
 type RealtimeResponseContext = {
   channel: string;
   messageId?: string | null;
+  resumeListeningAfterDone?: boolean;
 };
 
 export class RealtimeVoiceAgentController {
@@ -309,6 +310,34 @@ export class RealtimeVoiceAgentController {
     this.memoryTracker.rememberExternalUserTranscript(transcript);
   }
 
+  async announceExternalSystemEvent(
+    text: string,
+    options?: { temporaryMute?: boolean },
+  ): Promise<void> {
+    if (this.reconnectPromise) {
+      await this.reconnectPromise;
+    }
+    if (this.state === 'idle' || this.state === 'error' || this.state === 'connecting') {
+      await this.connect();
+    }
+    if (!this.isTransportReady()) {
+      await this.recoverSession('system-event-recover', false);
+    }
+
+    let resumeListeningAfterDone = false;
+    if (options?.temporaryMute && this.state === 'online_listening') {
+      await this.detachMicrophone();
+      this.setStatus('online_muted', 'Realtime voice session connected. Microphone is muted (system-notification).');
+      resumeListeningAfterDone = true;
+    }
+
+    this.announceSystemEvent(text, true, {
+      channel: 'system',
+      messageId: `system-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      resumeListeningAfterDone,
+    });
+  }
+
   private async attachMicrophone(reason: string): Promise<void> {
     if (this.state === 'online_listening') {
       return;
@@ -407,6 +436,23 @@ export class RealtimeVoiceAgentController {
 
       if (responseId) {
         this.responseContexts.delete(responseId);
+      }
+
+      if (
+        responseContext?.channel === 'system' &&
+        responseContext.resumeListeningAfterDone &&
+        this.state === 'online_muted'
+      ) {
+        try {
+          await this.attachMicrophone('system-notification-resume');
+        } catch (error) {
+          this.log(
+            'events',
+            'error',
+            'system notification resume failed',
+            error instanceof Error ? error.message : String(error),
+          );
+        }
       }
     }
   }
@@ -533,7 +579,11 @@ export class RealtimeVoiceAgentController {
     }
   }
 
-  private announceSystemEvent(text: string, createResponse = true): void {
+  private announceSystemEvent(
+    text: string,
+    createResponse = true,
+    metadata?: { channel?: string; messageId?: string; resumeListeningAfterDone?: boolean },
+  ): void {
     try {
       this.sendRealtimeEvent({
         type: 'conversation.item.create',
@@ -544,7 +594,18 @@ export class RealtimeVoiceAgentController {
         },
       });
       if (createResponse) {
-        this.sendRealtimeEvent({ type: 'response.create' });
+        this.sendRealtimeEvent({
+          type: 'response.create',
+          response: metadata
+            ? {
+                metadata: {
+                  channel: metadata.channel ?? '',
+                  messageId: metadata.messageId ?? null,
+                  resumeListeningAfterDone: metadata.resumeListeningAfterDone ?? false,
+                },
+              }
+            : undefined,
+        });
       }
     } catch (error) {
       this.log('events', 'error', 'system event dispatch failed', error instanceof Error ? error.message : String(error));
@@ -657,11 +718,19 @@ export class RealtimeVoiceAgentController {
     const responseMetadata = asRecord(responseRecord?.metadata);
     const channel = firstString(responseMetadata?.channel);
     const messageId = firstString(responseMetadata?.messageId);
+    const resumeListeningAfterDone =
+      typeof responseMetadata?.resumeListeningAfterDone === 'boolean'
+        ? responseMetadata.resumeListeningAfterDone
+        : responseMetadata?.resumeListeningAfterDone === 'true';
 
-    if (responseId && (channel || messageId)) {
+    if (responseId && (channel || messageId || resumeListeningAfterDone)) {
       const context = {
         channel: channel || this.responseContexts.get(responseId)?.channel || '',
         messageId: messageId || this.responseContexts.get(responseId)?.messageId || null,
+        resumeListeningAfterDone:
+          resumeListeningAfterDone ||
+          this.responseContexts.get(responseId)?.resumeListeningAfterDone ||
+          false,
       };
       this.responseContexts.set(responseId, context);
       return context;

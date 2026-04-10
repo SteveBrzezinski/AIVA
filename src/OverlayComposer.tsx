@@ -43,6 +43,8 @@ const fallbackSettings: AppSettings = {
   voiceAgentGender: 'neutral',
   voiceAgentToneNotes: '',
   voiceAgentOnboardingComplete: true,
+  timerNotificationMode: 'signal',
+  timerSignalTone: 'soft-bell',
   assistantWakeSamples: [],
   assistantNameSamples: [],
   assistantSampleLanguage: 'de',
