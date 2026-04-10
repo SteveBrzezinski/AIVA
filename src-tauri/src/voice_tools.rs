@@ -221,6 +221,7 @@ pub fn realtime_tools() -> Vec<Value> {
                     "behavior": { "type": "string" },
                     "extraInstructions": { "type": "string" },
                     "preferredLanguage": { "type": "string" },
+                    "gender": { "type": "string", "enum": ["feminine", "masculine", "neutral"] },
                     "toneNotes": { "type": "string" },
                     "onboardingComplete": { "type": "boolean" }
                 },
@@ -880,6 +881,9 @@ fn update_assistant_state_tool(args: &Value, settings: &SettingsState) -> Result
     }
     if !value_to_string(args.get("preferredLanguage")).trim().is_empty() {
         next.voice_agent_preferred_language = value_to_string(args.get("preferredLanguage"));
+    }
+    if !value_to_string(args.get("gender")).trim().is_empty() {
+        next.voice_agent_gender = value_to_string(args.get("gender"));
     }
     if !value_to_string(args.get("toneNotes")).trim().is_empty() {
         next.voice_agent_tone_notes = value_to_string(args.get("toneNotes"));

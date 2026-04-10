@@ -86,6 +86,11 @@
     "assistantCalibrationWarning": "Please train the current name and language before saving.",
     "assistantCalibrationReady": "Wake-word calibration is ready for this name and language.",
     "assistantNameNote": "Use 3-8 characters, one single word. The wake phrase stays in English: <wake>Hey {{assistantName}}</wake> activates the assistant.",
+    "voiceAssistantGender": "Voice assistant gender",
+    "voiceAssistantGenderNote": "This affects both the assistant's self-references and the default realtime voice: feminine uses Marin, masculine uses Cedar, and neutral uses Sage.",
+    "voiceAssistantGenderOptionFeminine": "Feminine",
+    "voiceAssistantGenderOptionMasculine": "Masculine",
+    "voiceAssistantGenderOptionNeutral": "Neutral",
     "activeTranscriptionLanguage": "Active transcription language",
     "activeTranscriptionLanguageNote": "This language is also used while training and listening for the wake phrase. If you change it, you need to record the training samples again, for example <code>de</code> or <code>en</code>.",
     "wakeMatchThreshold": "Wake match threshold",
@@ -143,9 +148,9 @@
     "unsavedChangesReady": "Unsaved changes are ready to save.",
     "allSettingsSaved": "All settings are saved.",
     "generalSummary": "{{translationTarget}} / UI {{uiLanguage}} / {{playbackSpeed}}x",
-    "assistantSummaryReady": "{{assistant}} / {{language}} / training ready",
-    "assistantSummaryRecommended": "{{assistant}} / {{language}} / training recommended",
-    "assistantSummaryDefault": "{{assistant}} / {{language}}",
+    "assistantSummaryReady": "{{assistant}} / {{language}} / {{gender}} / training ready",
+    "assistantSummaryRecommended": "{{assistant}} / {{language}} / {{gender}} / training recommended",
+    "assistantSummaryDefault": "{{assistant}} / {{language}} / {{gender}}",
     "startupSummaryAutoHidden": "Auto-start hidden",
     "startupSummaryAutoVisible": "Auto-start visible",
     "startupSummaryManual": "Manual start",
@@ -163,8 +168,8 @@
       },
       "assistant": {
         "label": "Assistant",
-        "description": "Wake name, STT language, and assistant matching settings from dev.",
-        "helper": "Only the assistant naming, training, and listening settings from dev."
+        "description": "Wake name, voice identity, STT language, and matching settings from dev.",
+        "helper": "Only the assistant naming, voice identity, training, and listening settings from dev."
       },
       "startup": {
         "label": "Startup",
@@ -280,7 +285,14 @@
     "resetTitle": "Reset all settings?",
     "resetBody": "This restores every setting to its default value, including playback speed, translation language, the interface language, the stored API key, and any saved hosted sign-in token.",
     "resetNo": "No",
-    "resetConfirm": "Yes, reset everything"
+    "resetConfirm": "Yes, reset everything",
+    "closeVoiceStyleRestart": "Close voice style restart dialog",
+    "voiceStyleRestartTitle": "Restart voice session?",
+    "voiceStyleRestartBody": "Changing the voice assistant gender updates the identity instructions of the current realtime session.",
+    "voiceStyleRestartDetail": "To apply it cleanly, AIVA will first store compact memory from the current conversation, then restart the voice session, and continue with the new style in the background. Do you want to continue?",
+    "voiceStyleRestartNo": "No",
+    "voiceStyleRestartConfirm": "Yes, restart session",
+    "voiceStyleRestartConfirming": "Restarting..."
   },
   "training": {
     "stepSay": "Please say:",

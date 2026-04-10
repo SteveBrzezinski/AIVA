@@ -1,6 +1,7 @@
 import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { DESIGN_THEME_OPTIONS, getDesignThemeLabel, normalizeDesignThemeId } from './designThemes';
+import { defaultVoiceAgentVoiceForGender } from './lib/app/appModel';
 import type {
   AppSettings,
   HostedAccountStatus,
@@ -56,6 +57,18 @@ type SettingsSection = {
   description: string;
   summary: string;
 };
+
+const VOICE_AGENT_GENDER_OPTIONS: Array<{
+  value: AppSettings['voiceAgentGender'];
+  labelKey:
+    | 'settings.voiceAssistantGenderOptionFeminine'
+    | 'settings.voiceAssistantGenderOptionMasculine'
+    | 'settings.voiceAssistantGenderOptionNeutral';
+}> = [
+  { value: 'feminine', labelKey: 'settings.voiceAssistantGenderOptionFeminine' },
+  { value: 'masculine', labelKey: 'settings.voiceAssistantGenderOptionMasculine' },
+  { value: 'neutral', labelKey: 'settings.voiceAssistantGenderOptionNeutral' },
+];
 
 function parseBoundedInteger(value: string, fallback: number, min: number, max: number): number {
   const parsed = Number(value);
@@ -117,6 +130,13 @@ export default function SettingsView({
     () => getDesignThemeLabel(settings.designThemeId),
     [settings.designThemeId],
   );
+  const assistantGenderLabel = useMemo(() => {
+    const selectedOption = VOICE_AGENT_GENDER_OPTIONS.find(
+      (option) => option.value === settings.voiceAgentGender,
+    );
+
+    return t(selectedOption?.labelKey ?? 'settings.voiceAssistantGenderOptionFeminine');
+  }, [settings.voiceAgentGender, t]);
 
   const settingsSections = useMemo<SettingsSection[]>(() => {
     const assistantLabel = settings.assistantName.trim() || 'Ava';
@@ -126,15 +146,18 @@ export default function SettingsView({
         ? t('settingsPage.assistantSummaryReady', {
             assistant: assistantLabel,
             language: assistantLanguage,
+            gender: assistantGenderLabel,
           })
         : assistantCalibrationRequired
           ? t('settingsPage.assistantSummaryRecommended', {
               assistant: assistantLabel,
               language: assistantLanguage,
+              gender: assistantGenderLabel,
             })
           : t('settingsPage.assistantSummaryDefault', {
               assistant: assistantLabel,
               language: assistantLanguage,
+              gender: assistantGenderLabel,
             });
     const actionBarSummary =
       settings.actionBarDisplayMode === 'icons-only'
@@ -205,6 +228,7 @@ export default function SettingsView({
     assistantCalibrationComplete,
     assistantCalibrationRequired,
     assistantTrainingReadyName,
+    assistantGenderLabel,
     selectedThemeLabel,
     settings.assistantName,
     settings.aiProviderMode,
@@ -377,6 +401,29 @@ export default function SettingsView({
                   components={{ wake: <code /> }}
                 />
               </span>
+            </label>
+
+            <label className="settings-field">
+              <span className="info-label">{t('settings.voiceAssistantGender')}</span>
+              <select
+                value={settings.voiceAgentGender}
+                onChange={(event) =>
+                  setSettings({
+                    ...settings,
+                    voiceAgentGender: event.target.value as AppSettings['voiceAgentGender'],
+                    voiceAgentVoice: defaultVoiceAgentVoiceForGender(
+                      event.target.value as AppSettings['voiceAgentGender'],
+                    ),
+                  })
+                }
+              >
+                {VOICE_AGENT_GENDER_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {t(option.labelKey)}
+                  </option>
+                ))}
+              </select>
+              <span className="field-note">{t('settings.voiceAssistantGenderNote')}</span>
             </label>
 
             <label className="settings-field">

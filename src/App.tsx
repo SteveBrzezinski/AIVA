@@ -41,6 +41,7 @@ import { ResetSettingsDialog } from './components/app/ResetSettingsDialog';
 import { RunHistorySection } from './components/app/RunHistorySection';
 import { UsageSection } from './components/app/UsageSection';
 import { VoiceFeedsSection } from './components/app/VoiceFeedsSection';
+import { VoiceStyleRestartDialog } from './components/app/VoiceStyleRestartDialog';
 import {
   ACTION_BAR_WINDOW_LABEL,
   OVERLAY_ACTION_EVENT,
@@ -96,6 +97,8 @@ export default function App() {
   const [hostedBillingError, setHostedBillingError] = useState<string | null>(null);
   const [isHostedCheckoutBusy, setIsHostedCheckoutBusy] = useState(false);
   const [pendingVoiceSessionRestartReason, setPendingVoiceSessionRestartReason] = useState<string | null>(null);
+  const [pendingVoiceStyleRestartSettings, setPendingVoiceStyleRestartSettings] =
+    useState<AppSettings | null>(null);
   const appWindowRef = useRef(getCurrentWindow());
   const composerVisibleRef = useRef(false);
   const composerTransitionRef = useRef<Promise<void> | null>(null);
@@ -216,6 +219,7 @@ export default function App() {
   const persistSettings = async (
     next: AppSettings,
     successMessage = i18n.t('app.settingsSavedFuture'),
+    options?: { restartReason?: string },
   ): Promise<AppSettings> => {
     const validationError = getAssistantNameError(next.assistantName);
     if (validationError) {
@@ -240,13 +244,21 @@ export default function App() {
       const saved = await updateSettings(next);
       setSettings(saved);
       setSavedSettings(saved);
+      let restartFailed = false;
       try {
-        await voiceRuntime.restartVoiceAgentSession('settings-update', voiceRuntime.assistantActive);
+        await voiceRuntime.restartVoiceAgentSession(
+          options?.restartReason ?? 'settings-update',
+          voiceRuntime.assistantActive,
+        );
       } catch (voiceError: unknown) {
         const detail = voiceError instanceof Error ? voiceError.message : String(voiceError);
+        restartFailed = true;
+        setUiState('error');
         setMessage(i18n.t('app.settingsSavedRestartFailed', { detail }));
       }
-      setMessage(successMessage);
+      if (!restartFailed) {
+        setMessage(successMessage);
+      }
       return saved;
     } catch (error: unknown) {
       const detail = error instanceof Error ? error.message : String(error);
@@ -508,6 +520,30 @@ export default function App() {
     assistantVoiceActive,
     restartVoiceAgentSession,
   ]);
+
+  const handleSaveSettingsRequest = useCallback(async (): Promise<AppSettings | undefined> => {
+    if (settings.voiceAgentGender !== savedSettings.voiceAgentGender) {
+      setPendingVoiceStyleRestartSettings(settings);
+      return undefined;
+    }
+
+    return persistSettings(settings);
+  }, [persistSettings, savedSettings.voiceAgentGender, settings]);
+
+  const handleConfirmVoiceStyleRestart = useCallback(async (): Promise<void> => {
+    const pendingSettings = pendingVoiceStyleRestartSettings;
+    if (!pendingSettings) {
+      return;
+    }
+
+    try {
+      await persistSettings(pendingSettings, i18n.t('app.settingsSavedFuture'), {
+        restartReason: 'settings-gender-change',
+      });
+    } finally {
+      setPendingVoiceStyleRestartSettings(null);
+    }
+  }, [pendingVoiceStyleRestartSettings, persistSettings]);
 
   const {
     assistantTrainingReadyName,
@@ -1093,7 +1129,7 @@ export default function App() {
               isWorking={uiState === 'working'}
               hasUnsavedChanges={hasUnsavedChanges}
               canSaveSettings={canSaveSettings}
-              onSave={() => persistSettings(settings)}
+              onSave={handleSaveSettingsRequest}
               onReset={() => setShowResetDialog(true)}
               onBack={() => setActiveView('dashboard')}
               onOpenTraining={openAssistantTrainingDialog}
@@ -1135,6 +1171,13 @@ export default function App() {
         open={showResetDialog}
         onClose={() => setShowResetDialog(false)}
         onConfirm={() => void resetAllSettings()}
+      />
+
+      <VoiceStyleRestartDialog
+        open={pendingVoiceStyleRestartSettings !== null}
+        isBusy={isSavingSettings}
+        onClose={() => setPendingVoiceStyleRestartSettings(null)}
+        onConfirm={() => void handleConfirmVoiceStyleRestart()}
       />
     </>
   );

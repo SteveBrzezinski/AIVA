@@ -1,6 +1,7 @@
 use crate::settings::{AppSettings, SettingsState};
 use reqwest::{
     blocking::{Client, Response},
+    header::{HeaderMap, HeaderValue, ACCEPT},
     StatusCode,
 };
 use serde::{Deserialize, Serialize};
@@ -656,7 +657,11 @@ fn create_hosted_checkout_session(
 }
 
 fn api_client() -> Result<Client, String> {
+    let mut default_headers = HeaderMap::new();
+    default_headers.insert(ACCEPT, HeaderValue::from_static("application/json"));
+
     Client::builder()
+        .default_headers(default_headers)
         .connect_timeout(Duration::from_secs(API_CONNECT_TIMEOUT_SECS))
         .timeout(Duration::from_secs(API_TIMEOUT_SECS))
         .build()

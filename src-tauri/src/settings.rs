@@ -23,6 +23,7 @@ const DEFAULT_VOICE_AGENT_BEHAVIOR: &str =
     "If a PC task is unclear, ask immediately. If something takes longer, acknowledge it briefly and follow up with the result.";
 const DEFAULT_VOICE_AGENT_EXTRA_INSTRUCTIONS: &str =
     "Keep using the stored assistant name unchanged and do not rename yourself.";
+const DEFAULT_VOICE_AGENT_GENDER: &str = "neutral";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
@@ -53,6 +54,7 @@ pub struct AppSettings {
     pub voice_agent_behavior: String,
     pub voice_agent_extra_instructions: String,
     pub voice_agent_preferred_language: String,
+    pub voice_agent_gender: String,
     pub voice_agent_tone_notes: String,
     pub voice_agent_onboarding_complete: bool,
     pub assistant_wake_samples: Vec<String>,
@@ -86,11 +88,13 @@ impl Default for AppSettings {
             launch_at_login: false,
             start_hidden_on_launch: true,
             voice_agent_model: "gpt-realtime".to_string(),
-            voice_agent_voice: "marin".to_string(),
+            voice_agent_voice: default_voice_agent_voice_for_gender(DEFAULT_VOICE_AGENT_GENDER)
+                .to_string(),
             voice_agent_personality: DEFAULT_VOICE_AGENT_PERSONALITY.to_string(),
             voice_agent_behavior: DEFAULT_VOICE_AGENT_BEHAVIOR.to_string(),
             voice_agent_extra_instructions: DEFAULT_VOICE_AGENT_EXTRA_INSTRUCTIONS.to_string(),
             voice_agent_preferred_language: default_voice_agent_preferred_language("de"),
+            voice_agent_gender: DEFAULT_VOICE_AGENT_GENDER.to_string(),
             voice_agent_tone_notes: String::new(),
             voice_agent_onboarding_complete: true,
             assistant_wake_samples: Vec::new(),
@@ -259,10 +263,6 @@ pub fn sanitize_settings(mut settings: AppSettings) -> AppSettings {
         settings.voice_agent_model,
         AppSettings::default().voice_agent_model,
     );
-    settings.voice_agent_voice = sanitize_non_empty_line(
-        settings.voice_agent_voice.to_lowercase(),
-        AppSettings::default().voice_agent_voice,
-    );
     settings.voice_agent_personality = sanitize_multiline(
         settings.voice_agent_personality,
         DEFAULT_VOICE_AGENT_PERSONALITY.to_string(),
@@ -275,6 +275,9 @@ pub fn sanitize_settings(mut settings: AppSettings) -> AppSettings {
     );
     settings.voice_agent_preferred_language =
         default_voice_agent_preferred_language(&settings.stt_language);
+    settings.voice_agent_gender = sanitize_voice_agent_gender(settings.voice_agent_gender);
+    settings.voice_agent_voice = default_voice_agent_voice_for_gender(&settings.voice_agent_gender)
+        .to_string();
     settings.voice_agent_tone_notes =
         sanitize_multiline(settings.voice_agent_tone_notes, String::new());
     settings.assistant_sample_language = if settings.assistant_sample_language.trim().is_empty() {
@@ -382,6 +385,22 @@ fn sanitize_provider_mode(value: String) -> String {
 
 fn sanitize_api_base_url(value: String) -> String {
     value.trim().trim_end_matches('/').to_string()
+}
+
+pub fn sanitize_voice_agent_gender(value: String) -> String {
+    match value.trim().to_lowercase().as_str() {
+        "masculine" => "masculine".to_string(),
+        "neutral" => "neutral".to_string(),
+        _ => DEFAULT_VOICE_AGENT_GENDER.to_string(),
+    }
+}
+
+pub fn default_voice_agent_voice_for_gender(gender: &str) -> &'static str {
+    match sanitize_voice_agent_gender(gender.to_string()).as_str() {
+        "masculine" => "cedar",
+        "neutral" => "sage",
+        _ => "marin",
+    }
 }
 
 fn sanitize_hex_color(value: String, fallback: &str) -> String {

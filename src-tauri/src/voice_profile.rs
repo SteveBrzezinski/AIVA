@@ -1,4 +1,6 @@
-use crate::settings::{default_voice_agent_preferred_language, AppSettings};
+use crate::settings::{
+    default_voice_agent_preferred_language, sanitize_voice_agent_gender, AppSettings,
+};
 use serde::Serialize;
 
 const SUPPORTED_REALTIME_VOICES: &[&str] =
@@ -19,6 +21,7 @@ pub struct VoiceAgentProfile {
 #[serde(rename_all = "camelCase")]
 pub struct VoiceAgentIdentity {
     pub preferred_language: String,
+    pub gender: String,
     pub tone_notes: String,
 }
 
@@ -88,10 +91,33 @@ pub fn build_voice_agent_state(settings: &AppSettings) -> VoiceAgentState {
                 &settings.voice_agent_preferred_language,
                 &default_voice_agent_preferred_language(&settings.stt_language),
             ),
+            gender: sanitize_voice_agent_gender(settings.voice_agent_gender.clone()),
             tone_notes: sanitize_multiline(&settings.voice_agent_tone_notes, ""),
         },
         onboarding_complete: settings.voice_agent_onboarding_complete,
         source_assistant_name: sanitize_line(&settings.assistant_name, "AIVA"),
+    }
+}
+
+fn voice_agent_gender_label(gender: &str) -> &'static str {
+    match gender {
+        "masculine" => "masculine",
+        "neutral" => "neutral",
+        _ => "feminine",
+    }
+}
+
+fn voice_agent_gender_guidance(gender: &str) -> &'static str {
+    match gender {
+        "masculine" => {
+            "Use masculine self-references when gendered wording is natural. If pronouns matter, prefer he/him in English and masculine role words such as 'Assistent' in German."
+        }
+        "neutral" => {
+            "Prefer neutral self-references whenever natural. Avoid unnecessary gendered wording. If pronouns matter in English, prefer they/them."
+        }
+        _ => {
+            "Use feminine self-references when gendered wording is natural. If pronouns matter, prefer she/her in English and feminine role words such as 'Assistentin' in German."
+        }
     }
 }
 
@@ -107,6 +133,7 @@ pub fn build_assistant_instructions(settings: &AppSettings) -> String {
 
     let identity_block = [
         format!("Preferred language: {}", identity.preferred_language),
+        format!("Configured gender: {}", voice_agent_gender_label(&identity.gender)),
         if identity.tone_notes.trim().is_empty() {
             String::new()
         } else {
@@ -138,6 +165,11 @@ pub fn build_assistant_instructions(settings: &AppSettings) -> String {
         format!(
             "- Use {} by default.",
             identity.preferred_language
+        ),
+        format!(
+            "- Your configured gender presentation is {}. {}",
+            voice_agent_gender_label(&identity.gender),
+            voice_agent_gender_guidance(&identity.gender)
         ),
         if identity_block.is_empty() {
             String::new()

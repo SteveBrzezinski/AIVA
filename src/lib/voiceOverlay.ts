@@ -50,6 +50,7 @@ export type AppSettings = {
   voiceAgentBehavior: string;
   voiceAgentExtraInstructions: string;
   voiceAgentPreferredLanguage: string;
+  voiceAgentGender: 'feminine' | 'masculine' | 'neutral';
   voiceAgentToneNotes: string;
   voiceAgentOnboardingComplete: boolean;
   assistantWakeSamples: string[];
@@ -155,6 +156,7 @@ export type VoiceAgentProfile = {
 
 export type VoiceAgentIdentity = {
   preferredLanguage: string;
+  gender: 'feminine' | 'masculine' | 'neutral';
   toneNotes: string;
 };
 
