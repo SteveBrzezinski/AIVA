@@ -224,6 +224,7 @@
     "apiSummaryHostedRequired": "Hosted / Anmeldung erforderlich",
     "apiSummaryByoCustomKey": "BYO / eigener API-Schlüssel",
     "apiSummaryByoEnvKey": "BYO / .env-Schlüssel aktiv",
+    "designThemeDefaultSuffix": "Standard",
     "designApplyNote": "Das ausgewählte Theme wird erst übernommen, nachdem du die Einstellungen gespeichert hast.",
     "designThemeSelectLabel": "Theme",
     "designSections": {
@@ -270,6 +271,11 @@
       }
     },
     "themeCards": {
+      "coral-companion": {
+        "accent": "Elfenbein / Korallenorange",
+        "description": "Ein schlichtes Lightmode-Theme auf Basis der Web-Farbwelt mit hellen Flächen, Reef-Neutrals, warmen Korallenakzenten und dem Coral-Companion-Logo statt des Orbs.",
+        "contrast": "Klarer Lightmode"
+      },
       "obsidian-halo": {
         "accent": "Schwarzes Glas / weißes Leuchten",
         "description": "Tiefe schwarze Panels, helle weiße Highlights und ein kräftiges Außenleuchten um Rahmen und Orb.",

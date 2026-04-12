@@ -111,7 +111,7 @@ export function AssistantTrainingDialog(
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <section className="rounded-xl border border-white/10 bg-white/5 p-4">
+            <section className="rounded-xl border border-[color:var(--panel-border)] bg-[var(--panel-bg-deep)] p-4">
               <p className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">
                 {t('dialogs.liveCapture')}
               </p>
@@ -119,7 +119,7 @@ export function AssistantTrainingDialog(
                 {liveTranscript || t('dialogs.noTranscriptYet')}
               </p>
             </section>
-            <section className="rounded-xl border border-white/10 bg-white/5 p-4">
+            <section className="rounded-xl border border-[color:var(--panel-border)] bg-[var(--panel-bg-deep)] p-4">
               <p className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">
                 {t('dialogs.capturedSample')}
               </p>
@@ -130,7 +130,7 @@ export function AssistantTrainingDialog(
           </div>
 
           {status ? <p className="text-sm text-[var(--text-secondary)]">{status}</p> : null}
-          {error ? <p className="text-sm text-rose-300">{error}</p> : null}
+          {error ? <p className="text-sm text-[color:#8f2d3a]">{error}</p> : null}
         </div>
       </DialogContent>
     </Dialog>

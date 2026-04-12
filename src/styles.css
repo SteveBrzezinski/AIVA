@@ -5,6 +5,22 @@
 
 @custom-variant dark (&:is(.dark *));
 
+button:not(:disabled),
+[role='button']:not([aria-disabled='true']),
+a[href],
+summary,
+[data-slot='button']:not(:disabled),
+[data-slot='select-trigger']:not([data-disabled]),
+[data-slot='select-item']:not([data-disabled]),
+[data-slot='select-scroll-up-button'],
+[data-slot='select-scroll-down-button'],
+[data-slot='checkbox']:not([data-disabled]),
+[data-slot='radio-group-item']:not([data-disabled]),
+label:has([data-slot='checkbox']),
+label:has([data-slot='radio-group-item']) {
+  cursor: pointer;
+}
+
 :root {
   color-scheme: dark;
   color: #f6f7fb;
@@ -37,6 +53,7 @@
   --panel-glow-soft: rgba(255, 255, 255, 0.08);
   --panel-glow-medium: rgba(255, 255, 255, 0.14);
   --panel-glow-strong: rgba(255, 255, 255, 0.2);
+  --button-primary-text: var(--text-primary);
   --button-primary-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.07) 100%);
   --button-primary-bg-hover: linear-gradient(180deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.1) 100%);
   --button-primary-border: rgba(255, 255, 255, 0.32);
@@ -45,6 +62,10 @@
   --button-secondary-bg-hover: rgba(255, 255, 255, 0.08);
   --button-secondary-border: rgba(255, 255, 255, 0.12);
   --button-secondary-border-hover: rgba(255, 255, 255, 0.24);
+  --badge-accent-bg: rgba(255, 255, 255, 0.08);
+  --badge-accent-border: rgba(255, 255, 255, 0.2);
+  --badge-accent-text: var(--text-primary);
+  --badge-accent-shadow: 0 0 18px rgba(255, 255, 255, 0.08);
   --danger-bg: rgba(104, 32, 43, 0.34);
   --danger-border: rgba(255, 140, 140, 0.24);
   --status-chip-bg: rgba(255, 255, 255, 0.05);
@@ -76,11 +97,11 @@
   --edge-button-primary-text: var(--text-primary);
   --edge-button-primary-text-shadow: none;
   --edge-button-hover-text: var(--text-primary);
-  --edge-action-active-text: #b63131;
-  --edge-action-active-glow: rgba(182, 49, 49, 0.92);
-  --edge-action-active-glow-soft: rgba(182, 49, 49, 0.34);
-  --edge-action-active-border: rgba(182, 49, 49, 0.52);
-  --edge-action-active-surface: rgba(182, 49, 49, 0.14);
+  --edge-action-active-text: #f06525;
+  --edge-action-active-glow: rgba(240, 101, 37, 0.92);
+  --edge-action-active-glow-soft: rgba(240, 101, 37, 0.34);
+  --edge-action-active-border: rgba(240, 101, 37, 0.52);
+  --edge-action-active-surface: rgba(240, 101, 37, 0.14);
   --orb-stop-outer-1: rgba(255, 255, 255, 0);
   --orb-stop-outer-2: rgba(255, 255, 255, 0.06);
   --orb-stop-outer-3: rgba(255, 255, 255, 0.18);
@@ -160,6 +181,124 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+}
+
+html[data-theme='coral-companion'],
+body[data-theme='coral-companion'] {
+  --text-primary: #0f172a;
+  --text-secondary: #526072;
+  --text-muted: #7e8a9a;
+  --text-faint: rgba(15, 23, 42, 0.62);
+  --app-bg-pattern: none;
+  --app-bg-aurora: rgba(255, 122, 61, 0.16);
+  --app-bg-aurora-secondary: rgba(255, 225, 195, 0.7);
+  --app-bg-start: #fffdfa;
+  --app-bg-end: #f7f3ee;
+  --panel-texture: none;
+  --panel-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(249, 244, 239, 0.95) 100%);
+  --panel-bg-muted: rgba(255, 251, 247, 0.94);
+  --panel-bg-deep: rgba(255, 248, 242, 0.98);
+  --panel-bg-soft: rgba(255, 255, 255, 0.84);
+  --panel-border: rgba(82, 96, 114, 0.12);
+  --panel-border-strong: rgba(82, 96, 114, 0.18);
+  --panel-border-active: rgba(240, 101, 37, 0.24);
+  --panel-shadow: 0 20px 44px rgba(206, 155, 117, 0.16), 0 10px 24px rgba(15, 23, 42, 0.06);
+  --panel-glow-soft: rgba(255, 122, 61, 0.08);
+  --panel-glow-medium: rgba(255, 122, 61, 0.12);
+  --panel-glow-strong: rgba(255, 122, 61, 0.18);
+  --button-primary-text: #ffffff;
+  --button-primary-bg: linear-gradient(180deg, #ff7a3d 0%, #f06525 100%);
+  --button-primary-bg-hover: linear-gradient(180deg, #ff965f 0%, #ff7a3d 100%);
+  --button-primary-border: rgba(240, 101, 37, 0.42);
+  --button-primary-shadow: 0 14px 40px rgba(255, 122, 61, 0.28);
+  --button-secondary-bg: rgba(255, 255, 255, 0.82);
+  --button-secondary-bg-hover: rgba(255, 248, 242, 0.96);
+  --button-secondary-border: rgba(82, 96, 114, 0.1);
+  --button-secondary-border-hover: rgba(82, 96, 114, 0.16);
+  --badge-accent-bg: rgba(255, 239, 227, 0.92);
+  --badge-accent-border: rgba(255, 216, 189, 1);
+  --badge-accent-text: #c84c16;
+  --badge-accent-shadow: 0 10px 24px rgba(255, 122, 61, 0.14);
+  --danger-bg: rgba(186, 49, 64, 0.12);
+  --danger-border: rgba(186, 49, 64, 0.22);
+  --status-chip-bg: rgba(255, 255, 255, 0.76);
+  --status-chip-border: rgba(82, 96, 114, 0.12);
+  --status-chip-text: #0f172a;
+  --input-bg: rgba(255, 255, 255, 0.94);
+  --input-border: rgba(82, 96, 114, 0.12);
+  --input-border-focus: rgba(240, 101, 37, 0.28);
+  --scrollbar-track: rgba(240, 101, 37, 0.06);
+  --scrollbar-thumb: rgba(240, 101, 37, 0.16);
+  --scrollbar-thumb-hover: rgba(240, 101, 37, 0.24);
+  --overlay-shell: rgba(255, 252, 248, 0.96);
+  --overlay-shell-border: rgba(82, 96, 114, 0.12);
+  --overlay-shell-highlight: rgba(255, 255, 255, 0.9);
+  --overlay-shell-active: rgba(255, 122, 61, 0.08);
+  --overlay-panel-bg: rgba(255, 248, 242, 0.98);
+  --overlay-panel-shadow: rgba(255, 122, 61, 0.12);
+  --edge-trigger-border: rgba(82, 96, 114, 0.12);
+  --edge-trigger-ready-border: rgba(82, 96, 114, 0.16);
+  --edge-trigger-active-border: rgba(240, 101, 37, 0.22);
+  --edge-trigger-surface-top: rgba(255, 255, 255, 0.98);
+  --edge-trigger-surface-mid: rgba(255, 247, 240, 0.82);
+  --edge-trigger-surface-core: rgba(255, 240, 231, 0.98);
+  --edge-trigger-surface-lower: rgba(255, 255, 255, 0.82);
+  --edge-trigger-surface-bottom: rgba(255, 228, 209, 0.76);
+  --edge-trigger-base-top: rgba(250, 251, 253, 0.98);
+  --edge-trigger-base-bottom: rgba(248, 236, 227, 0.96);
+  --edge-trigger-inner-highlight: rgba(255, 255, 255, 0.92);
+  --edge-button-primary-text: #0f172a;
+  --edge-button-hover-text: #0f172a;
+  --edge-action-active-text: #c84c16;
+  --edge-action-active-glow: rgba(240, 101, 37, 0.38);
+  --edge-action-active-glow-soft: rgba(240, 101, 37, 0.14);
+  --edge-action-active-border: rgba(240, 101, 37, 0.18);
+  --edge-action-active-surface: rgba(255, 122, 61, 0.12);
+  --orb-visual-primary: #ff7a3d;
+  --orb-visual-secondary: #f06525;
+  --orb-visual-tertiary: #0f1320;
+  --orb-visual-surface: rgba(255, 255, 255, 0.96);
+  --orb-visual-highlight: #ffffff;
+  --orb-visual-shadow: rgba(15, 23, 42, 0.16);
+  --orb-visual-grid: rgba(255, 122, 61, 0.16);
+  --orb-visual-trace: rgba(15, 19, 32, 0.14);
+  --window-mark-border: rgba(82, 96, 114, 0.12);
+  --window-mark-bg: radial-gradient(circle, rgba(255, 255, 255, 0.96) 0%, rgba(255, 255, 255, 0.42) 62%, rgba(255, 255, 255, 0) 100%);
+  --window-mark-shadow: 0 0 12px rgba(255, 122, 61, 0.08), 0 0 24px rgba(255, 255, 255, 0.24);
+  --window-title-shadow: 0 0 14px rgba(255, 122, 61, 0.08);
+  --window-control-hover-bg: rgba(255, 255, 255, 0.88);
+  --window-control-hover-border: rgba(82, 96, 114, 0.12);
+  --window-control-hover-shadow: 0 0 16px rgba(255, 122, 61, 0.08);
+  --window-control-close-hover-color: #7a1b2a;
+  --window-control-close-hover-bg: rgba(199, 117, 128, 0.16);
+  --window-control-close-hover-border: rgba(167, 78, 90, 0.18);
+  --status-dot-fill: #f06525;
+  --status-dot-shadow: 0 0 14px rgba(240, 101, 37, 0.36);
+  --background: #fffdfa;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #f06525;
+  --primary-foreground: #fffaf6;
+  --secondary: #fff1e8;
+  --secondary-foreground: #8a3d17;
+  --muted: #fff5ef;
+  --muted-foreground: #7e8a9a;
+  --accent: #fff3eb;
+  --accent-foreground: #7a3417;
+  --border: #e9ddd4;
+  --input: #fffaf6;
+  --ring: #ff7a3d;
+  --sidebar: #fff8f3;
+  --sidebar-foreground: #0f172a;
+  --sidebar-primary: #f06525;
+  --sidebar-primary-foreground: #fffaf6;
+  --sidebar-accent: #fff1e8;
+  --sidebar-accent-foreground: #8a3d17;
+  --sidebar-border: #e9ddd4;
+  --sidebar-ring: #ff7a3d;
 }
 
 html[data-theme='shadow-satin'],
@@ -1427,6 +1566,9 @@ body {
     var(--app-bg-pattern),
     radial-gradient(circle at top, var(--app-bg-aurora), transparent 34%),
     radial-gradient(circle at 85% 12%, var(--app-bg-aurora-secondary), transparent 26%),
+    radial-gradient(circle at 14% 78%, var(--app-bg-aurora), transparent 22%),
+    radial-gradient(circle at top left, var(--app-bg-aurora), transparent 24%),
+    radial-gradient(circle at top right, var(--app-bg-aurora-secondary), transparent 28%),
     linear-gradient(180deg, var(--app-bg-start) 0%, var(--app-bg-end) 100%);
   background-attachment: fixed;
 }
@@ -1444,17 +1586,39 @@ code {
 }
 
 #root {
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .app-frame {
-  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.app-shell,
+.app-desktop-shell {
+  width: min(100%, 1480px);
+  margin: 0 auto;
 }
 
 .app-shell {
-  max-width: 1080px;
-  margin: 0 auto;
   padding: 18px 24px 64px;
+}
+
+.dashboard-home-grid {
+  align-items: stretch;
+}
+
+@media (min-width: 1680px) {
+  .app-shell,
+  .app-desktop-shell {
+    width: min(100%, 1840px);
+  }
+}
+
+@media (min-width: 2300px) {
+  .app-shell,
+  .app-desktop-shell {
+    width: min(100%, 2280px);
+  }
 }
 
 [data-tauri-drag-region] {
@@ -1521,28 +1685,38 @@ code {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 6px;
+  padding: 5px;
   border: 1px solid var(--panel-border);
   border-radius: 999px;
   background: var(--panel-texture), var(--panel-bg-muted);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 14px 28px rgba(0, 0, 0, 0.16),
     0 0 20px var(--panel-glow-soft);
+  backdrop-filter: blur(18px);
+}
+
+.window-titlebar__interactive,
+.window-titlebar__interactive * {
+  app-region: no-drag;
+  -webkit-app-region: no-drag;
 }
 
 .window-titlebar__nav-button {
-  min-height: 36px;
-  padding: 0 14px;
+  min-height: 38px;
+  padding: 0 16px;
   border: 1px solid transparent;
   border-radius: 999px;
   background: transparent;
   color: var(--text-secondary);
   font-size: 0.84rem;
   font-weight: 700;
+  letter-spacing: 0.01em;
   cursor: pointer;
   app-region: no-drag;
   -webkit-app-region: no-drag;
   transition:
+    transform 140ms ease,
     color 140ms ease,
     background 140ms ease,
     border-color 140ms ease,
@@ -1550,17 +1724,23 @@ code {
 }
 
 .window-titlebar__nav-button:hover {
+  transform: translateY(-1px);
   color: var(--text-primary);
   background: var(--button-secondary-bg);
   border-color: var(--button-secondary-border);
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.1);
 }
 
 .window-titlebar__nav-button--active,
 .window-titlebar__nav-button--active:hover {
+  transform: translateY(-1px);
   color: var(--text-primary);
   border-color: var(--panel-border-active);
   background: var(--button-primary-bg);
-  box-shadow: var(--button-primary-shadow);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 12px 24px rgba(0, 0, 0, 0.14),
+    var(--button-primary-shadow);
 }
 
 .window-titlebar__menu-button {
@@ -1923,7 +2103,7 @@ body.overlay-body #root {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.14),
     0 0 12px var(--edge-action-active-glow-soft),
-    0 0 22px rgba(255, 44, 44, 0.14);
+    0 0 22px var(--edge-action-active-glow-soft);
   transform: translateY(-1px);
 }
 
@@ -3171,49 +3351,61 @@ h1 {
 }
 
 .settings-nav-button {
+  position: relative;
   display: flex;
   align-items: center;
   width: 100%;
-  min-height: 52px;
-  padding: 12px 16px;
+  min-height: 50px;
+  padding: 12px 18px;
   border: 1px solid transparent;
-  border-radius: 14px;
+  border-radius: 16px;
   background: transparent;
-  color: #edf4ff;
+  color: var(--text-secondary);
   text-align: left;
+  overflow: visible;
   cursor: pointer;
   app-region: no-drag;
   -webkit-app-region: no-drag;
-  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+  transition:
+    transform 140ms ease,
+    color 140ms ease,
+    border-color 140ms ease,
+    background 140ms ease,
+    box-shadow 140ms ease;
 }
 
 .settings-nav-button:hover {
-  transform: translateY(-1px);
-  border-color: rgba(158, 191, 255, 0.28);
-  background: rgba(18, 29, 53, 0.32);
-  box-shadow: 0 16px 28px rgba(8, 14, 29, 0.2);
+  color: var(--text-primary);
+  border-color: var(--button-secondary-border);
+  background: var(--button-secondary-bg);
+  box-shadow:
+    0 14px 24px rgba(0, 0, 0, 0.14),
+    0 0 18px var(--panel-glow-soft);
 }
 
 .settings-nav-button--active {
-  border-color: rgba(116, 167, 255, 0.44);
-  background: linear-gradient(135deg, rgba(49, 77, 136, 0.88) 0%, rgba(26, 42, 78, 0.94) 100%);
-  box-shadow: 0 18px 32px rgba(31, 48, 91, 0.28);
+  color: var(--text-primary);
+  border-color: var(--button-primary-border);
+  background: var(--button-primary-bg);
+  box-shadow:
+    0 10px 18px rgba(0, 0, 0, 0.1),
+    var(--button-primary-shadow);
 }
 
 .settings-nav-title {
   font-size: 1rem;
   font-weight: 700;
-  color: #f4f8ff;
+  color: var(--text-primary);
 }
 
 .settings-nav-description {
-  color: #a8badf;
+  color: var(--text-secondary);
   font-size: 0.9rem;
   line-height: 1.45;
 }
 
 .settings-nav-summary {
-  color: #d5e0f6;
+  color: var(--text-muted);
   font-size: 0.82rem;
 }
 
@@ -3243,7 +3435,9 @@ h1 {
   z-index: 3;
   margin: -24px -24px 6px;
   padding: 20px 24px 12px;
-  background: #0c1327;
+  background: var(--panel-texture), var(--panel-bg);
+  box-shadow: inset 0 -1px 0 var(--panel-border);
+  backdrop-filter: blur(18px);
 }
 
 .settings-panel-header h2 {
@@ -3782,14 +3976,14 @@ select:focus-visible {
 }
 
 .settings-nav-button {
-  background: rgba(255, 255, 255, 0.025);
+  background: transparent;
 }
 
 .settings-nav-button:hover {
   border-color: var(--button-secondary-border-hover);
   background: var(--button-secondary-bg-hover);
   box-shadow:
-    0 16px 28px rgba(0, 0, 0, 0.28),
+    0 14px 24px rgba(0, 0, 0, 0.16),
     0 0 22px var(--panel-glow-soft);
 }
 
@@ -3922,9 +4116,11 @@ select:focus-visible {
 }
 
 .edge-nav-btn--active {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: var(--panel-border-strong);
-  box-shadow: 0 0 18px var(--panel-glow-soft);
+  background:
+    radial-gradient(circle at 50% 34%, var(--edge-action-active-surface) 0%, transparent 58%),
+    var(--button-secondary-bg);
+  border-color: var(--edge-action-active-border);
+  box-shadow: 0 0 18px var(--edge-action-active-glow-soft);
 }
 
 .edge-nav-btn:hover {
@@ -4769,6 +4965,84 @@ html[data-theme='creed-eclipse'] .voice-chat-shell::after {
 
 html[data-theme='creed-eclipse'] .window-titlebar__logo {
   animation: animus-beacon 2.8s ease-in-out infinite;
+}
+
+html[data-theme='coral-companion'] .window-titlebar__logo {
+  filter: drop-shadow(0 14px 32px rgba(255, 122, 61, 0.22));
+}
+
+html[data-theme='coral-companion'] .window-titlebar__nav {
+  border-color: rgba(82, 96, 114, 0.1);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.88) 0%, rgba(255, 248, 242, 0.82) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    0 18px 34px rgba(206, 155, 117, 0.14),
+    0 8px 18px rgba(15, 23, 42, 0.05);
+}
+
+html[data-theme='coral-companion'] .window-titlebar__nav-button {
+  color: var(--text-secondary);
+}
+
+html[data-theme='coral-companion'] .window-titlebar__nav-button:hover {
+  color: var(--text-primary);
+  border-color: rgba(240, 101, 37, 0.14);
+  background: rgba(255, 246, 239, 0.84);
+  box-shadow: 0 10px 18px rgba(206, 155, 117, 0.12);
+}
+
+html[data-theme='coral-companion'] .window-titlebar__nav-button--active,
+html[data-theme='coral-companion'] .window-titlebar__nav-button--active:hover {
+  color: #a14414;
+  border-color: rgba(240, 101, 37, 0.18);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 241, 230, 0.96) 100%);
+  box-shadow:
+    0 10px 18px rgba(255, 122, 61, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.78);
+}
+
+html[data-theme='coral-companion'] .settings-page-header,
+html[data-theme='coral-companion'] .settings-detail-panel {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(249, 244, 239, 0.95) 100%);
+  border-color: rgba(82, 96, 114, 0.1);
+  box-shadow:
+    0 20px 44px rgba(206, 155, 117, 0.16),
+    0 10px 24px rgba(15, 23, 42, 0.05);
+}
+
+html[data-theme='coral-companion'] .settings-panel-header {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(252, 246, 240, 0.95) 100%);
+  box-shadow:
+    inset 0 -1px 0 rgba(82, 96, 114, 0.1),
+    0 12px 24px rgba(255, 255, 255, 0.5);
+}
+
+html[data-theme='coral-companion'] .settings-nav-button {
+  color: var(--text-secondary);
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+html[data-theme='coral-companion'] .settings-nav-button:hover {
+  border-color: rgba(240, 101, 37, 0.14);
+  background: rgba(255, 248, 243, 0.96);
+  box-shadow:
+    0 10px 18px rgba(206, 155, 117, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+html[data-theme='coral-companion'] .settings-nav-button--active {
+  border-color: rgba(240, 101, 37, 0.18);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 242, 233, 0.96) 100%);
+  box-shadow:
+    0 8px 16px rgba(255, 122, 61, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.84);
 }
 
 html[data-theme='shadow-monarch'] .hero-card,

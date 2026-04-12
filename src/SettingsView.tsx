@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { SettingsConfirmDialog } from './components/app/SettingsConfirmDialog';
 import {
   DESIGN_THEME_OPTIONS,
+  DEFAULT_DESIGN_THEME_ID,
   getDesignThemeOption,
   normalizeDesignThemeId,
 } from './designThemes';
@@ -77,11 +78,11 @@ type SelectOption = {
 
 const FIELD_GRID_CLASS = 'grid gap-6 md:grid-cols-2';
 const CONTROL_CLASS =
-  'h-11 w-full border-white/15 bg-black/20 text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:border-white/25 focus-visible:ring-white/10';
+  'h-11 w-full border-[color:var(--input-border)] bg-[var(--input-bg)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] shadow-sm focus-visible:border-[color:var(--input-border-focus)] focus-visible:ring-[rgba(240,101,37,0.12)] hover:border-[color:var(--button-secondary-border-hover)]';
 const SELECT_TRIGGER_CLASS =
-  'h-11 w-full border-white/15 bg-black/20 text-[var(--text-primary)] data-placeholder:text-[var(--text-muted)] focus-visible:border-white/25 focus-visible:ring-white/10';
+  'h-11 w-full border-[color:var(--input-border)] bg-[var(--input-bg)] text-[var(--text-primary)] data-placeholder:text-[var(--text-muted)] shadow-sm focus-visible:border-[color:var(--input-border-focus)] focus-visible:ring-[rgba(240,101,37,0.12)] hover:border-[color:var(--button-secondary-border-hover)]';
 const SECTION_NAV_BUTTON_CLASS =
-  'flex min-h-11 items-center rounded-xl border px-4 py-3 text-left text-sm font-medium transition-colors';
+  'settings-nav-button flex min-h-11 items-center rounded-xl border px-4 py-3 text-left text-sm font-medium transition-colors';
 const RESET_WORKSPACE_CURRENT = '__current_workspace__';
 
 const VOICE_AGENT_GENDER_OPTIONS: Array<{
@@ -126,7 +127,7 @@ function SettingSelect({
       <SelectTrigger className={SELECT_TRIGGER_CLASS}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
-      <SelectContent className="border-white/10 bg-[var(--panel-bg-deep)] text-[var(--text-primary)]">
+      <SelectContent className="border-[color:var(--panel-border)] bg-[var(--panel-bg-deep)] text-[var(--text-primary)]">
         {options.map((option) => (
           <SelectItem key={option.value} value={option.value}>
             {option.label}
@@ -250,7 +251,7 @@ export default function SettingsView({
         hint={t('settings.speechPlaybackSpeedNote')}
         className="md:col-span-2"
       >
-        <div className="flex items-center gap-4 rounded-xl border border-white/10 bg-black/20 px-4 py-4">
+        <div className="flex items-center gap-4 rounded-xl border border-[color:var(--panel-border)] bg-[var(--panel-bg-deep)] px-4 py-4">
           <Slider
             value={[settings.playbackSpeed]}
             min={0.5}
@@ -357,7 +358,7 @@ export default function SettingsView({
           <Button
             type="button"
             variant="outline"
-            className="h-11 border-white/15 bg-white/8 text-[var(--text-primary)] hover:bg-white/12"
+            className="h-11 border-[color:var(--button-primary-border)] bg-[var(--button-primary-bg)] text-[var(--button-primary-text)] shadow-[var(--button-primary-shadow)] hover:bg-[var(--button-primary-bg-hover)]"
             disabled={Boolean(assistantNameError) || isSavingSettings}
             onClick={() => void onOpenTraining()}
           >
@@ -446,7 +447,7 @@ export default function SettingsView({
         label={t('settings.wakeMatchThreshold')}
         hint={t('settings.wakeMatchThresholdNote')}
       >
-        <div className="flex items-center gap-4 rounded-xl border border-white/10 bg-black/20 px-4 py-4">
+        <div className="flex items-center gap-4 rounded-xl border border-[color:var(--panel-border)] bg-[var(--panel-bg-deep)] px-4 py-4">
           <Slider
             value={[settings.assistantWakeThreshold]}
             min={ASSISTANT_MATCH_THRESHOLD_MIN}
@@ -500,7 +501,7 @@ export default function SettingsView({
         hint={t('settings.backgroundStartupNote')}
         className="md:col-span-2"
       >
-        <div className="space-y-3 rounded-xl border border-white/10 bg-black/20 p-4">
+        <div className="space-y-3 rounded-xl border border-[color:var(--panel-border)] bg-[var(--panel-bg-deep)] p-4">
           <label className="flex items-center gap-3 text-sm text-[var(--text-primary)]">
             <Checkbox
               checked={settings.launchAtLogin}
@@ -552,7 +553,7 @@ export default function SettingsView({
       {isHostedMode && hostedSignedIn ? (
         <>
           <FormField label={t('settings.hostedAccount')} className="md:col-span-2">
-            <div className="space-y-3 rounded-xl border border-white/10 bg-black/20 p-4">
+            <div className="space-y-3 rounded-xl border border-[color:var(--panel-border)] bg-[var(--panel-bg-deep)] p-4">
               <div className="space-y-1 text-sm text-[var(--text-secondary)]">
                 <strong className="block text-[var(--text-primary)]">
                   {hostedSignedIn
@@ -679,7 +680,7 @@ export default function SettingsView({
           ].map((option) => (
             <label
               key={option.value}
-              className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-[var(--text-primary)]"
+              className="flex items-center gap-3 rounded-xl border border-[color:var(--panel-border)] bg-[var(--panel-bg-deep)] px-4 py-3 text-sm text-[var(--text-primary)]"
             >
               <RadioGroupItem value={option.value} />
               <span>{option.label}</span>
@@ -697,7 +698,7 @@ export default function SettingsView({
           <Input
             type="color"
             value={settings.actionBarActiveGlowColor}
-            className="h-11 w-full min-w-[5rem] border-white/15 bg-black/20 p-1 sm:w-24"
+            className="h-11 w-full min-w-[5rem] border-[color:var(--input-border)] bg-[var(--input-bg)] p-1 sm:w-24"
             onChange={(event) =>
               updateSettings({ actionBarActiveGlowColor: event.target.value })
             }
@@ -708,7 +709,7 @@ export default function SettingsView({
             autoComplete="off"
             spellCheck={false}
             className={cn(CONTROL_CLASS, 'sm:flex-1')}
-            placeholder="#b63131"
+            placeholder="#f06525"
             value={settings.actionBarActiveGlowColor}
             onChange={(event) =>
               updateSettings({ actionBarActiveGlowColor: event.target.value })
@@ -722,6 +723,10 @@ export default function SettingsView({
   const renderDesignSection = (): JSX.Element => {
     const selectedThemeId = normalizeDesignThemeId(settings.designThemeId);
     const selectedTheme = getDesignThemeOption(selectedThemeId);
+    const formatThemeLabel = (theme: (typeof DESIGN_THEME_OPTIONS)[number]): string =>
+      theme.id === DEFAULT_DESIGN_THEME_ID
+        ? `${theme.label} (${t('settingsPage.designThemeDefaultSuffix')})`
+        : theme.label;
 
     return (
       <div className="space-y-6">
@@ -742,16 +747,16 @@ export default function SettingsView({
               }
               options={DESIGN_THEME_OPTIONS.map((theme) => ({
                 value: theme.id,
-                label: theme.label,
+                label: formatThemeLabel(theme),
               }))}
             />
           </FormField>
           <div
-            className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-5"
+            className="space-y-4 rounded-2xl border border-[color:var(--panel-border)] bg-[var(--panel-bg-deep)] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]"
           >
             <div className="space-y-2">
               <strong className="block text-base text-[var(--text-primary)]">
-                {selectedTheme.label}
+                {formatThemeLabel(selectedTheme)}
               </strong>
               <p className="text-sm leading-6 text-[var(--text-secondary)]">
                 {t(`settingsPage.themeCards.${selectedTheme.id}.description`, {
@@ -760,17 +765,17 @@ export default function SettingsView({
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1 text-xs text-[var(--text-secondary)]">
+              <span className="rounded-full border border-[color:var(--panel-border)] bg-[var(--button-secondary-bg)] px-3 py-1 text-xs text-[var(--text-secondary)]">
                 {t(`settingsPage.themeCards.${selectedTheme.id}.accent`, {
                   defaultValue: selectedTheme.accent,
                 })}
               </span>
-              <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1 text-xs text-[var(--text-secondary)]">
+              <span className="rounded-full border border-[color:var(--panel-border)] bg-[var(--button-secondary-bg)] px-3 py-1 text-xs text-[var(--text-secondary)]">
                 {t(`settingsPage.themeCards.${selectedTheme.id}.contrast`, {
                   defaultValue: selectedTheme.contrast,
                 })}
               </span>
-              <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1 text-xs text-[var(--text-secondary)]">
+              <span className="rounded-full border border-[color:var(--panel-border)] bg-[var(--button-secondary-bg)] px-3 py-1 text-xs text-[var(--text-secondary)]">
                 {selectedTheme.id}
               </span>
             </div>
@@ -829,7 +834,7 @@ export default function SettingsView({
             <Button
               type="button"
               variant="destructive"
-              className="h-11 border-rose-200/15 bg-rose-500/12 text-rose-100 hover:bg-rose-500/18"
+              className="h-11 border-[color:var(--danger-border)] bg-[var(--danger-bg)] text-[color:#8f2d3a] hover:bg-[rgba(186,49,64,0.18)]"
               disabled={isSavingSettings || isWorking}
               onClick={() => setResetTarget({ type: 'all' })}
             >
@@ -838,10 +843,10 @@ export default function SettingsView({
           }
         />
 
-        <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)]">
+        <div className="grid gap-6 xl:gap-8 lg:grid-cols-[240px_minmax(0,1fr)] 2xl:grid-cols-[290px_minmax(0,1fr)]">
           <aside className="lg:pt-2">
             <nav
-              className="flex gap-2 overflow-x-auto pb-1 lg:flex-col"
+              className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-x-hidden"
               aria-label={t('settingsPage.categories')}
             >
               {settingsSections.map((section) => (
@@ -850,9 +855,7 @@ export default function SettingsView({
                   key={section.id}
                   className={cn(
                     SECTION_NAV_BUTTON_CLASS,
-                    activeSection === section.id
-                      ? 'border-white/20 bg-white/10 text-[var(--text-primary)]'
-                      : 'border-transparent bg-transparent text-[var(--text-secondary)] hover:border-white/10 hover:bg-white/5 hover:text-[var(--text-primary)]',
+                    activeSection === section.id ? 'settings-nav-button--active' : '',
                   )}
                   onClick={() => handleSectionSelect(section.id)}
                 >
@@ -862,9 +865,9 @@ export default function SettingsView({
             </nav>
           </aside>
 
-          <AppSurfaceCard className="min-h-[38rem] overflow-hidden">
+          <AppSurfaceCard className="min-h-[40rem] overflow-hidden 2xl:min-h-[46rem]">
             <div
-              className="sticky top-0 z-10 flex flex-col gap-4 border-b border-[color:var(--panel-border)]/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
+              className="sticky top-0 z-10 flex flex-col gap-4 border-b border-[color:var(--panel-border)]/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between 2xl:px-7 2xl:py-5"
               style={{ background: 'var(--panel-bg)' }}
             >
               <h2 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
@@ -875,7 +878,7 @@ export default function SettingsView({
                   type="button"
                   variant="outline"
                   disabled={saveDisabled}
-                  className="h-11 border-white/15 bg-white/10 text-[var(--text-primary)] hover:bg-white/15"
+                  className="h-11 border-[color:var(--button-primary-border)] bg-[var(--button-primary-bg)] text-[var(--button-primary-text)] shadow-[var(--button-primary-shadow)] hover:bg-[var(--button-primary-bg-hover)]"
                   onClick={() => void onSaveSection(activeSection)}
                 >
                   {isSavingSettings ? t('settings.saving') : t('settings.save')}
@@ -884,7 +887,7 @@ export default function SettingsView({
                   type="button"
                   variant="destructive"
                   disabled={resetDisabled}
-                  className="h-11 border-rose-200/15 bg-rose-500/10 text-rose-100 hover:bg-rose-500/18"
+                  className="h-11 border-[color:var(--danger-border)] bg-[var(--danger-bg)] text-[color:#8f2d3a] hover:bg-[rgba(186,49,64,0.18)]"
                   onClick={() => setResetTarget({ type: 'section', sectionId: activeSection })}
                 >
                   {t('settings.reset')}
@@ -892,7 +895,7 @@ export default function SettingsView({
               </div>
             </div>
 
-            <div className="max-h-[calc(100dvh-16rem)] overflow-y-auto px-5 py-5">
+            <div className="max-h-[calc(100dvh-14rem)] overflow-y-auto px-5 py-5 2xl:max-h-[calc(100dvh-15rem)] 2xl:px-7 2xl:py-6">
               {renderActiveSection()}
             </div>
           </AppSurfaceCard>

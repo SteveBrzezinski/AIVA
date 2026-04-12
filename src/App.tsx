@@ -1030,7 +1030,10 @@ export default function App() {
     <div className="space-y-6">
       <HeroSection />
 
-      <section className="grid gap-4 xl:grid-cols-3" aria-label={i18n.t('dashboardHome.summaryAria')}>
+      <section
+        className="dashboard-home-grid grid gap-4 xl:grid-cols-3 2xl:gap-6"
+        aria-label={i18n.t('dashboardHome.summaryAria')}
+      >
         <DashboardSummaryCard
           eyebrow={i18n.t('dashboardHome.assistantEyebrow')}
           title={settings.assistantName || 'Ava'}
@@ -1065,7 +1068,7 @@ export default function App() {
           }
         >
           {hostedSignedIn ? (
-            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+            <div className="rounded-xl border border-[color:var(--panel-border)] bg-[var(--panel-bg-deep)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
               <p className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">
                 {i18n.t('dashboardHome.accountWorkspaceLabel')}
               </p>
@@ -1079,7 +1082,7 @@ export default function App() {
             <Button
               type="button"
               variant="outline"
-              className="border-white/15 bg-white/8 text-[var(--text-primary)] hover:bg-white/12"
+              className="border-[color:var(--button-primary-border)] bg-[var(--button-primary-bg)] text-[var(--button-primary-text)] shadow-[var(--button-primary-shadow)] hover:bg-[var(--button-primary-bg-hover)]"
               onClick={() => openAccountLoginModal()}
             >
               {i18n.t('shell.authLogin')}
@@ -1097,7 +1100,7 @@ export default function App() {
           description={message}
         >
           <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+            <div className="rounded-xl border border-[color:var(--panel-border)] bg-[var(--panel-bg-deep)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
               <p className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">
                 {i18n.t('dashboardHome.modeModelLabel')}
               </p>
@@ -1105,7 +1108,7 @@ export default function App() {
                 {settings.voiceAgentModel}
               </strong>
             </div>
-            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+            <div className="rounded-xl border border-[color:var(--panel-border)] bg-[var(--panel-bg-deep)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
               <p className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">
                 {i18n.t('dashboardHome.modeLanguageLabel')}
               </p>
@@ -1113,7 +1116,7 @@ export default function App() {
                 {settings.sttLanguage.toUpperCase()}
               </strong>
             </div>
-            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+            <div className="rounded-xl border border-[color:var(--panel-border)] bg-[var(--panel-bg-deep)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
               <p className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">
                 {i18n.t('dashboardHome.modeSessionLabel')}
               </p>
@@ -1213,11 +1216,9 @@ export default function App() {
       <button
         type="button"
         className={cn(
-          'inline-flex h-11 items-center justify-center rounded-xl px-4 text-sm font-medium transition-colors',
+          'window-titlebar__nav-button inline-flex h-11 items-center justify-center rounded-xl px-4 text-sm font-medium transition-colors',
           mobile ? 'w-full justify-start px-3' : '',
-          activeView === 'dashboard'
-            ? 'bg-white/12 text-[var(--text-primary)]'
-            : 'text-[var(--text-secondary)] hover:bg-white/6 hover:text-[var(--text-primary)]',
+          activeView === 'dashboard' ? 'window-titlebar__nav-button--active' : '',
         )}
         onClick={() => {
           setActiveView('dashboard');
@@ -1229,11 +1230,9 @@ export default function App() {
       <button
         type="button"
         className={cn(
-          'inline-flex h-11 items-center justify-center rounded-xl px-4 text-sm font-medium transition-colors',
+          'window-titlebar__nav-button inline-flex h-11 items-center justify-center rounded-xl px-4 text-sm font-medium transition-colors',
           mobile ? 'w-full justify-start px-3' : '',
-          activeView === 'settings'
-            ? 'bg-white/12 text-[var(--text-primary)]'
-            : 'text-[var(--text-secondary)] hover:bg-white/6 hover:text-[var(--text-primary)]',
+          activeView === 'settings' ? 'window-titlebar__nav-button--active' : '',
         )}
         onClick={() => {
           setActiveView('settings');
@@ -1246,11 +1245,9 @@ export default function App() {
         <button
           type="button"
           className={cn(
-            'inline-flex h-11 items-center justify-center rounded-xl px-4 text-sm font-medium transition-colors',
+            'window-titlebar__nav-button inline-flex h-11 items-center justify-center rounded-xl px-4 text-sm font-medium transition-colors',
             mobile ? 'w-full justify-start px-3' : '',
-            activeView === 'debug'
-              ? 'bg-white/12 text-[var(--text-primary)]'
-              : 'text-[var(--text-secondary)] hover:bg-white/6 hover:text-[var(--text-primary)]',
+            activeView === 'debug' ? 'window-titlebar__nav-button--active' : '',
           )}
           onClick={() => {
             setActiveView('debug');
@@ -1303,9 +1300,18 @@ export default function App() {
         <div className="min-h-screen text-[var(--text-primary)]">
           <header
             className="sticky top-0 z-30 border-b border-[color:var(--panel-border)]/70 backdrop-blur-xl"
+            data-tauri-drag-region
+            onDoubleClick={(event) => {
+              const target = event.target as HTMLElement | null;
+              if (target?.closest('.window-titlebar__interactive')) {
+                return;
+              }
+
+              void handleWindowMaximizeToggle();
+            }}
             style={{ background: 'var(--panel-bg)' }}
           >
-            <div className="mx-auto flex h-16 w-full max-w-7xl items-center gap-3 px-4 sm:px-6">
+            <div className="app-desktop-shell mx-auto flex h-16 w-full items-center gap-3 px-4 sm:px-6">
               <div
                 className="flex min-w-0 items-center gap-3"
                 data-tauri-drag-region
@@ -1323,18 +1329,18 @@ export default function App() {
               </div>
 
               <nav
-                className="hidden flex-1 items-center justify-center gap-1 md:flex"
+                className="window-titlebar__interactive hidden flex-1 items-center justify-center gap-1 md:flex"
                 aria-label={i18n.t('shell.navigationLabel')}
               >
                 {renderTopNavigation()}
               </nav>
 
-              <div className="ml-auto flex items-center gap-2">
+              <div className="window-titlebar__interactive ml-auto flex items-center gap-2">
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="h-10 w-10 text-[var(--text-primary)] hover:bg-white/8 md:hidden"
+                  className="h-10 w-10 text-[var(--text-primary)] hover:bg-[var(--button-secondary-bg-hover)] md:hidden"
                   aria-label={i18n.t('shell.navigationLabel')}
                   onClick={() => setMobileNavOpen(true)}
                 >
@@ -1343,7 +1349,7 @@ export default function App() {
 
                 {hostedStatusMeta ? (
                   <div
-                    className="hidden max-w-[18rem] truncate rounded-full border border-white/10 bg-white/6 px-3 py-2 text-sm text-[var(--text-secondary)] lg:block"
+                    className="hidden max-w-[18rem] truncate rounded-full border border-[color:var(--panel-border)] bg-[var(--panel-bg-muted)] px-3 py-2 text-sm text-[var(--text-secondary)] lg:block"
                     aria-live="polite"
                   >
                     {hostedStatusMeta}
@@ -1356,8 +1362,8 @@ export default function App() {
                   className={cn(
                     'hidden h-10 md:inline-flex',
                     hostedSignedIn
-                      ? 'border-rose-200/15 bg-rose-500/12 text-rose-100 hover:bg-rose-500/18'
-                      : 'border-white/15 bg-white/8 text-[var(--text-primary)] hover:bg-white/12',
+                      ? 'border-[color:var(--danger-border)] bg-[var(--danger-bg)] text-[color:#8f2d3a] hover:bg-[rgba(186,49,64,0.18)]'
+                      : 'border-[color:var(--button-primary-border)] bg-[var(--button-primary-bg)] text-[var(--button-primary-text)] shadow-[var(--button-primary-shadow)] hover:bg-[var(--button-primary-bg-hover)]',
                   )}
                   onClick={() => {
                     if (hostedSignedIn) {
@@ -1376,7 +1382,7 @@ export default function App() {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-9 w-9 text-[var(--text-primary)] hover:bg-white/8"
+                    className="h-9 w-9 text-[var(--text-primary)] hover:bg-[var(--button-secondary-bg-hover)]"
                     aria-label="Minimize window"
                     onClick={() => void handleWindowMinimize()}
                   >
@@ -1386,7 +1392,7 @@ export default function App() {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-9 w-9 text-[var(--text-primary)] hover:bg-white/8"
+                    className="h-9 w-9 text-[var(--text-primary)] hover:bg-[var(--button-secondary-bg-hover)]"
                     aria-label={isMainWindowMaximized ? 'Restore window' : 'Maximize window'}
                     onClick={() => void handleWindowMaximizeToggle()}
                   >
@@ -1400,7 +1406,7 @@ export default function App() {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-9 w-9 text-[var(--text-primary)] hover:bg-rose-500/18 hover:text-rose-100"
+                    className="h-9 w-9 text-[var(--text-primary)] hover:bg-[rgba(186,49,64,0.18)] hover:text-[color:#8f2d3a]"
                     aria-label="Hide window"
                     onClick={() => void handleWindowClose()}
                   >
@@ -1431,7 +1437,7 @@ export default function App() {
               </nav>
               <div className="space-y-3 border-t border-[color:var(--panel-border)]/70 pt-4">
                 {hostedStatusMeta ? (
-                  <div className="rounded-xl border border-white/10 bg-white/6 px-4 py-3 text-sm text-[var(--text-secondary)]">
+                  <div className="rounded-xl border border-[color:var(--panel-border)] bg-[var(--panel-bg-muted)] px-4 py-3 text-sm text-[var(--text-secondary)]">
                     {hostedStatusMeta}
                   </div>
                 ) : null}
@@ -1441,8 +1447,8 @@ export default function App() {
                   className={cn(
                     'h-11 w-full justify-center',
                     hostedSignedIn
-                      ? 'border-rose-200/15 bg-rose-500/12 text-rose-100 hover:bg-rose-500/18'
-                      : 'border-white/15 bg-white/8 text-[var(--text-primary)] hover:bg-white/12',
+                      ? 'border-[color:var(--danger-border)] bg-[var(--danger-bg)] text-[color:#8f2d3a] hover:bg-[rgba(186,49,64,0.18)]'
+                      : 'border-[color:var(--button-primary-border)] bg-[var(--button-primary-bg)] text-[var(--button-primary-text)] shadow-[var(--button-primary-shadow)] hover:bg-[var(--button-primary-bg-hover)]',
                   )}
                   onClick={() => {
                     setMobileNavOpen(false);
@@ -1460,7 +1466,7 @@ export default function App() {
             </div>
           </SheetContent>
 
-          <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6">
+          <main className="app-desktop-shell mx-auto flex w-full flex-col gap-6 px-4 py-6 sm:px-6 2xl:py-8">
             {renderActiveView()}
           </main>
         </div>
@@ -1499,10 +1505,10 @@ export default function App() {
                   setLoginProviderMode(value as AppSettings['aiProviderMode'])
                 }
               >
-                <SelectTrigger className="h-11 w-full border-white/15 bg-black/20 text-[var(--text-primary)]">
+                <SelectTrigger className="h-11 w-full border-[color:var(--input-border)] bg-[var(--input-bg)] text-[var(--text-primary)] focus-visible:border-[color:var(--input-border-focus)]">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="border-white/10 bg-[var(--panel-bg-deep)] text-[var(--text-primary)]">
+                <SelectContent className="border-[color:var(--panel-border)] bg-[var(--panel-bg-deep)] text-[var(--text-primary)]">
                   <SelectItem value="hosted">{i18n.t('settings.aiProviderModeHosted')}</SelectItem>
                   <SelectItem value="byo">{i18n.t('settings.aiProviderModeByo')}</SelectItem>
                 </SelectContent>
@@ -1516,7 +1522,7 @@ export default function App() {
                   autoComplete="username"
                   placeholder="name@example.com"
                   value={loginEmailValue}
-                  className="h-11 border-white/15 bg-black/20 text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+                  className="h-11 border-[color:var(--input-border)] bg-[var(--input-bg)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:border-[color:var(--input-border-focus)]"
                   onChange={(event) => setLoginEmail(event.target.value)}
                 />
               </FormField>
@@ -1526,21 +1532,21 @@ export default function App() {
                   autoComplete="current-password"
                   placeholder={i18n.t('settings.hostedPasswordPlaceholder')}
                   value={loginPassword}
-                  className="h-11 border-white/15 bg-black/20 text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+                  className="h-11 border-[color:var(--input-border)] bg-[var(--input-bg)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:border-[color:var(--input-border-focus)]"
                   onChange={(event) => setLoginPassword(event.target.value)}
                 />
               </FormField>
             </div>
 
             {hostedAccountError ? (
-              <p className="text-sm text-rose-300">{hostedAccountError}</p>
+              <p className="text-sm text-[color:#8f2d3a]">{hostedAccountError}</p>
             ) : null}
 
-            <div className="flex flex-col-reverse gap-3 border-t border-[color:var(--panel-border)]/70 bg-white/5 px-4 py-4 sm:flex-row sm:justify-end">
+            <div className="flex flex-col-reverse gap-3 border-t border-[color:var(--panel-border)]/70 bg-[var(--panel-bg-muted)] px-4 py-4 sm:flex-row sm:justify-end">
               <Button
                 type="button"
                 variant="outline"
-                className="border-white/15 bg-white/5 text-[var(--text-primary)] hover:bg-white/10"
+                className="border-[color:var(--button-secondary-border)] bg-[var(--button-secondary-bg)] text-[var(--text-primary)] hover:bg-[var(--button-secondary-bg-hover)]"
                 onClick={() => setShowAccountModal(false)}
                 disabled={isHostedAccountBusy}
               >
@@ -1548,7 +1554,7 @@ export default function App() {
               </Button>
               <Button
                 type="button"
-                className="border-white/15 bg-white/12 text-[var(--text-primary)] hover:bg-white/18"
+                className="border-[color:var(--button-primary-border)] bg-[var(--button-primary-bg)] text-[var(--button-primary-text)] shadow-[var(--button-primary-shadow)] hover:bg-[var(--button-primary-bg-hover)]"
                 disabled={isHostedAccountBusy || !loginEmailValue.trim() || !loginPassword.trim()}
                 onClick={() =>
                   void handleHostedLogin({

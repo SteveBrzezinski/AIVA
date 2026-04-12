@@ -14,8 +14,8 @@ pub const DEFAULT_PAUSE_RESUME_HOTKEY: &str = "Ctrl+Shift+P";
 pub const DEFAULT_CANCEL_HOTKEY: &str = "Ctrl+Shift+X";
 pub const SETTINGS_EVENT: &str = "settings-updated";
 pub const CONFIG_FILE_NAME: &str = ".voice-overlay-assistant.config.json";
-const DEFAULT_DESIGN_THEME_ID: &str = "obsidian-halo";
-const DEFAULT_ACTION_BAR_ACTIVE_GLOW_COLOR: &str = "#b63131";
+const DEFAULT_DESIGN_THEME_ID: &str = "coral-companion";
+const DEFAULT_ACTION_BAR_ACTIVE_GLOW_COLOR: &str = "#f06525";
 const DEFAULT_PLAYBACK_SPEED: f32 = 1.0;
 const DEFAULT_ASSISTANT_WAKE_THRESHOLD: u8 = 68;
 const DEFAULT_ASSISTANT_CUE_COOLDOWN_MS: u32 = 1200;
@@ -200,6 +200,8 @@ pub fn sanitize_settings(mut settings: AppSettings) -> AppSettings {
         _ => "classic".to_string(),
     };
     settings.design_theme_id = match settings.design_theme_id.trim().to_lowercase().as_str() {
+        "coral-companion" => "coral-companion".to_string(),
+        "obsidian-halo" => "obsidian-halo".to_string(),
         "shadow-satin" => "shadow-satin".to_string(),
         "olympian-marble" => "olympian-marble".to_string(),
         "retro-signal" => "retro-signal".to_string(),
@@ -505,7 +507,7 @@ fn load_env_file_if_present() {
 
 #[cfg(test)]
 mod tests {
-    use super::sanitize_voice_agent_model;
+    use super::{sanitize_settings, sanitize_voice_agent_model, AppSettings};
 
     #[test]
     fn sanitizes_supported_voice_agent_models() {
@@ -522,5 +524,16 @@ mod tests {
             sanitize_voice_agent_model("realtime-mini".to_string()),
             "gpt-realtime-mini"
         );
+    }
+
+    #[test]
+    fn defaults_to_coral_companion_theme() {
+        let settings = sanitize_settings(AppSettings {
+            design_theme_id: "unknown-theme".to_string(),
+            ..AppSettings::default()
+        });
+
+        assert_eq!(settings.design_theme_id, "coral-companion");
+        assert_eq!(settings.action_bar_active_glow_color, "#f06525");
     }
 }

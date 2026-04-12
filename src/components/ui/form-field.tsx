@@ -25,9 +25,9 @@ function Note({
       className={cn(
         'text-xs leading-5',
         tone === 'default' && 'text-[var(--text-muted)]',
-        tone === 'error' && 'text-rose-300',
-        tone === 'warning' && 'text-amber-300',
-        tone === 'success' && 'text-emerald-300',
+        tone === 'error' && 'text-[color:#8f2d3a]',
+        tone === 'warning' && 'text-[color:#9a5a0a]',
+        tone === 'success' && 'text-[color:#1f7a4d]',
       )}
     >
       {children}

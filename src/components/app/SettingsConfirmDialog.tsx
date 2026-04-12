@@ -59,11 +59,11 @@ export function SettingsConfirmDialog(props: SettingsConfirmDialogProps): JSX.El
             {body}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter className="border-[color:var(--panel-border)]/70 bg-white/5">
+        <AlertDialogFooter className="border-[color:var(--panel-border)]/70 bg-[var(--panel-bg-muted)]">
           <AlertDialogCancel
             onClick={onClose}
             disabled={isBusy}
-            className="border-white/15 bg-white/5 text-[var(--text-primary)] hover:bg-white/10"
+            className="border-[color:var(--button-secondary-border)] bg-[var(--button-secondary-bg)] text-[var(--text-primary)] hover:bg-[var(--button-secondary-bg-hover)]"
           >
             {cancelLabel ?? t('dialogs.resetNo')}
           </AlertDialogCancel>
@@ -73,8 +73,8 @@ export function SettingsConfirmDialog(props: SettingsConfirmDialogProps): JSX.El
             variant={tone === 'danger' ? 'destructive' : 'default'}
             className={
               tone === 'danger'
-                ? 'border-rose-200/15 bg-rose-500/10 text-rose-100 hover:bg-rose-500/20'
-                : 'border-white/15 bg-white/12 text-[var(--text-primary)] hover:bg-white/18'
+                ? 'border-[color:var(--danger-border)] bg-[var(--danger-bg)] text-[color:#8f2d3a] hover:bg-[rgba(186,49,64,0.18)]'
+                : 'border-[color:var(--button-primary-border)] bg-[var(--button-primary-bg)] text-[var(--button-primary-text)] shadow-[var(--button-primary-shadow)] hover:bg-[var(--button-primary-bg-hover)]'
             }
           >
             {confirmLabel}

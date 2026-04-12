@@ -224,6 +224,7 @@
     "apiSummaryHostedRequired": "Hosted / sign in required",
     "apiSummaryByoCustomKey": "BYO / custom API key",
     "apiSummaryByoEnvKey": "BYO / using .env key",
+    "designThemeDefaultSuffix": "Default",
     "designApplyNote": "The selected theme is applied only after you save the settings.",
     "designThemeSelectLabel": "Theme",
     "designSections": {
@@ -267,6 +268,88 @@
         "description": "Action bar button display and behavior settings.",
         "helper": "Control how the action bar buttons display text, icons, or both.",
         "fieldsetLegend": "Button display mode"
+      }
+    },
+    "themeCards": {
+      "coral-companion": {
+        "accent": "Soft ivory / coral orange",
+        "description": "A clean light theme based on the web palette with bright surfaces, reef neutrals, warm coral accents, and the Coral Companion logo replacing the orb.",
+        "contrast": "Clean light focus"
+      },
+      "obsidian-halo": {
+        "accent": "Black glass / white glow",
+        "description": "Deep black panels, bright white highlights, and a strong outer glow around frames and the orb.",
+        "contrast": "High contrast"
+      },
+      "shadow-satin": {
+        "accent": "Graphite / satin silver",
+        "description": "Graphite surfaces with softer silver edges for a calmer, more matte desktop look.",
+        "contrast": "Balanced contrast"
+      },
+      "olympian-marble": {
+        "accent": "Marble / gold leaf",
+        "description": "White marble surfaces with fine dark veins, brushed gold framing, and cooler silver support accents.",
+        "contrast": "Light luxury"
+      },
+      "retro-signal": {
+        "accent": "Amber / phosphor teal",
+        "description": "A warm CRT-inspired retro look with amber glow, teal edge light, and subtle scanline texture.",
+        "contrast": "Retro neon"
+      },
+      "fantasy-relic": {
+        "accent": "Amethyst / mint sigils",
+        "description": "Velvet night panels, enchanted jewel tones, and a rune-crystal orb instead of the black-hole core.",
+        "contrast": "Mystic contrast"
+      },
+      "retro-arcade": {
+        "accent": "Neon magenta / cyan",
+        "description": "Magenta-cyan arcade surfaces with a scanline pulse orb and animated level bars.",
+        "contrast": "Arcade glow"
+      },
+      "modern-glass": {
+        "accent": "Ice glass / cobalt",
+        "description": "Clean frosted panels, cool blue highlights, and a minimal glass pulse orb with orbiting nodes.",
+        "contrast": "Soft modern light"
+      },
+      "universe-drift": {
+        "accent": "Starlight / cosmic violet",
+        "description": "Nebula gradients, deep midnight framing, and a planetary orbit orb with drifting satellites.",
+        "contrast": "Deep space glow"
+      },
+      "creed-eclipse": {
+        "accent": "Sync white / animus cyan",
+        "description": "Animus-inspired holographic whites, icy cyan telemetry, and a synchronisation orb with scanning rings and data nodes.",
+        "contrast": "Simulation glow"
+      },
+      "volt-forge": {
+        "accent": "Volt green / gunmetal",
+        "description": "Black alloy chassis, toxic volt tracers, and a reactor orb carved from hex steel and neon surge blades.",
+        "contrast": "Predatory neon"
+      },
+      "brass-engine": {
+        "accent": "Brass / furnace amber",
+        "description": "Riveted brass housings, furnace amber pressure lights, and a clockwork reactor orb wrapped in steam and gears.",
+        "contrast": "Industrial opulence"
+      },
+      "shadow-monarch": {
+        "accent": "Void violet / royal blue",
+        "description": "Ink-black obsidian, abyssal indigo glows, and a shadow-gate orb with summoned shards and spectral smoke.",
+        "contrast": "Abyssal anime glow"
+      },
+      "tsukuyomi-veil": {
+        "accent": "Moon silver / midnight violet",
+        "description": "Moonlit indigo lacquer, silver shrine accents, and a lunar eclipse orb wrapped in drifting veils and glyph petals.",
+        "contrast": "Mythic moonlight"
+      },
+      "anime-companion": {
+        "accent": "Sakura pink / aqua spark",
+        "description": "A vivid 2D companion theme with sakura-pink neon, cyan sparkle trails, and a small animated character replacing the orb.",
+        "contrast": "Animated companion"
+      },
+      "kitsune-matsuri": {
+        "accent": "Vermilion / washi gold",
+        "description": "A sharp Japanese festival theme with vermilion lacquer frames, washi-gold glow, shoji motion, and a fox-mask voice overlay.",
+        "contrast": "Festival lacquer"
       }
     }
   },

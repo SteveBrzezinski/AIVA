@@ -1,6 +1,7 @@
 import { getCurrentWindow, type Window } from '@tauri-apps/api/window';
 
 export const DESIGN_THEME_IDS = [
+  'coral-companion',
   'obsidian-halo',
   'shadow-satin',
   'olympian-marble',
@@ -28,9 +29,18 @@ export type DesignThemeOption = {
   colorScheme: 'dark' | 'light';
 };
 
-export const DEFAULT_DESIGN_THEME_ID: DesignThemeId = 'obsidian-halo';
+export const DEFAULT_DESIGN_THEME_ID: DesignThemeId = 'coral-companion';
 
 export const DESIGN_THEME_OPTIONS: DesignThemeOption[] = [
+  {
+    id: 'coral-companion',
+    label: 'Coral Companion',
+    description:
+      'A calm light theme based on the web palette with soft ivory surfaces, reef neutrals, warm coral accents, and the Coral Companion logo replacing the orb.',
+    accent: 'Soft ivory / coral orange',
+    contrast: 'Clean light focus',
+    colorScheme: 'light',
+  },
   {
     id: 'obsidian-halo',
     label: 'Obsidian Halo',
@@ -159,7 +169,7 @@ export function normalizeDesignThemeId(value: string | null | undefined): Design
 
 export function getDesignThemeLabel(value: string | null | undefined): string {
   const normalized = normalizeDesignThemeId(value);
-  return DESIGN_THEME_OPTIONS.find((theme) => theme.id === normalized)?.label ?? 'Obsidian Halo';
+  return DESIGN_THEME_OPTIONS.find((theme) => theme.id === normalized)?.label ?? 'Coral Companion';
 }
 
 export function getDesignThemeOption(value: string | null | undefined): DesignThemeOption {

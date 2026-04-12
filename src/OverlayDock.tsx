@@ -41,7 +41,7 @@ const EXPANDED_LAYOUTS = {
 } as const;
 const TIMER_FLYOUT_HEIGHT = 286;
 const TIMER_DIALOG_LAYOUT = { minWidth: 440, height: 600 };
-const DEFAULT_ACTION_BAR_ACTIVE_GLOW_COLOR = '#b63131';
+const DEFAULT_ACTION_BAR_ACTIVE_GLOW_COLOR = '#f06525';
 
 type ActionBarDisplayMode = keyof typeof EXPANDED_LAYOUTS;
 

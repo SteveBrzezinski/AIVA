@@ -98,12 +98,7 @@ export function LatestRunSection(props: LatestRunSectionProps): JSX.Element {
         title={t('latestRun.title')}
         description={message}
         action={
-          <Badge
-            variant="outline"
-            className="border-white/15 bg-white/8 text-[var(--text-primary)]"
-          >
-            {uiState}
-          </Badge>
+          <Badge variant="default">{uiState}</Badge>
         }
       />
       <AppSurfaceContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

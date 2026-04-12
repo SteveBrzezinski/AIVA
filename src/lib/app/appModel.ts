@@ -88,8 +88,8 @@ export function defaultVoiceAgentExtraInstructions(): string {
 export const fallbackSettings: AppSettings = {
   ttsMode: 'classic',
   realtimeAllowLiveFallback: false,
-  designThemeId: 'obsidian-halo',
-  actionBarActiveGlowColor: '#b63131',
+  designThemeId: 'coral-companion',
+  actionBarActiveGlowColor: '#f06525',
   ttsFormat: 'wav',
   firstChunkLeadingSilenceMs: 180,
   uiLanguage: 'en',

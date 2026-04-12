@@ -79,12 +79,7 @@ export function AssistantStatusSection(props: AssistantStatusSectionProps): JSX.
         title={t('assistantStatus.title')}
         description={liveTranscriptionStatus}
         action={
-          <Badge
-            className="border-white/15 bg-white/8 text-[var(--text-primary)]"
-            variant="outline"
-          >
-            {voiceAgentState}
-          </Badge>
+          <Badge variant="default">{voiceAgentState}</Badge>
         }
       />
       <AppSurfaceContent className="space-y-4">
@@ -165,10 +160,7 @@ export function AssistantStatusSection(props: AssistantStatusSectionProps): JSX.
                     <strong className="text-sm text-[var(--text-primary)]">
                       {snapshot.provider}
                     </strong>
-                    <Badge
-                      variant="outline"
-                      className="border-white/15 bg-white/8 text-[var(--text-primary)]"
-                    >
+                    <Badge variant="default">
                       {snapshot.ok
                         ? t('assistantStatus.providerOk', {
                             latencyMs: snapshot.latencyMs,

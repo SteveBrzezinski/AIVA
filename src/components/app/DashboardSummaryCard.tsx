@@ -46,12 +46,5 @@ export function DashboardSummaryCard({
 }
 
 export function DashboardStatusBadge({ children }: { children: ReactNode }): JSX.Element {
-  return (
-    <Badge
-      variant="outline"
-      className="border-white/15 bg-white/8 text-[var(--text-primary)]"
-    >
-      {children}
-    </Badge>
-  );
+  return <Badge variant="default">{children}</Badge>;
 }

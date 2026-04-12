@@ -53,7 +53,7 @@ export function TimerListPanel(props: TimerListPanelProps): JSX.Element {
         action={
           <Button
             type="button"
-            className="border-white/15 bg-white/10 text-[var(--text-primary)] hover:bg-white/15"
+            className="border-[color:var(--button-primary-border)] bg-[var(--button-primary-bg)] text-[var(--button-primary-text)] shadow-[var(--button-primary-shadow)] hover:bg-[var(--button-primary-bg-hover)]"
             variant="outline"
             onClick={onAdd}
           >
@@ -63,7 +63,7 @@ export function TimerListPanel(props: TimerListPanelProps): JSX.Element {
         }
       />
       <AppSurfaceContent className="space-y-4">
-        {error ? <p className="text-sm text-rose-300">{error}</p> : null}
+        {error ? <p className="text-sm text-[color:#8f2d3a]">{error}</p> : null}
 
         {!isLoaded ? (
           <p className="text-sm text-[var(--text-muted)]">{t('timers.loading')}</p>
@@ -72,14 +72,13 @@ export function TimerListPanel(props: TimerListPanelProps): JSX.Element {
             {timers.map((timer) => (
               <article
                 key={timer.id}
-                className="flex flex-col gap-4 rounded-xl border border-white/10 bg-white/5 p-4 lg:flex-row lg:items-center lg:justify-between"
+                className="flex flex-col gap-4 rounded-xl border border-[color:var(--panel-border)] bg-[var(--panel-bg-deep)] p-4 lg:flex-row lg:items-center lg:justify-between"
               >
                 <div className="space-y-2">
                   <div className="flex flex-wrap items-center gap-3">
                     <strong className="text-base text-[var(--text-primary)]">{timer.title}</strong>
                     <Badge
-                      variant="outline"
-                      className="border-white/15 bg-white/8 text-[var(--text-primary)]"
+                      variant="default"
                     >
                       {timer.status === 'running'
                         ? t('timers.running')
@@ -103,7 +102,7 @@ export function TimerListPanel(props: TimerListPanelProps): JSX.Element {
                       type="button"
                       variant="outline"
                       size="icon"
-                      className="border-white/15 bg-white/8 text-[var(--text-primary)] hover:bg-white/15"
+                      className="border-[color:var(--button-secondary-border)] bg-[var(--button-secondary-bg)] text-[var(--text-primary)] hover:bg-[var(--button-secondary-bg-hover)]"
                       onClick={() => onPause(timer)}
                       aria-label={t('timers.pauseTimer')}
                       title={t('timers.pauseTimer')}
@@ -115,7 +114,7 @@ export function TimerListPanel(props: TimerListPanelProps): JSX.Element {
                       type="button"
                       variant="outline"
                       size="icon"
-                      className="border-white/15 bg-white/8 text-[var(--text-primary)] hover:bg-white/15"
+                      className="border-[color:var(--button-secondary-border)] bg-[var(--button-secondary-bg)] text-[var(--text-primary)] hover:bg-[var(--button-secondary-bg-hover)]"
                       onClick={() => onResume(timer)}
                       aria-label={t('timers.resumeTimer')}
                       title={t('timers.resumeTimer')}
@@ -127,7 +126,7 @@ export function TimerListPanel(props: TimerListPanelProps): JSX.Element {
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="border-white/15 bg-white/8 text-[var(--text-primary)] hover:bg-white/15"
+                    className="border-[color:var(--button-secondary-border)] bg-[var(--button-secondary-bg)] text-[var(--text-primary)] hover:bg-[var(--button-secondary-bg-hover)]"
                     onClick={() => onEdit(timer)}
                     aria-label={t('timers.editTimer')}
                     title={t('timers.editTimer')}
@@ -138,7 +137,7 @@ export function TimerListPanel(props: TimerListPanelProps): JSX.Element {
                     type="button"
                     variant="destructive"
                     size="icon"
-                    className="border-rose-200/15 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20"
+                    className="border-[color:var(--danger-border)] bg-[var(--danger-bg)] text-[color:#8f2d3a] hover:bg-[rgba(186,49,64,0.18)]"
                     onClick={() => onDelete(timer)}
                     aria-label={t('timers.deleteTimer')}
                     title={t('timers.deleteTimer')}

@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import type { DesignThemeId } from './designThemes';
+import coralCompanionLogo from './assets/coral_companion_logo.png';
 import BlackHoleOrb from './BlackHoleOrb';
 import './themedOrb.css';
 
@@ -28,7 +29,8 @@ type OrbVariant =
   | 'monarch'
   | 'tsukuyomi'
   | 'anime'
-  | 'kitsune';
+  | 'kitsune'
+  | 'logo';
 
 const FANTASY_GLYPH_POSITIONS = [
   { angle: 0, distance: 76 },
@@ -108,6 +110,8 @@ function joinClassNames(...parts: Array<string | false | null | undefined>) {
 
 function resolveOrbVariant(themeId: DesignThemeId): OrbVariant {
   switch (themeId) {
+    case 'coral-companion':
+      return 'logo';
     case 'shadow-satin':
       return 'shadow';
     case 'olympian-marble':
@@ -617,6 +621,19 @@ function renderKitsuneOrb() {
   );
 }
 
+function renderLogoOrb() {
+  return (
+    <>
+      <img
+        src={coralCompanionLogo}
+        alt=""
+        aria-hidden="true"
+        className="logo-orb__image"
+      />
+    </>
+  );
+}
+
 export default function ThemedOrb({
   themeId,
   isVisible,
@@ -669,6 +686,7 @@ export default function ThemedOrb({
         {variant === 'tsukuyomi' ? renderTsukuyomiOrb() : null}
         {variant === 'anime' ? renderAnimeCompanion() : null}
         {variant === 'kitsune' ? renderKitsuneOrb() : null}
+        {variant === 'logo' ? renderLogoOrb() : null}
       </div>
     </button>
   );
