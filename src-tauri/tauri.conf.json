@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Voice Overlay Assistant",
+  "productName": "CoralCompanion",
   "version": "0.1.0",
-  "identifier": "com.steve.voiceoverlayassistant",
+    "identifier": "com.steve.coralcompanion",
   "build": {
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Voice Overlay Assistant",
+        "title": "CoralCompanion",
         "width": 1100,
         "height": 720,
         "resizable": true,

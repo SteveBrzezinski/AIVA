@@ -1451,14 +1451,13 @@ code {
   user-select: none;
 }
 
-.window-titlebar__mark {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  border: 1px solid var(--window-mark-border);
-  background: var(--window-mark-bg);
-  box-shadow: var(--window-mark-shadow);
+.window-titlebar__logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  object-fit: contain;
   flex: 0 0 auto;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
 }
 
 .window-titlebar__title {
@@ -1474,6 +1473,10 @@ code {
 }
 
 .window-titlebar__nav {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 4px);
+  transform: translate(-50%, -50%);
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1498,6 +1501,8 @@ code {
   font-size: 0.84rem;
   font-weight: 700;
   cursor: pointer;
+  app-region: no-drag;
+  -webkit-app-region: no-drag;
   transition:
     color 140ms ease,
     background 140ms ease,
@@ -1519,12 +1524,37 @@ code {
   box-shadow: var(--button-primary-shadow);
 }
 
+.window-titlebar__menu-button {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  width: 40px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  background: var(--panel-texture), var(--panel-bg-muted);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.window-titlebar__menu-button span {
+  display: block;
+  width: 16px;
+  height: 2px;
+  margin: 0 auto;
+  border-radius: 999px;
+  background: currentColor;
+}
+
 .window-titlebar__side {
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
   min-width: 0;
+  justify-self: end;
 }
 
 .window-titlebar__account {
@@ -1613,6 +1643,21 @@ code {
   color: var(--window-control-close-hover-color);
   background: var(--window-control-close-hover-bg);
   border-color: var(--window-control-close-hover-border);
+}
+
+.window-titlebar__mobile-drawer-backdrop,
+.window-titlebar__mobile-account {
+  display: none;
+}
+
+@keyframes mobile-drawer-enter {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
 }
 
 .status-chip {
@@ -3035,8 +3080,7 @@ h1 {
   margin-top: 22px;
 }
 
-.settings-page-hero,
-.settings-sidebar,
+.settings-page-header,
 .settings-detail-panel {
   background: rgba(12, 19, 39, 0.82);
   border: 1px solid rgba(122, 162, 255, 0.14);
@@ -3045,42 +3089,69 @@ h1 {
   backdrop-filter: blur(10px);
 }
 
-.settings-sidebar,
+.settings-page-header,
 .settings-detail-panel {
   padding: 24px;
 }
 
+.settings-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.settings-page-header h1 {
+  margin: 0;
+  font-size: 1.8rem;
+  line-height: 1.1;
+}
+
+.settings-page-header__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.settings-sidebar {
+  padding: 6px 0;
+}
+
 .settings-layout {
   display: grid;
-  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  grid-template-columns: minmax(160px, 210px) minmax(0, 880px);
   gap: 18px;
   margin-top: 22px;
   align-items: start;
+  justify-content: start;
 }
 
 .settings-nav {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .settings-nav-button {
-  display: grid;
-  gap: 10px;
+  display: flex;
+  align-items: center;
   width: 100%;
-  padding: 16px 18px;
-  border: 1px solid rgba(160, 186, 255, 0.14);
-  border-radius: 18px;
-  background: rgba(10, 16, 31, 0.5);
+  min-height: 52px;
+  padding: 12px 16px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: transparent;
   color: #edf4ff;
   text-align: left;
   cursor: pointer;
+  app-region: no-drag;
+  -webkit-app-region: no-drag;
   transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
 }
 
 .settings-nav-button:hover {
   transform: translateY(-1px);
   border-color: rgba(158, 191, 255, 0.28);
-  background: rgba(18, 29, 53, 0.72);
+  background: rgba(18, 29, 53, 0.32);
   box-shadow: 0 16px 28px rgba(8, 14, 29, 0.2);
 }
 
@@ -3088,11 +3159,6 @@ h1 {
   border-color: rgba(116, 167, 255, 0.44);
   background: linear-gradient(135deg, rgba(49, 77, 136, 0.88) 0%, rgba(26, 42, 78, 0.94) 100%);
   box-shadow: 0 18px 32px rgba(31, 48, 91, 0.28);
-}
-
-.settings-nav-copy {
-  display: grid;
-  gap: 6px;
 }
 
 .settings-nav-title {
@@ -3129,7 +3195,40 @@ h1 {
 }
 
 .settings-panel-header {
-  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  margin: -24px -24px 6px;
+  padding: 20px 24px 12px;
+  background: #0c1327;
+}
+
+.settings-panel-header h2 {
+  margin: 0;
+}
+
+.settings-detail-panel {
+  max-height: calc(100vh - 176px);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.settings-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+  gap: 10px;
+}
+
+.settings-actions button {
+  width: auto;
+  white-space: nowrap;
 }
 
 .settings-panel-eyebrow {
@@ -3545,7 +3644,7 @@ select:focus-visible {
 .instructions-card,
 .settings-card,
 .feed-card,
-.settings-page-hero,
+.settings-page-header,
 .settings-sidebar,
 .settings-detail-panel {
   background: var(--panel-texture), var(--panel-bg);
@@ -4595,7 +4694,7 @@ html[data-theme='creed-eclipse'] .result-card,
 html[data-theme='creed-eclipse'] .instructions-card,
 html[data-theme='creed-eclipse'] .settings-card,
 html[data-theme='creed-eclipse'] .feed-card,
-html[data-theme='creed-eclipse'] .settings-page-hero,
+html[data-theme='creed-eclipse'] .settings-page-header,
 html[data-theme='creed-eclipse'] .settings-sidebar,
 html[data-theme='creed-eclipse'] .settings-detail-panel,
 html[data-theme='creed-eclipse'] .screen-edge-dock__panel,
@@ -4611,7 +4710,7 @@ html[data-theme='creed-eclipse'] .result-card::after,
 html[data-theme='creed-eclipse'] .instructions-card::after,
 html[data-theme='creed-eclipse'] .settings-card::after,
 html[data-theme='creed-eclipse'] .feed-card::after,
-html[data-theme='creed-eclipse'] .settings-page-hero::after,
+html[data-theme='creed-eclipse'] .settings-page-header::after,
 html[data-theme='creed-eclipse'] .settings-sidebar::after,
 html[data-theme='creed-eclipse'] .settings-detail-panel::after,
 html[data-theme='creed-eclipse'] .screen-edge-dock__panel::after,
@@ -4629,19 +4728,19 @@ html[data-theme='creed-eclipse'] .voice-chat-shell::after {
   animation: animus-panel-scan 4.6s linear infinite;
 }
 
-html[data-theme='creed-eclipse'] .window-titlebar__mark {
+html[data-theme='creed-eclipse'] .window-titlebar__logo {
   animation: animus-beacon 2.8s ease-in-out infinite;
 }
 
 html[data-theme='shadow-monarch'] .hero-card,
-html[data-theme='shadow-monarch'] .settings-page-hero,
+html[data-theme='shadow-monarch'] .settings-page-header,
 html[data-theme='shadow-monarch'] .settings-sidebar,
 html[data-theme='shadow-monarch'] .settings-detail-panel,
 html[data-theme='shadow-monarch'] .voice-chat-shell {
   animation: shadow-monarch-breathe 5.2s ease-in-out infinite;
 }
 
-html[data-theme='tsukuyomi-veil'] .window-titlebar__mark {
+html[data-theme='tsukuyomi-veil'] .window-titlebar__logo {
   animation: tsukuyomi-sheen 4.2s ease-in-out infinite;
 }
 
@@ -4689,7 +4788,7 @@ html[data-theme='anime-companion'] .result-card,
 html[data-theme='anime-companion'] .instructions-card,
 html[data-theme='anime-companion'] .settings-card,
 html[data-theme='anime-companion'] .feed-card,
-html[data-theme='anime-companion'] .settings-page-hero,
+html[data-theme='anime-companion'] .settings-page-header,
 html[data-theme='anime-companion'] .settings-sidebar,
 html[data-theme='anime-companion'] .settings-detail-panel,
 html[data-theme='anime-companion'] .screen-edge-dock__panel,
@@ -4700,7 +4799,7 @@ html[data-theme='kitsune-matsuri'] .result-card,
 html[data-theme='kitsune-matsuri'] .instructions-card,
 html[data-theme='kitsune-matsuri'] .settings-card,
 html[data-theme='kitsune-matsuri'] .feed-card,
-html[data-theme='kitsune-matsuri'] .settings-page-hero,
+html[data-theme='kitsune-matsuri'] .settings-page-header,
 html[data-theme='kitsune-matsuri'] .settings-sidebar,
 html[data-theme='kitsune-matsuri'] .settings-detail-panel,
 html[data-theme='kitsune-matsuri'] .screen-edge-dock__panel,
@@ -4711,7 +4810,7 @@ html[data-theme='kitsune-matsuri'] .voice-chat-shell {
 }
 
 html[data-theme='anime-companion'] .hero-card::before,
-html[data-theme='anime-companion'] .settings-page-hero::before,
+html[data-theme='anime-companion'] .settings-page-header::before,
 html[data-theme='anime-companion'] .settings-detail-panel::before,
 html[data-theme='anime-companion'] .voice-chat-shell::before {
   content: '';
@@ -4758,7 +4857,7 @@ html[data-theme='kitsune-matsuri'] .window-titlebar::before {
 }
 
 html[data-theme='kitsune-matsuri'] .hero-card,
-html[data-theme='kitsune-matsuri'] .settings-page-hero,
+html[data-theme='kitsune-matsuri'] .settings-page-header,
 html[data-theme='kitsune-matsuri'] .settings-sidebar,
 html[data-theme='kitsune-matsuri'] .settings-detail-panel,
 html[data-theme='kitsune-matsuri'] .voice-chat-shell {
@@ -4769,7 +4868,7 @@ html[data-theme='kitsune-matsuri'] .voice-chat-shell {
 }
 
 html[data-theme='kitsune-matsuri'] .hero-card::before,
-html[data-theme='kitsune-matsuri'] .settings-page-hero::before,
+html[data-theme='kitsune-matsuri'] .settings-page-header::before,
 html[data-theme='kitsune-matsuri'] .settings-sidebar::before,
 html[data-theme='kitsune-matsuri'] .settings-detail-panel::before,
 html[data-theme='kitsune-matsuri'] .voice-chat-shell::before {
@@ -4786,7 +4885,7 @@ html[data-theme='kitsune-matsuri'] .voice-chat-shell::before {
   animation: kitsune-panel-lacquer 6.4s ease-in-out infinite;
 }
 
-html[data-theme='kitsune-matsuri'] .window-titlebar__mark {
+html[data-theme='kitsune-matsuri'] .window-titlebar__logo {
   animation: kitsune-titlebar-breathe 3.4s ease-in-out infinite;
 }
 
@@ -4964,15 +5063,95 @@ html[data-theme='kitsune-matsuri'] .window-titlebar__mark {
   }
 
   .window-titlebar {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
   }
 
   .window-titlebar__nav {
-    justify-content: flex-start;
+    display: none;
   }
 
   .window-titlebar__side {
-    justify-content: space-between;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .window-titlebar__account,
+  .window-titlebar__auth-button {
+    display: none;
+  }
+
+  .window-titlebar__menu-button {
+    display: inline-flex;
+    order: -1;
+  }
+
+  .window-titlebar__mobile-drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    display: block;
+    background: rgba(6, 10, 20, 0.56);
+    backdrop-filter: blur(6px);
+  }
+
+  .window-titlebar__mobile-drawer {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: min(320px, calc(100vw - 44px));
+    height: 100vh;
+    padding: 72px 16px 20px;
+    border-right: 1px solid var(--panel-border);
+    background: var(--panel-texture), rgba(12, 19, 39, 0.98);
+    box-shadow: 18px 0 48px rgba(0, 0, 0, 0.32);
+    overflow-y: auto;
+    animation: mobile-drawer-enter 180ms ease-out;
+  }
+
+  .window-titlebar__mobile-drawer-nav {
+    display: grid;
+    gap: 8px;
+  }
+
+  .window-titlebar__mobile-drawer-nav .window-titlebar__nav-button {
+    align-self: start;
+    flex: 0 0 auto;
+    width: 100%;
+    height: 36px;
+    min-height: 36px;
+    justify-content: flex-start;
+    padding: 0 14px;
+    border-radius: 12px;
+  }
+
+  .window-titlebar__mobile-account {
+    display: grid;
+    gap: 10px;
+    margin-top: 4px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(160, 186, 255, 0.14);
+    justify-items: center;
+  }
+
+  .window-titlebar__mobile-account-copy {
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    text-align: center;
+    word-break: break-word;
+  }
+
+  .window-titlebar__mobile-account .window-titlebar__mobile-auth-button {
+    display: inline-flex;
+    align-self: start;
+    width: 100%;
+    height: 36px;
+    min-height: 36px;
+    justify-content: center;
+    align-items: center;
+    padding: 0 14px;
+    border-radius: 12px;
+    text-align: center;
   }
 }
 
@@ -4998,33 +5177,24 @@ html[data-theme='kitsune-matsuri'] .window-titlebar__mark {
     padding: 8px 10px 0;
   }
 
-  .window-titlebar__nav {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
-  .window-titlebar__nav-button {
-    flex: 1 1 120px;
-  }
-
   .window-titlebar__side {
     width: 100%;
     flex-wrap: wrap;
-    justify-content: flex-start;
+    justify-content: flex-end;
   }
 
   .window-titlebar__auth-button {
-    width: 100%;
+    width: auto;
   }
 
   .window-titlebar__account {
-    width: 100%;
-    flex-wrap: wrap;
+    max-width: 100%;
+    flex-wrap: nowrap;
   }
 
   .window-titlebar__account-copy {
-    max-width: none;
-    white-space: normal;
+    max-width: 180px;
+    white-space: nowrap;
   }
 
   .hero-card,
@@ -5039,6 +5209,7 @@ html[data-theme='kitsune-matsuri'] .window-titlebar__mark {
   }
 
   .hero-toolbar,
+  .settings-page-header,
   .settings-page-toolbar,
   .settings-panel-header {
     flex-direction: column;
@@ -5054,15 +5225,38 @@ html[data-theme='kitsune-matsuri'] .window-titlebar__mark {
     grid-template-columns: 1fr;
   }
 
-  .settings-actions,
   .modal-actions,
-  .login-card__actions {
+  .login-card__actions,
+  .settings-page-header__actions {
     width: 100%;
   }
 
-  .settings-actions button,
   .modal-actions button,
-  .login-card__actions button {
+  .login-card__actions button,
+  .settings-page-header__actions button {
     width: 100%;
+  }
+
+  .settings-detail-panel {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .settings-panel-header {
+    position: static;
+    margin: 0 0 6px;
+    padding: 0;
+    background: transparent;
+    backdrop-filter: none;
+  }
+
+  .settings-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .settings-actions button {
+    width: auto;
+    flex: 0 0 auto;
   }
 }

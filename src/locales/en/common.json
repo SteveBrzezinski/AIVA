@@ -33,7 +33,7 @@
   "hero": {
     "statusActive": "Global hotkeys active",
     "statusChecking": "Checking global hotkeys",
-    "title": "Voice Overlay Assistant",
+    "title": "Dashboard",
     "copy": "Two existing flows share one stable base: <speak>{{speakHotkey}}</speak> reads selected text aloud, <translate>{{translateHotkey}}</translate> captures selected text, translates it, and keeps the result visible in the UI.",
     "actions": {
       "localSpeechTest": "Local speech test",
@@ -205,6 +205,7 @@
   "settingsPage": {
     "dashboard": "Dashboard",
     "categories": "Categories",
+    "resetAll": "Reset all settings",
     "showCategories": "Show categories",
     "overviewEyebrow": "Settings overview",
     "overviewTitle": "Select a category",
@@ -416,6 +417,16 @@
     "resetBody": "This restores every setting to its default value, including playback speed, translation language, the interface language, the stored API key, and any saved hosted sign-in token.",
     "resetNo": "No",
     "resetConfirm": "Yes, reset everything",
+    "unsavedSectionChangesTitle": "Discard unsaved changes?",
+    "unsavedSectionChangesBody": "You have unsaved changes in {{category}}. If you switch categories now, those changes will be discarded.",
+    "unsavedSectionChangesCancel": "Cancel",
+    "unsavedSectionChangesConfirm": "Discard changes",
+    "resetCategoryTitle": "Reset this category?",
+    "resetCategoryBody": "Do you really want to reset the settings in {{category}} to their default values?",
+    "resetCategoryConfirm": "Yes, reset category",
+    "resetAllSettingsTitle": "Reset all categories?",
+    "resetAllSettingsBody": "Do you really want to reset all settings in every category to their default values?",
+    "resetAllSettingsConfirm": "Yes, reset everything",
     "closeVoiceStyleRestart": "Close voice style restart dialog",
     "closeAccountLogin": "Close account login dialog",
     "voiceStyleRestartTitle": "Restart voice session?",

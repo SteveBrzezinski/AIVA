@@ -415,7 +415,7 @@ export default function ChatOverlayApp() {
 
   return (
     <main className="voice-chat-screen">
-      <section className="voice-chat-shell" aria-label="Voice Overlay Assistant Chat">
+      <section className="voice-chat-shell" aria-label="CoralCompanion Chat">
         <header className="voice-chat-header">
           <div>
             <strong>Voice Chat</strong>

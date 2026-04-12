@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Window, getCurrentWindow } from '@tauri-apps/api/window';
 import { DEBUG_NAV_ENABLED, DEFAULT_HOSTED_BACKEND_URL } from './appEnv';
+import coralCompanionLogo from './assets/coral_companion_logo.png';
 import { applyDesignTheme } from './designThemes';
 import SettingsView from './SettingsView';
 import {
-  captureAndSpeak,
-  captureAndTranslate,
   getHostedAccountStatus,
   loginHostedAccount,
   logoutHostedAccount,
@@ -18,6 +17,7 @@ import {
 import {
   buildRunHistoryEntry,
   createReadinessItems,
+  fallbackSettings,
   getAssistantNameError,
   isAssistantCalibrationComplete,
   mergeHostedSettings,
@@ -25,6 +25,10 @@ import {
   type RunHistoryEntry,
   type UiState,
 } from './lib/app/appModel';
+import {
+  mergeSettingsSection,
+  type SettingsSectionId,
+} from './lib/app/settingsSections';
 import { useAppBootstrap } from './hooks/useAppBootstrap';
 import { useAssistantTraining } from './hooks/useAssistantTraining';
 import { useVoiceAssistantRuntime } from './hooks/useVoiceAssistantRuntime';
@@ -34,10 +38,8 @@ import { AssistantTrainingDialog } from './components/app/AssistantTrainingDialo
 import { HeroSection } from './components/app/HeroSection';
 import { LatestRunSection } from './components/app/LatestRunSection';
 import { ReadinessGrid } from './components/app/ReadinessGrid';
-import { ResetSettingsDialog } from './components/app/ResetSettingsDialog';
 import { RunHistorySection } from './components/app/RunHistorySection';
 import { TimerSection } from './components/app/TimerSection';
-import { UsageSection } from './components/app/UsageSection';
 import { VoiceFeedsSection } from './components/app/VoiceFeedsSection';
 import { VoiceStyleRestartDialog } from './components/app/VoiceStyleRestartDialog';
 import { TimerEditorDialog } from './components/timers/TimerEditorDialog';
@@ -65,6 +67,7 @@ type VoiceSessionChangeSummary = {
 type PendingVoiceSessionChange = {
   settings: AppSettings;
   summary: VoiceSessionChangeSummary;
+  successMessage?: string;
 };
 
 type PendingBackgroundVoiceSessionAction = {
@@ -147,7 +150,6 @@ export default function App() {
   const [firstAudioToPlaybackMs, setFirstAudioToPlaybackMs] = useState<number | null>(null);
   const [runHistory, setRunHistory] = useState<RunHistoryEntry[]>([]);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
-  const [showResetDialog, setShowResetDialog] = useState(false);
   const [activeView, setActiveView] = useState<AppView>('dashboard');
   const [composerVisible, setComposerVisible] = useState(false);
   const [voiceOrbPinned, setVoiceOrbPinned] = useState(false);
@@ -156,6 +158,7 @@ export default function App() {
   const [hostedAccountError, setHostedAccountError] = useState<string | null>(null);
   const [isHostedAccountBusy, setIsHostedAccountBusy] = useState(false);
   const [showAccountModal, setShowAccountModal] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginProviderMode, setLoginProviderMode] = useState<AppSettings['aiProviderMode']>(
@@ -531,19 +534,42 @@ export default function App() {
     restartVoiceAgentSession,
   ]);
 
-  const handleSaveSettingsRequest = useCallback(async (): Promise<AppSettings | undefined> => {
-    const summary = buildVoiceSessionChangeSummary(settings, savedSettings);
+  const requestSettingsPersist = useCallback(
+    async (
+      nextSettings: AppSettings,
+      successMessage = i18n.t('app.settingsSavedFuture'),
+    ): Promise<AppSettings | undefined> => {
+      const summary = buildVoiceSessionChangeSummary(nextSettings, savedSettings);
 
-    if (hasVoiceSessionChange(summary)) {
-      setPendingVoiceSessionChange({
-        settings,
-        summary,
-      });
-      return undefined;
-    }
+      if (hasVoiceSessionChange(summary)) {
+        setPendingVoiceSessionChange({
+          settings: nextSettings,
+          summary,
+          successMessage,
+        });
+        return undefined;
+      }
 
-    return persistSettings(settings);
-  }, [persistSettings, savedSettings, settings]);
+      return persistSettings(nextSettings, successMessage);
+    },
+    [persistSettings, savedSettings],
+  );
+
+  const handleSaveSettingsSection = useCallback(
+    async (sectionId: SettingsSectionId): Promise<AppSettings | undefined> => {
+      const nextSettings = mergeSettingsSection(savedSettings, settings, sectionId);
+      return requestSettingsPersist(nextSettings);
+    },
+    [requestSettingsPersist, savedSettings, settings],
+  );
+
+  const handleResetSettingsSection = useCallback(
+    async (sectionId: SettingsSectionId): Promise<AppSettings | undefined> => {
+      const nextSettings = mergeSettingsSection(settings, fallbackSettings, sectionId);
+      return requestSettingsPersist(nextSettings, i18n.t('app.resetSuccess'));
+    },
+    [requestSettingsPersist, settings],
+  );
 
   const handleConfirmVoiceStyleRestart = useCallback(async (): Promise<void> => {
     const pendingChange = pendingVoiceSessionChange;
@@ -552,10 +578,14 @@ export default function App() {
     }
 
     try {
-      await persistSettings(pendingChange.settings, i18n.t('app.settingsSavedFuture'), {
-        restartReason: getVoiceSessionChangeReason(pendingChange.summary),
-        sessionAction: getVoiceSessionChangeAction(pendingChange.summary),
-      });
+      await persistSettings(
+        pendingChange.settings,
+        pendingChange.successMessage ?? i18n.t('app.settingsSavedFuture'),
+        {
+          restartReason: getVoiceSessionChangeReason(pendingChange.summary),
+          sessionAction: getVoiceSessionChangeAction(pendingChange.summary),
+        },
+      );
     } finally {
       setPendingVoiceSessionChange(null);
     }
@@ -664,101 +694,6 @@ export default function App() {
       setIsTimerEditorBusy(false);
     }
   }, [timerEditorMode, timerEditorTimer, voiceTimers]);
-
-  const runReadSelectedText = async (): Promise<void> => {
-    try {
-      await ensureSavedSettings();
-    } catch {
-      return;
-    }
-
-    setUiState('working');
-    setMessage(i18n.t('app.localReadStart'));
-    try {
-      const result = await captureAndSpeak(
-        { copyDelayMs: 100, restoreClipboard: true },
-        { autoplay: true, maxParallelRequests: 3, voice: 'alloy' },
-      );
-      setUiState('success');
-      setCapturedPreview(result.capturedText);
-      setTranslatedPreview('');
-      setLastAudioPath(result.speech.filePath);
-      setLastAudioOutputDirectory(result.speech.outputDirectory);
-      setLastAudioChunkCount(result.speech.chunkCount);
-      setLastTtsMode(result.speech.mode);
-      setLastRequestedTtsMode(result.speech.requestedMode);
-      setLastSessionStrategy(result.speech.sessionStrategy);
-      setLastSessionId(result.speech.sessionId);
-      setLastSessionFallbackReason(result.speech.fallbackReason ?? '');
-      setFirstAudioReceivedAtMs(result.speech.firstAudioReceivedAtMs ?? null);
-      setFirstAudioPlaybackStartedAtMs(result.speech.firstAudioPlaybackStartedAtMs ?? null);
-      setStartLatencyMs(result.speech.startLatencyMs ?? null);
-      setMessage(
-        i18n.t('app.audioReady', {
-          chunkCount: result.speech.chunkCount,
-          format: result.speech.format.toUpperCase(),
-          latencySuffix: result.speech.startLatencyMs
-            ? i18n.t('app.audioReadyLatency', { latencyMs: result.speech.startLatencyMs })
-            : '',
-        }),
-      );
-    } catch (error: unknown) {
-      const detail = error instanceof Error ? error.message : String(error);
-      setUiState('error');
-      setMessage(detail);
-    }
-  };
-
-  const runTranslateSelectedText = async (): Promise<void> => {
-    let activeSettings = savedSettings;
-
-    try {
-      activeSettings = await ensureSavedSettings();
-    } catch {
-      return;
-    }
-
-    setUiState('working');
-    setMessage(
-      i18n.t('app.localTranslateStart', {
-        language: activeSettings.translationTargetLanguage,
-      }),
-    );
-    try {
-      const result = await captureAndTranslate(
-        { copyDelayMs: 100, restoreClipboard: true },
-        { targetLanguage: activeSettings.translationTargetLanguage },
-      );
-      setUiState('success');
-      setCapturedPreview(result.capturedText);
-      setTranslatedPreview(result.translation.text);
-      setLastAudioPath(result.speech.filePath);
-      setLastAudioOutputDirectory(result.speech.outputDirectory);
-      setLastAudioChunkCount(result.speech.chunkCount);
-      setLastTtsMode(result.speech.mode);
-      setLastRequestedTtsMode(result.speech.requestedMode);
-      setLastSessionStrategy(result.speech.sessionStrategy);
-      setLastSessionId(result.speech.sessionId);
-      setLastSessionFallbackReason(result.speech.fallbackReason ?? '');
-      setFirstAudioReceivedAtMs(result.speech.firstAudioReceivedAtMs ?? null);
-      setFirstAudioPlaybackStartedAtMs(result.speech.firstAudioPlaybackStartedAtMs ?? null);
-      setStartLatencyMs(result.speech.startLatencyMs ?? null);
-      setMessage(
-        i18n.t('app.translationCompleted', {
-          language: result.translation.targetLanguage,
-          latencySuffix: result.speech.startLatencyMs
-            ? i18n.t('app.translationCompletedLatency', {
-                latencyMs: result.speech.startLatencyMs,
-              })
-            : '',
-        }),
-      );
-    } catch (error: unknown) {
-      const detail = error instanceof Error ? error.message : String(error);
-      setUiState('error');
-      setMessage(detail);
-    }
-  };
 
   const readinessItems = useMemo(
     () =>
@@ -1062,19 +997,7 @@ export default function App() {
 
   const renderDashboardView = (): JSX.Element => (
     <>
-      <HeroSection
-        hotkeyRegistered={hotkeyStatus.registered}
-        speakHotkey={hotkeyStatus.accelerator}
-        translateHotkey={hotkeyStatus.translateAccelerator}
-        isBusy={uiState === 'working'}
-        isSavingSettings={isSavingSettings}
-        assistantActive={voiceRuntime.assistantActive}
-        voiceAgentState={voiceRuntime.voiceAgentState}
-        onReadSelectedText={() => void runReadSelectedText()}
-        onTranslateSelectedText={() => void runTranslateSelectedText()}
-        onActivateAssistant={() => void voiceRuntime.activateAssistantVoice('manual')}
-        onDeactivateAssistant={() => void voiceRuntime.deactivateAssistantVoice('manual')}
-      />
+      <HeroSection />
 
       <section className="dashboard-summary-grid" aria-label={i18n.t('dashboardHome.summaryAria')}>
         <article className="dashboard-summary-card">
@@ -1188,10 +1111,6 @@ export default function App() {
   const renderDebugView = (): JSX.Element => (
     <>
       <section className="hero-card app-page-hero">
-        <div className="status-row">
-          <span className="status-dot" aria-hidden="true" />
-          <span className="status-text">{appStatus}</span>
-        </div>
         <h1>{i18n.t('debugPage.title')}</h1>
         <p className="hero-copy">{i18n.t('debugPage.copy')}</p>
       </section>
@@ -1252,14 +1171,43 @@ export default function App() {
       />
 
       <RunHistorySection entries={runHistory} onClear={() => setRunHistory([])} />
+    </>
+  );
 
-      <UsageSection
-        assistantWakePhrase={voiceRuntime.assistantWakePhrase}
-        activateHotkey={hotkeyStatus.activateAccelerator}
-        deactivateHotkey={hotkeyStatus.deactivateAccelerator}
-        speakHotkey={hotkeyStatus.accelerator}
-        translateHotkey={hotkeyStatus.translateAccelerator}
-      />
+  const renderTopNavigation = (): JSX.Element => (
+    <>
+      <button
+        type="button"
+        className={`window-titlebar__nav-button ${activeView === 'dashboard' ? 'window-titlebar__nav-button--active' : ''}`}
+        onClick={() => {
+          setActiveView('dashboard');
+          setMobileNavOpen(false);
+        }}
+      >
+        {i18n.t('shell.navDashboard')}
+      </button>
+      <button
+        type="button"
+        className={`window-titlebar__nav-button ${activeView === 'settings' ? 'window-titlebar__nav-button--active' : ''}`}
+        onClick={() => {
+          setActiveView('settings');
+          setMobileNavOpen(false);
+        }}
+      >
+        {i18n.t('shell.navSettings')}
+      </button>
+      {DEBUG_NAV_ENABLED ? (
+        <button
+          type="button"
+          className={`window-titlebar__nav-button ${activeView === 'debug' ? 'window-titlebar__nav-button--active' : ''}`}
+          onClick={() => {
+            setActiveView('debug');
+            setMobileNavOpen(false);
+          }}
+        >
+          {i18n.t('shell.navDebug')}
+        </button>
+      ) : null}
     </>
   );
 
@@ -1269,6 +1217,7 @@ export default function App() {
         return (
           <SettingsView
             settings={settings}
+            savedSettings={savedSettings}
             setSettings={setSettings}
             languageOptions={languageOptions}
             assistantNameError={assistantNameError}
@@ -1277,10 +1226,10 @@ export default function App() {
             assistantTrainingReadyName={assistantTrainingReadyName}
             isSavingSettings={isSavingSettings}
             isWorking={uiState === 'working'}
-            hasUnsavedChanges={hasUnsavedChanges}
             canSaveSettings={canSaveSettings}
-            onSave={handleSaveSettingsRequest}
-            onReset={() => setShowResetDialog(true)}
+            onSaveSection={handleSaveSettingsSection}
+            onResetSection={handleResetSettingsSection}
+            onResetAll={resetAllSettings}
             onOpenTraining={openAssistantTrainingDialog}
             hostedAccount={hostedAccount}
             hostedAccountError={hostedAccountError}
@@ -1305,35 +1254,29 @@ export default function App() {
             data-tauri-drag-region
             onDoubleClick={() => void handleWindowMaximizeToggle()}
           >
-            <span className="window-titlebar__mark" aria-hidden="true" />
-            <span className="window-titlebar__title">Voice Overlay Assistant</span>
+            <img
+              className="window-titlebar__logo"
+              src={coralCompanionLogo}
+              alt=""
+              aria-hidden="true"
+            />
+            <span className="window-titlebar__title">CoralCompanion</span>
           </div>
           <nav className="window-titlebar__nav" aria-label={i18n.t('shell.navigationLabel')}>
-            <button
-              type="button"
-              className={`window-titlebar__nav-button ${activeView === 'dashboard' ? 'window-titlebar__nav-button--active' : ''}`}
-              onClick={() => setActiveView('dashboard')}
-            >
-              {i18n.t('shell.navDashboard')}
-            </button>
-            <button
-              type="button"
-              className={`window-titlebar__nav-button ${activeView === 'settings' ? 'window-titlebar__nav-button--active' : ''}`}
-              onClick={() => setActiveView('settings')}
-            >
-              {i18n.t('shell.navSettings')}
-            </button>
-            {DEBUG_NAV_ENABLED ? (
-              <button
-                type="button"
-                className={`window-titlebar__nav-button ${activeView === 'debug' ? 'window-titlebar__nav-button--active' : ''}`}
-                onClick={() => setActiveView('debug')}
-              >
-                {i18n.t('shell.navDebug')}
-              </button>
-            ) : null}
+            {renderTopNavigation()}
           </nav>
           <div className="window-titlebar__side">
+            <button
+              type="button"
+              className="window-titlebar__menu-button"
+              aria-label={i18n.t('shell.navigationLabel')}
+              aria-expanded={mobileNavOpen}
+              onClick={() => setMobileNavOpen((current) => !current)}
+            >
+              <span />
+              <span />
+              <span />
+            </button>
             {hostedStatusMeta ? (
               <div className="window-titlebar__account" aria-live="polite">
                 <span className="window-titlebar__account-copy">{hostedStatusMeta}</span>
@@ -1417,6 +1360,49 @@ export default function App() {
             </div>
           </div>
         </header>
+
+        {mobileNavOpen ? (
+          <div
+            className="window-titlebar__mobile-drawer-backdrop"
+            role="presentation"
+            onClick={() => setMobileNavOpen(false)}
+          >
+            <aside
+              className="window-titlebar__mobile-drawer"
+              role="navigation"
+              aria-label={i18n.t('shell.navigationLabel')}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="window-titlebar__mobile-drawer-nav">{renderTopNavigation()}</div>
+              <div className="window-titlebar__mobile-account">
+                {hostedStatusMeta ? (
+                  <div className="window-titlebar__mobile-account-copy" aria-live="polite">
+                    {hostedStatusMeta}
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  className={`window-titlebar__auth-button window-titlebar__mobile-auth-button ${
+                    hostedSignedIn
+                      ? 'window-titlebar__auth-button--logout'
+                      : 'window-titlebar__auth-button--login'
+                  }`}
+                  onClick={() => {
+                    setMobileNavOpen(false);
+                    if (hostedSignedIn) {
+                      void handleHostedLogout();
+                      return;
+                    }
+
+                    openAccountLoginModal();
+                  }}
+                >
+                  {hostedSignedIn ? i18n.t('shell.authLogout') : i18n.t('shell.authLogin')}
+                </button>
+              </div>
+            </aside>
+          </div>
+        ) : null}
 
         <main className="app-shell">{renderActiveView()}</main>
       </div>
@@ -1529,12 +1515,6 @@ export default function App() {
         />
       ) : null}
 
-      <ResetSettingsDialog
-        open={showResetDialog}
-        onClose={() => setShowResetDialog(false)}
-        onConfirm={() => void resetAllSettings()}
-      />
-
       <VoiceStyleRestartDialog
         open={pendingVoiceSessionChange !== null}
         changeSummary={
@@ -1564,12 +1544,26 @@ export default function App() {
   );
 
   async function resetAllSettings(): Promise<void> {
-    setShowResetDialog(false);
     setIsSavingSettings(true);
     try {
+      const previousSettings = savedSettings;
       const defaults = await resetSettings();
       setSettings(defaults);
       setSavedSettings(defaults);
+      const summary = buildVoiceSessionChangeSummary(defaults, previousSettings);
+
+      if (hasVoiceSessionChange(summary)) {
+        const sessionAction = getVoiceSessionChangeAction(summary);
+        if (sessionAction === 'disconnect') {
+          await voiceRuntime.closeVoiceAgentSession(getVoiceSessionChangeReason(summary));
+        } else {
+          await voiceRuntime.restartVoiceAgentSession(
+            getVoiceSessionChangeReason(summary),
+            voiceRuntime.assistantActive,
+          );
+        }
+      }
+
       setMessage(i18n.t('app.resetSuccess'));
     } catch (error: unknown) {
       const detail = error instanceof Error ? error.message : String(error);

@@ -33,7 +33,7 @@
   "hero": {
     "statusActive": "Globale Hotkeys aktiv",
     "statusChecking": "Globale Hotkeys werden geprüft",
-    "title": "Voice Overlay Assistant",
+    "title": "Dashboard",
     "copy": "Zwei bestehende Abläufe nutzen dieselbe stabile Basis: <speak>{{speakHotkey}}</speak> liest markierten Text vor, <translate>{{translateHotkey}}</translate> erfasst markierten Text, übersetzt ihn und zeigt das Ergebnis weiter in der UI an.",
     "actions": {
       "localSpeechTest": "Lokaler Sprachtest",
@@ -205,6 +205,7 @@
   "settingsPage": {
     "dashboard": "Dashboard",
     "categories": "Kategorien",
+    "resetAll": "Alle Einstellungen zurücksetzen",
     "showCategories": "Kategorien anzeigen",
     "overviewEyebrow": "Einstellungsübersicht",
     "overviewTitle": "Kategorie auswählen",
@@ -493,6 +494,16 @@
     "resetBody": "Dadurch werden alle Einstellungen auf ihre Standardwerte zurückgesetzt, einschließlich Wiedergabegeschwindigkeit, Zielsprache, Oberflächensprache, gespeichertem API-Schlüssel und einem gesicherten Hosted-Anmeldetoken.",
     "resetNo": "Nein",
     "resetConfirm": "Ja, alles zurücksetzen",
+    "unsavedSectionChangesTitle": "Ungespeicherte Änderungen verwerfen?",
+    "unsavedSectionChangesBody": "In {{category}} gibt es noch ungespeicherte Änderungen. Wenn du jetzt die Kategorie wechselst, werden diese Änderungen verworfen.",
+    "unsavedSectionChangesCancel": "Abbrechen",
+    "unsavedSectionChangesConfirm": "Änderungen verwerfen",
+    "resetCategoryTitle": "Diese Kategorie zurücksetzen?",
+    "resetCategoryBody": "Möchtest du die Einstellungen in {{category}} wirklich auf die Standardwerte zurücksetzen?",
+    "resetCategoryConfirm": "Ja, Kategorie zurücksetzen",
+    "resetAllSettingsTitle": "Alle Kategorien zurücksetzen?",
+    "resetAllSettingsBody": "Möchtest du wirklich alle Einstellungen in allen Kategorien auf die Standardwerte zurücksetzen?",
+    "resetAllSettingsConfirm": "Ja, alles zurücksetzen",
     "closeVoiceStyleRestart": "Dialog zum Neustart der Sprachsitzung schließen",
     "closeAccountLogin": "Login-Dialog schließen",
     "voiceStyleRestartTitle": "Sprachsitzung neu starten?",
