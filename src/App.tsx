@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Menu, Minus, Copy, Square, X } from 'lucide-react';
 import { Window, getCurrentWindow } from '@tauri-apps/api/window';
 import { DEBUG_NAV_ENABLED, DEFAULT_HOSTED_BACKEND_URL } from './appEnv';
 import coralCompanionLogo from './assets/coral_companion_logo.png';
@@ -35,6 +36,10 @@ import { useVoiceAssistantRuntime } from './hooks/useVoiceAssistantRuntime';
 import i18n, { normalizeUiLanguage } from './i18n';
 import { AssistantStatusSection } from './components/app/AssistantStatusSection';
 import { AssistantTrainingDialog } from './components/app/AssistantTrainingDialog';
+import {
+  DashboardStatusBadge,
+  DashboardSummaryCard,
+} from './components/app/DashboardSummaryCard';
 import { HeroSection } from './components/app/HeroSection';
 import { LatestRunSection } from './components/app/LatestRunSection';
 import { ReadinessGrid } from './components/app/ReadinessGrid';
@@ -54,6 +59,32 @@ import {
 } from './lib/overlayBridge';
 import { useVoiceTimers } from './hooks/useVoiceTimers';
 import type { VoiceTimer } from './lib/voiceOverlay';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
+import { AppPageHeader } from '@/components/ui/app-surface';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import { cn } from '@/lib/utils';
 
 type AppView = 'dashboard' | 'settings' | 'debug';
 
@@ -260,12 +291,12 @@ export default function App() {
   const syncHostedSettings = useCallback((nextHostedSettings: AppSettings): void => {
     setSettings((current) => ({
       ...mergeHostedSettings(current, nextHostedSettings),
-      aiProviderMode: nextHostedSettings.aiProviderMode as AppSettings['aiProviderMode'],
+      aiProviderMode: nextHostedSettings.aiProviderMode,
       hostedWorkspaceSlug: nextHostedSettings.hostedWorkspaceSlug,
     }));
     setSavedSettings((current) => ({
       ...mergeHostedSettings(current, nextHostedSettings),
-      aiProviderMode: nextHostedSettings.aiProviderMode as AppSettings['aiProviderMode'],
+      aiProviderMode: nextHostedSettings.aiProviderMode,
       hostedWorkspaceSlug: nextHostedSettings.hostedWorkspaceSlug,
     }));
   }, [setSavedSettings, setSettings]);
@@ -996,96 +1027,102 @@ export default function App() {
   const loginEmailValue = loginEmail || savedSettings.hostedAccountEmail;
 
   const renderDashboardView = (): JSX.Element => (
-    <>
+    <div className="space-y-6">
       <HeroSection />
 
-      <section className="dashboard-summary-grid" aria-label={i18n.t('dashboardHome.summaryAria')}>
-        <article className="dashboard-summary-card">
-          <span className="dashboard-summary-card__eyebrow">
-            {i18n.t('dashboardHome.assistantEyebrow')}
-          </span>
-          <h2>{settings.assistantName || 'Ava'}</h2>
-          <p className="dashboard-summary-card__copy">
-            {voiceRuntime.assistantStateDetail || voiceRuntime.liveTranscriptionStatus}
-          </p>
-          <div className="dashboard-summary-card__meta">
-            <span className="status-chip">
-              {voiceRuntime.assistantActive
-                ? i18n.t('assistantStatus.assistantActive')
-                : voiceRuntime.isLiveTranscribing
-                  ? i18n.t('dashboardHome.assistantListening')
-                  : i18n.t('dashboardHome.assistantMuted')}
-            </span>
-            <span className="status-chip">{settings.voiceAgentModel}</span>
-          </div>
-        </article>
+      <section className="grid gap-4 xl:grid-cols-3" aria-label={i18n.t('dashboardHome.summaryAria')}>
+        <DashboardSummaryCard
+          eyebrow={i18n.t('dashboardHome.assistantEyebrow')}
+          title={settings.assistantName || 'Ava'}
+          description={voiceRuntime.assistantStateDetail || voiceRuntime.liveTranscriptionStatus}
+          badges={
+            <>
+              <DashboardStatusBadge>
+                {voiceRuntime.assistantActive
+                  ? i18n.t('assistantStatus.assistantActive')
+                  : voiceRuntime.isLiveTranscribing
+                    ? i18n.t('dashboardHome.assistantListening')
+                    : i18n.t('dashboardHome.assistantMuted')}
+              </DashboardStatusBadge>
+              <DashboardStatusBadge>{settings.voiceAgentModel}</DashboardStatusBadge>
+            </>
+          }
+        />
 
-        <article className="dashboard-summary-card">
-          <span className="dashboard-summary-card__eyebrow">
-            {i18n.t('dashboardHome.accountEyebrow')}
-          </span>
-          <h2>
-            {hostedSignedIn
+        <DashboardSummaryCard
+          eyebrow={i18n.t('dashboardHome.accountEyebrow')}
+          title={
+            hostedSignedIn
               ? i18n.t('settings.hostedAccountConnected')
-              : i18n.t('settings.hostedAccountDisconnected')}
-          </h2>
-          <p className="dashboard-summary-card__copy">
-            {hostedSignedIn
+              : i18n.t('settings.hostedAccountDisconnected')
+          }
+          description={
+            hostedSignedIn
               ? i18n.t('dashboardHome.accountConnectedCopy', {
                   email: hostedAccount?.user?.email ?? savedSettings.hostedAccountEmail,
                 })
-              : i18n.t('dashboardHome.accountDisconnectedCopy')}
-          </p>
+              : i18n.t('dashboardHome.accountDisconnectedCopy')
+          }
+        >
           {hostedSignedIn ? (
-            <div className="dashboard-summary-list">
-              <div>
-                <span>{i18n.t('dashboardHome.accountWorkspaceLabel')}</span>
-                <strong>
-                  {hostedAccount?.currentTeam?.name ??
-                    hostedAccount?.currentTeam?.slug ??
-                    i18n.t('settings.hostedWorkspaceCurrentDefault')}
-                </strong>
-              </div>
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <p className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                {i18n.t('dashboardHome.accountWorkspaceLabel')}
+              </p>
+              <strong className="mt-2 block text-sm text-[var(--text-primary)]">
+                {hostedAccount?.currentTeam?.name ??
+                  hostedAccount?.currentTeam?.slug ??
+                  i18n.t('settings.hostedWorkspaceCurrentDefault')}
+              </strong>
             </div>
-          ) : null}
-          {!hostedSignedIn ? (
-            <div className="dashboard-summary-card__actions">
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => openAccountLoginModal()}
-              >
-                {i18n.t('shell.authLogin')}
-              </button>
-            </div>
-          ) : null}
-        </article>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              className="border-white/15 bg-white/8 text-[var(--text-primary)] hover:bg-white/12"
+              onClick={() => openAccountLoginModal()}
+            >
+              {i18n.t('shell.authLogin')}
+            </Button>
+          )}
+        </DashboardSummaryCard>
 
-        <article className="dashboard-summary-card">
-          <span className="dashboard-summary-card__eyebrow">
-            {i18n.t('dashboardHome.modeEyebrow')}
-          </span>
-          <h2>
-            {settings.aiProviderMode === 'hosted'
+        <DashboardSummaryCard
+          eyebrow={i18n.t('dashboardHome.modeEyebrow')}
+          title={
+            settings.aiProviderMode === 'hosted'
               ? i18n.t('settings.aiProviderModeHosted')
-              : i18n.t('settings.aiProviderModeByo')}
-          </h2>
-          <p className="dashboard-summary-card__copy">{message}</p>
-          <div className="dashboard-summary-list">
-            <div>
-              <span>{i18n.t('dashboardHome.modeModelLabel')}</span>
-              <strong>{settings.voiceAgentModel}</strong>
+              : i18n.t('settings.aiProviderModeByo')
+          }
+          description={message}
+        >
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <p className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                {i18n.t('dashboardHome.modeModelLabel')}
+              </p>
+              <strong className="mt-2 block text-sm text-[var(--text-primary)]">
+                {settings.voiceAgentModel}
+              </strong>
             </div>
-            <div>
-              <span>{i18n.t('dashboardHome.modeLanguageLabel')}</span>
-              <strong>{settings.sttLanguage.toUpperCase()}</strong>
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <p className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                {i18n.t('dashboardHome.modeLanguageLabel')}
+              </p>
+              <strong className="mt-2 block text-sm text-[var(--text-primary)]">
+                {settings.sttLanguage.toUpperCase()}
+              </strong>
             </div>
-            <div>
-              <span>{i18n.t('dashboardHome.modeSessionLabel')}</span>
-              <strong>{voiceRuntime.voiceAgentState}</strong>
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <p className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                {i18n.t('dashboardHome.modeSessionLabel')}
+              </p>
+              <strong className="mt-2 block text-sm text-[var(--text-primary)]">
+                {voiceRuntime.voiceAgentState}
+              </strong>
             </div>
           </div>
-        </article>
+        </DashboardSummaryCard>
       </section>
 
       <TimerSection
@@ -1105,15 +1142,12 @@ export default function App() {
         onResume={(timer) => void handleResumeTimer(timer)}
         onDelete={(timer) => void handleDeleteTimer(timer)}
       />
-    </>
+    </div>
   );
 
   const renderDebugView = (): JSX.Element => (
-    <>
-      <section className="hero-card app-page-hero">
-        <h1>{i18n.t('debugPage.title')}</h1>
-        <p className="hero-copy">{i18n.t('debugPage.copy')}</p>
-      </section>
+    <div className="space-y-6">
+      <AppPageHeader title={i18n.t('debugPage.title')} description={i18n.t('debugPage.copy')} />
 
       <ReadinessGrid items={readinessItems} />
 
@@ -1171,14 +1205,20 @@ export default function App() {
       />
 
       <RunHistorySection entries={runHistory} onClear={() => setRunHistory([])} />
-    </>
+    </div>
   );
 
-  const renderTopNavigation = (): JSX.Element => (
+  const renderTopNavigation = (mobile = false): JSX.Element => (
     <>
       <button
         type="button"
-        className={`window-titlebar__nav-button ${activeView === 'dashboard' ? 'window-titlebar__nav-button--active' : ''}`}
+        className={cn(
+          'inline-flex h-11 items-center justify-center rounded-xl px-4 text-sm font-medium transition-colors',
+          mobile ? 'w-full justify-start px-3' : '',
+          activeView === 'dashboard'
+            ? 'bg-white/12 text-[var(--text-primary)]'
+            : 'text-[var(--text-secondary)] hover:bg-white/6 hover:text-[var(--text-primary)]',
+        )}
         onClick={() => {
           setActiveView('dashboard');
           setMobileNavOpen(false);
@@ -1188,7 +1228,13 @@ export default function App() {
       </button>
       <button
         type="button"
-        className={`window-titlebar__nav-button ${activeView === 'settings' ? 'window-titlebar__nav-button--active' : ''}`}
+        className={cn(
+          'inline-flex h-11 items-center justify-center rounded-xl px-4 text-sm font-medium transition-colors',
+          mobile ? 'w-full justify-start px-3' : '',
+          activeView === 'settings'
+            ? 'bg-white/12 text-[var(--text-primary)]'
+            : 'text-[var(--text-secondary)] hover:bg-white/6 hover:text-[var(--text-primary)]',
+        )}
         onClick={() => {
           setActiveView('settings');
           setMobileNavOpen(false);
@@ -1199,7 +1245,13 @@ export default function App() {
       {DEBUG_NAV_ENABLED ? (
         <button
           type="button"
-          className={`window-titlebar__nav-button ${activeView === 'debug' ? 'window-titlebar__nav-button--active' : ''}`}
+          className={cn(
+            'inline-flex h-11 items-center justify-center rounded-xl px-4 text-sm font-medium transition-colors',
+            mobile ? 'w-full justify-start px-3' : '',
+            activeView === 'debug'
+              ? 'bg-white/12 text-[var(--text-primary)]'
+              : 'text-[var(--text-secondary)] hover:bg-white/6 hover:text-[var(--text-primary)]',
+          )}
           onClick={() => {
             setActiveView('debug');
             setMobileNavOpen(false);
@@ -1247,146 +1299,151 @@ export default function App() {
 
   return (
     <>
-      <div className={`app-frame ${isMainWindowMaximized ? 'app-frame--maximized' : ''}`}>
-        <header className="window-titlebar">
-          <div
-            className="window-titlebar__drag"
-            data-tauri-drag-region
-            onDoubleClick={() => void handleWindowMaximizeToggle()}
+      <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+        <div className="min-h-screen text-[var(--text-primary)]">
+          <header
+            className="sticky top-0 z-30 border-b border-[color:var(--panel-border)]/70 backdrop-blur-xl"
+            style={{ background: 'var(--panel-bg)' }}
           >
-            <img
-              className="window-titlebar__logo"
-              src={coralCompanionLogo}
-              alt=""
-              aria-hidden="true"
-            />
-            <span className="window-titlebar__title">CoralCompanion</span>
-          </div>
-          <nav className="window-titlebar__nav" aria-label={i18n.t('shell.navigationLabel')}>
-            {renderTopNavigation()}
-          </nav>
-          <div className="window-titlebar__side">
-            <button
-              type="button"
-              className="window-titlebar__menu-button"
-              aria-label={i18n.t('shell.navigationLabel')}
-              aria-expanded={mobileNavOpen}
-              onClick={() => setMobileNavOpen((current) => !current)}
-            >
-              <span />
-              <span />
-              <span />
-            </button>
-            {hostedStatusMeta ? (
-              <div className="window-titlebar__account" aria-live="polite">
-                <span className="window-titlebar__account-copy">{hostedStatusMeta}</span>
+            <div className="mx-auto flex h-16 w-full max-w-7xl items-center gap-3 px-4 sm:px-6">
+              <div
+                className="flex min-w-0 items-center gap-3"
+                data-tauri-drag-region
+                onDoubleClick={() => void handleWindowMaximizeToggle()}
+              >
+                <img
+                  className="h-8 w-8 rounded-lg object-cover shadow-[0_0_18px_rgba(255,255,255,0.08)]"
+                  src={coralCompanionLogo}
+                  alt=""
+                  aria-hidden="true"
+                />
+                <span className="truncate text-sm font-semibold uppercase tracking-[0.18em] text-[var(--text-primary)]">
+                  CoralCompanion
+                </span>
               </div>
-            ) : null}
-            <button
-              type="button"
-              className={`window-titlebar__auth-button ${
-                hostedSignedIn
-                  ? 'window-titlebar__auth-button--logout'
-                  : 'window-titlebar__auth-button--login'
-              }`}
-              onClick={() => {
-                if (hostedSignedIn) {
-                  void handleHostedLogout();
-                  return;
-                }
 
-                openAccountLoginModal();
-              }}
-            >
-              {hostedSignedIn ? i18n.t('shell.authLogout') : i18n.t('shell.authLogin')}
-            </button>
-            <div className="window-titlebar__controls" aria-label="Window controls">
-            <button
-              type="button"
-              className="window-titlebar__control"
-              aria-label="Minimize window"
-              onClick={() => void handleWindowMinimize()}
-            >
-              <svg
-                viewBox="0 0 12 12"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
+              <nav
+                className="hidden flex-1 items-center justify-center gap-1 md:flex"
+                aria-label={i18n.t('shell.navigationLabel')}
               >
-                <path d="M2 9.2h8" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              className="window-titlebar__control"
-              aria-label={isMainWindowMaximized ? 'Restore window' : 'Maximize window'}
-              onClick={() => void handleWindowMaximizeToggle()}
-            >
-              <svg
-                viewBox="0 0 12 12"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.3"
-                strokeLinejoin="round"
-              >
-                {isMainWindowMaximized ? (
-                  <>
-                    <path d="M3 4.2h5.2V9.4H3z" />
-                    <path d="M4.8 2.6H10v5.2" />
-                  </>
-                ) : (
-                  <path d="M2.6 2.6h6.8v6.8H2.6z" />
-                )}
-              </svg>
-            </button>
-            <button
-              type="button"
-              className="window-titlebar__control window-titlebar__control--close"
-              aria-label="Hide window"
-              onClick={() => void handleWindowClose()}
-            >
-              <svg
-                viewBox="0 0 12 12"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-              >
-                <path d="M2.5 2.5l7 7" />
-                <path d="M9.5 2.5l-7 7" />
-              </svg>
-            </button>
-            </div>
-          </div>
-        </header>
+                {renderTopNavigation()}
+              </nav>
 
-        {mobileNavOpen ? (
-          <div
-            className="window-titlebar__mobile-drawer-backdrop"
-            role="presentation"
-            onClick={() => setMobileNavOpen(false)}
-          >
-            <aside
-              className="window-titlebar__mobile-drawer"
-              role="navigation"
-              aria-label={i18n.t('shell.navigationLabel')}
-              onClick={(event) => event.stopPropagation()}
-            >
-              <div className="window-titlebar__mobile-drawer-nav">{renderTopNavigation()}</div>
-              <div className="window-titlebar__mobile-account">
+              <div className="ml-auto flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 text-[var(--text-primary)] hover:bg-white/8 md:hidden"
+                  aria-label={i18n.t('shell.navigationLabel')}
+                  onClick={() => setMobileNavOpen(true)}
+                >
+                  <Menu className="size-5" />
+                </Button>
+
                 {hostedStatusMeta ? (
-                  <div className="window-titlebar__mobile-account-copy" aria-live="polite">
+                  <div
+                    className="hidden max-w-[18rem] truncate rounded-full border border-white/10 bg-white/6 px-3 py-2 text-sm text-[var(--text-secondary)] lg:block"
+                    aria-live="polite"
+                  >
                     {hostedStatusMeta}
                   </div>
                 ) : null}
-                <button
+
+                <Button
                   type="button"
-                  className={`window-titlebar__auth-button window-titlebar__mobile-auth-button ${
+                  variant={hostedSignedIn ? 'destructive' : 'outline'}
+                  className={cn(
+                    'hidden h-10 md:inline-flex',
                     hostedSignedIn
-                      ? 'window-titlebar__auth-button--logout'
-                      : 'window-titlebar__auth-button--login'
-                  }`}
+                      ? 'border-rose-200/15 bg-rose-500/12 text-rose-100 hover:bg-rose-500/18'
+                      : 'border-white/15 bg-white/8 text-[var(--text-primary)] hover:bg-white/12',
+                  )}
+                  onClick={() => {
+                    if (hostedSignedIn) {
+                      void handleHostedLogout();
+                      return;
+                    }
+
+                    openAccountLoginModal();
+                  }}
+                >
+                  {hostedSignedIn ? i18n.t('shell.authLogout') : i18n.t('shell.authLogin')}
+                </Button>
+
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 text-[var(--text-primary)] hover:bg-white/8"
+                    aria-label="Minimize window"
+                    onClick={() => void handleWindowMinimize()}
+                  >
+                    <Minus className="size-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 text-[var(--text-primary)] hover:bg-white/8"
+                    aria-label={isMainWindowMaximized ? 'Restore window' : 'Maximize window'}
+                    onClick={() => void handleWindowMaximizeToggle()}
+                  >
+                    {isMainWindowMaximized ? (
+                      <Copy className="size-4" />
+                    ) : (
+                      <Square className="size-4" />
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 text-[var(--text-primary)] hover:bg-rose-500/18 hover:text-rose-100"
+                    aria-label="Hide window"
+                    onClick={() => void handleWindowClose()}
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </header>
+
+          <SheetContent
+            side="left"
+            className="w-[22rem] border-r border-[color:var(--panel-border)] bg-transparent p-0 text-[var(--text-primary)] shadow-none sm:max-w-[22rem]"
+            style={{
+              background: 'var(--panel-bg)',
+              boxShadow: 'var(--panel-shadow)',
+            }}
+          >
+            <SheetHeader className="border-b border-[color:var(--panel-border)]/70 px-5 py-5 text-left">
+              <SheetTitle className="text-[var(--text-primary)]">CoralCompanion</SheetTitle>
+              <SheetDescription className="text-[var(--text-secondary)]">
+                {i18n.t('shell.navigationLabel')}
+              </SheetDescription>
+            </SheetHeader>
+            <div className="flex h-full flex-col gap-5 px-4 py-5">
+              <nav className="flex flex-col gap-2" aria-label={i18n.t('shell.navigationLabel')}>
+                {renderTopNavigation(true)}
+              </nav>
+              <div className="space-y-3 border-t border-[color:var(--panel-border)]/70 pt-4">
+                {hostedStatusMeta ? (
+                  <div className="rounded-xl border border-white/10 bg-white/6 px-4 py-3 text-sm text-[var(--text-secondary)]">
+                    {hostedStatusMeta}
+                  </div>
+                ) : null}
+                <Button
+                  type="button"
+                  variant={hostedSignedIn ? 'destructive' : 'outline'}
+                  className={cn(
+                    'h-11 w-full justify-center',
+                    hostedSignedIn
+                      ? 'border-rose-200/15 bg-rose-500/12 text-rose-100 hover:bg-rose-500/18'
+                      : 'border-white/15 bg-white/8 text-[var(--text-primary)] hover:bg-white/12',
+                  )}
                   onClick={() => {
                     setMobileNavOpen(false);
                     if (hostedSignedIn) {
@@ -1398,89 +1455,100 @@ export default function App() {
                   }}
                 >
                   {hostedSignedIn ? i18n.t('shell.authLogout') : i18n.t('shell.authLogin')}
-                </button>
+                </Button>
               </div>
-            </aside>
-          </div>
-        ) : null}
+            </div>
+          </SheetContent>
 
-        <main className="app-shell">{renderActiveView()}</main>
-      </div>
+          <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6">
+            {renderActiveView()}
+          </main>
+        </div>
+      </Sheet>
 
-      {showAccountModal ? (
-        <div
-          className="modal-backdrop"
-          role="presentation"
-          onClick={isHostedAccountBusy ? undefined : () => setShowAccountModal(false)}
+      <Dialog
+        open={showAccountModal}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && !isHostedAccountBusy) {
+            setShowAccountModal(false);
+          }
+        }}
+      >
+        <DialogContent
+          showCloseButton={!isHostedAccountBusy}
+          className="max-w-lg border border-[color:var(--panel-border)] bg-transparent text-[var(--text-primary)] shadow-none"
+          style={{
+            background: 'var(--panel-bg)',
+            boxShadow: 'var(--panel-shadow)',
+          }}
         >
-          <section
-            className="modal-card"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="account-modal-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <button
-              type="button"
-              className="modal-close"
-              aria-label={i18n.t('dialogs.closeAccountLogin')}
-              onClick={() => setShowAccountModal(false)}
-              disabled={isHostedAccountBusy}
-            >
-              x
-            </button>
-            <span className="settings-panel-eyebrow">{i18n.t('shell.authLogin')}</span>
-            <h2 id="account-modal-title">{i18n.t('loginPage.formTitle')}</h2>
-            <p>{i18n.t('loginPage.copy')}</p>
-            <div className="login-card__grid account-modal__grid">
-              <label className="settings-field settings-field--wide">
-                <span className="info-label">{i18n.t('settings.aiProviderMode')}</span>
-                <select
-                  value={loginProviderMode}
-                  onChange={(event) =>
-                    setLoginProviderMode(event.target.value as AppSettings['aiProviderMode'])
-                  }
-                >
-                  <option value="hosted">{i18n.t('settings.aiProviderModeHosted')}</option>
-                  <option value="byo">{i18n.t('settings.aiProviderModeByo')}</option>
-                </select>
-              </label>
-              <label className="settings-field">
-                <span className="info-label">{i18n.t('loginPage.usernameLabel')}</span>
-                <input
+          <DialogHeader>
+            <DialogTitle className="text-[var(--text-primary)]">
+              {i18n.t('loginPage.formTitle')}
+            </DialogTitle>
+            <DialogDescription className="text-[var(--text-secondary)]">
+              {i18n.t('loginPage.copy')}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5">
+            <FormField label={i18n.t('settings.aiProviderMode')}>
+              <Select
+                value={loginProviderMode}
+                onValueChange={(value) =>
+                  setLoginProviderMode(value as AppSettings['aiProviderMode'])
+                }
+              >
+                <SelectTrigger className="h-11 w-full border-white/15 bg-black/20 text-[var(--text-primary)]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="border-white/10 bg-[var(--panel-bg-deep)] text-[var(--text-primary)]">
+                  <SelectItem value="hosted">{i18n.t('settings.aiProviderModeHosted')}</SelectItem>
+                  <SelectItem value="byo">{i18n.t('settings.aiProviderModeByo')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+
+            <div className="grid gap-4">
+              <FormField label={i18n.t('loginPage.usernameLabel')}>
+                <Input
                   type="email"
                   autoComplete="username"
                   placeholder="name@example.com"
                   value={loginEmailValue}
+                  className="h-11 border-white/15 bg-black/20 text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
                   onChange={(event) => setLoginEmail(event.target.value)}
                 />
-              </label>
-              <label className="settings-field">
-                <span className="info-label">{i18n.t('loginPage.passwordLabel')}</span>
-                <input
+              </FormField>
+              <FormField label={i18n.t('loginPage.passwordLabel')}>
+                <Input
                   type="password"
                   autoComplete="current-password"
                   placeholder={i18n.t('settings.hostedPasswordPlaceholder')}
                   value={loginPassword}
+                  className="h-11 border-white/15 bg-black/20 text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
                   onChange={(event) => setLoginPassword(event.target.value)}
                 />
-              </label>
+              </FormField>
             </div>
+
             {hostedAccountError ? (
-              <p className="field-note field-note--error">{hostedAccountError}</p>
+              <p className="text-sm text-rose-300">{hostedAccountError}</p>
             ) : null}
-            <div className="modal-actions">
-              <button
+
+            <div className="flex flex-col-reverse gap-3 border-t border-[color:var(--panel-border)]/70 bg-white/5 px-4 py-4 sm:flex-row sm:justify-end">
+              <Button
                 type="button"
-                className="secondary-button"
+                variant="outline"
+                className="border-white/15 bg-white/5 text-[var(--text-primary)] hover:bg-white/10"
                 onClick={() => setShowAccountModal(false)}
                 disabled={isHostedAccountBusy}
               >
                 {i18n.t('dialogs.voiceStyleRestartNo')}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                className="primary-button"
+                className="border-white/15 bg-white/12 text-[var(--text-primary)] hover:bg-white/18"
                 disabled={isHostedAccountBusy || !loginEmailValue.trim() || !loginPassword.trim()}
                 onClick={() =>
                   void handleHostedLogin({
@@ -1493,11 +1561,11 @@ export default function App() {
                 {isHostedAccountBusy
                   ? i18n.t('settings.hostedSigningIn')
                   : i18n.t('settings.hostedSignIn')}
-              </button>
+              </Button>
             </div>
-          </section>
-        </div>
-      ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {showAssistantTrainingDialog ? (
         <AssistantTrainingDialog

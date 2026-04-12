@@ -20,26 +20,19 @@ export function TimerSection(props: TimerSectionProps): JSX.Element {
   const { error, isLoaded, nowMs, onAdd, onDelete, onEdit, onPause, onResume, timers } = props;
 
   return (
-    <section className="info-card">
-      <div className="timer-section__intro">
-        <span className="info-label">{t('timers.sectionEyebrow')}</span>
-        <strong>{t('timers.sectionTitle')}</strong>
-        <p>{t('timers.sectionBody')}</p>
-      </div>
-      <TimerListPanel
-        title={t('timers.sectionLabel')}
-        subtitle={t('timers.sectionHint')}
-        variant="dashboard"
-        timers={timers}
-        nowMs={nowMs}
-        isLoaded={isLoaded}
-        error={error}
-        onAdd={onAdd}
-        onEdit={onEdit}
-        onPause={onPause}
-        onResume={onResume}
-        onDelete={onDelete}
-      />
-    </section>
+    <TimerListPanel
+      title={t('timers.sectionTitle')}
+      subtitle={t('timers.sectionBody')}
+      variant="dashboard"
+      timers={timers}
+      nowMs={nowMs}
+      isLoaded={isLoaded}
+      error={error}
+      onAdd={onAdd}
+      onEdit={onEdit}
+      onPause={onPause}
+      onResume={onResume}
+      onDelete={onDelete}
+    />
   );
 }

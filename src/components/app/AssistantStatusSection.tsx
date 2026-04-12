@@ -1,5 +1,12 @@
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Badge } from '@/components/ui/badge';
+import {
+  AppSurfaceCard,
+  AppSurfaceContent,
+  AppSurfaceHeader,
+} from '@/components/ui/app-surface';
 import type { ProviderSnapshot } from '../../lib/liveStt';
 import type { VoiceConnectionState } from '../../lib/realtimeVoiceAgent';
 import type { CreateVoiceAgentSessionResult } from '../../lib/voiceOverlay';
@@ -20,9 +27,29 @@ type AssistantStatusSectionProps = {
   lastSttDebugLogPath: string;
 };
 
-export function AssistantStatusSection(
-  props: AssistantStatusSectionProps,
-): JSX.Element {
+function StatusBlock({
+  label,
+  body,
+  note,
+}: {
+  label: string;
+  body: ReactNode;
+  note?: ReactNode;
+}): JSX.Element {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+      <p className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">
+        {label}
+      </p>
+      <div className="mt-2 space-y-2">
+        <div className="text-sm leading-6 text-[var(--text-primary)]">{body}</div>
+        {note ? <p className="text-xs leading-5 text-[var(--text-muted)]">{note}</p> : null}
+      </div>
+    </div>
+  );
+}
+
+export function AssistantStatusSection(props: AssistantStatusSectionProps): JSX.Element {
   const { t } = useTranslation();
   const {
     voiceAgentState,
@@ -40,86 +67,129 @@ export function AssistantStatusSection(
     lastSttDebugLogPath,
   } = props;
 
+  const assistantStateCopy = assistantActive
+    ? t('assistantStatus.assistantActive')
+    : isLiveTranscribing
+      ? t('assistantStatus.assistantInactiveListening')
+      : t('assistantStatus.assistantInactiveMuted');
+
   return (
-    <section
-      className={`result-card result-card--${
-        voiceAgentState === 'error' ? 'error' : assistantActive ? 'working' : 'success'
-      }`}
-    >
-      <div>
-        <span className="info-label">{t('assistantStatus.title')}</span>
-        <strong>{liveTranscriptionStatus}</strong>
-      </div>
-      <div className="result-block">
-        <span className="info-label">{t('assistantStatus.assistantState')}</span>
-        <p>
-          {assistantActive
-            ? t('assistantStatus.assistantActive')
-            : isLiveTranscribing
-              ? t('assistantStatus.assistantInactiveListening')
-              : t('assistantStatus.assistantInactiveMuted')}
-        </p>
-        <span className="field-note">{assistantStateDetail}</span>
-      </div>
-      <div className="result-block">
-        <span className="info-label">{t('assistantStatus.realtimeVoiceSession')}</span>
-        <p>{voiceAgentState}</p>
-        <span className="field-note">{voiceAgentDetail}</span>
-        {voiceAgentSession ? (
-          <span className="field-note">
-            {voiceAgentSession.profile.model} - {voiceAgentSession.profile.voice} -{' '}
-            {voiceAgentSession.assistantState.sourceAssistantName}
-          </span>
-        ) : null}
-      </div>
-      <div className="result-block">
-        <span className="info-label">{t('assistantStatus.wakePhrase')}</span>
-        <p>
-          <strong>{assistantWakePhrase}</strong>
-        </p>
-        <span className="field-note">{t('assistantStatus.wakePhraseNote')}</span>
-      </div>
-      <div className="result-block">
-        <span className="info-label">{t('assistantStatus.cueMatching')}</span>
-        <p>{t('assistantStatus.cueMatchingSummary', { threshold: wakeThreshold, cooldownMs: cueCooldownMs })}</p>
-        <span className="field-note">{t('assistantStatus.cueMatchingNote')}</span>
-      </div>
-      <div className="result-block">
-        <span className="info-label">{t('assistantStatus.activeTranscript')}</span>
-        <p>
-          {liveTranscript ||
-            (assistantActive
-              ? t('assistantStatus.activeTranscriptEmpty')
-              : isLiveTranscribing
-                ? t('assistantStatus.activeTranscriptWaiting')
-                : t('assistantStatus.activeTranscriptUnavailable'))}
-        </p>
-      </div>
-      {sttProviderSnapshots.length ? (
-        <div className="result-block">
-          <span className="info-label">{t('assistantStatus.recognitionStatus')}</span>
-          <div className="stt-provider-grid">
-            {sttProviderSnapshots.map((snapshot) => (
-              <article className="stt-provider-card" key={snapshot.provider}>
-                <strong>{snapshot.provider}</strong>
-                <p>{snapshot.transcript || t('assistantStatus.noTranscriptPayload')}</p>
-                <span className="field-note">
-                  {snapshot.ok
-                    ? t('assistantStatus.providerOk', { latencyMs: snapshot.latencyMs })
-                    : t('assistantStatus.providerError')}
-                  {snapshot.detail ? ` - ${snapshot.detail}` : ''}
-                </span>
-              </article>
-            ))}
+    <AppSurfaceCard>
+      <AppSurfaceHeader
+        title={t('assistantStatus.title')}
+        description={liveTranscriptionStatus}
+        action={
+          <Badge
+            className="border-white/15 bg-white/8 text-[var(--text-primary)]"
+            variant="outline"
+          >
+            {voiceAgentState}
+          </Badge>
+        }
+      />
+      <AppSurfaceContent className="space-y-4">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <StatusBlock
+            label={t('assistantStatus.assistantState')}
+            body={<p>{assistantStateCopy}</p>}
+            note={assistantStateDetail}
+          />
+          <StatusBlock
+            label={t('assistantStatus.realtimeVoiceSession')}
+            body={
+              <div className="space-y-2">
+                <p>{voiceAgentDetail}</p>
+                {voiceAgentSession ? (
+                  <code className="block rounded-md bg-black/20 px-2 py-1 text-xs text-[var(--text-secondary)]">
+                    {voiceAgentSession.profile.model} - {voiceAgentSession.profile.voice} -{' '}
+                    {voiceAgentSession.assistantState.sourceAssistantName}
+                  </code>
+                ) : null}
+              </div>
+            }
+          />
+          <StatusBlock
+            label={t('assistantStatus.wakePhrase')}
+            body={<strong>{assistantWakePhrase}</strong>}
+            note={t('assistantStatus.wakePhraseNote')}
+          />
+          <StatusBlock
+            label={t('assistantStatus.cueMatching')}
+            body={
+              <p>
+                {t('assistantStatus.cueMatchingSummary', {
+                  threshold: wakeThreshold,
+                  cooldownMs: cueCooldownMs,
+                })}
+              </p>
+            }
+            note={t('assistantStatus.cueMatchingNote')}
+          />
+          <StatusBlock
+            label={t('assistantStatus.activeTranscript')}
+            body={
+              <p>
+                {liveTranscript ||
+                  (assistantActive
+                    ? t('assistantStatus.activeTranscriptEmpty')
+                    : isLiveTranscribing
+                      ? t('assistantStatus.activeTranscriptWaiting')
+                      : t('assistantStatus.activeTranscriptUnavailable'))}
+              </p>
+            }
+          />
+          {lastSttDebugLogPath ? (
+            <StatusBlock
+              label={t('assistantStatus.liveSttDebugLog')}
+              body={
+                <code className="block break-all rounded-md bg-black/20 px-2 py-1 text-xs text-[var(--text-secondary)]">
+                  {lastSttDebugLogPath}
+                </code>
+              }
+            />
+          ) : null}
+        </div>
+
+        {sttProviderSnapshots.length ? (
+          <div className="space-y-3">
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">
+              {t('assistantStatus.recognitionStatus')}
+            </p>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {sttProviderSnapshots.map((snapshot) => (
+                <div
+                  className="rounded-xl border border-white/10 bg-white/5 p-4"
+                  key={snapshot.provider}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <strong className="text-sm text-[var(--text-primary)]">
+                      {snapshot.provider}
+                    </strong>
+                    <Badge
+                      variant="outline"
+                      className="border-white/15 bg-white/8 text-[var(--text-primary)]"
+                    >
+                      {snapshot.ok
+                        ? t('assistantStatus.providerOk', {
+                            latencyMs: snapshot.latencyMs,
+                          })
+                        : t('assistantStatus.providerError')}
+                    </Badge>
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
+                    {snapshot.transcript || t('assistantStatus.noTranscriptPayload')}
+                  </p>
+                  {snapshot.detail ? (
+                    <p className="mt-2 text-xs leading-5 text-[var(--text-muted)]">
+                      {snapshot.detail}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      ) : null}
-      {lastSttDebugLogPath ? (
-        <div className="result-block">
-          <span className="info-label">{t('assistantStatus.liveSttDebugLog')}</span>
-          <code>{lastSttDebugLogPath}</code>
-        </div>
-      ) : null}
-    </section>
+        ) : null}
+      </AppSurfaceContent>
+    </AppSurfaceCard>
   );
 }

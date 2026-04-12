@@ -1,5 +1,16 @@
 import { useTranslation } from 'react-i18next';
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+
 type SettingsConfirmDialogProps = {
   open: boolean;
   title: string;
@@ -12,9 +23,7 @@ type SettingsConfirmDialogProps = {
   onConfirm: () => void;
 };
 
-export function SettingsConfirmDialog(
-  props: SettingsConfirmDialogProps,
-): JSX.Element | null {
+export function SettingsConfirmDialog(props: SettingsConfirmDialogProps): JSX.Element {
   const { t } = useTranslation();
   const {
     open,
@@ -28,49 +37,50 @@ export function SettingsConfirmDialog(
     onConfirm,
   } = props;
 
-  if (!open) {
-    return null;
-  }
-
   return (
-    <div className="modal-backdrop" role="presentation" onClick={isBusy ? undefined : onClose}>
-      <section
-        className="modal-card"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="settings-confirm-title"
-        onClick={(event) => event.stopPropagation()}
+    <AlertDialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen && !isBusy) {
+          onClose();
+        }
+      }}
+    >
+      <AlertDialogContent
+        className="border border-[color:var(--panel-border)] bg-transparent text-[var(--text-primary)] shadow-none"
+        style={{
+          background: 'var(--panel-bg)',
+          boxShadow: 'var(--panel-shadow)',
+        }}
       >
-        <button
-          type="button"
-          className="modal-close"
-          aria-label={t('dialogs.closeReset')}
-          onClick={onClose}
-          disabled={isBusy}
-        >
-          x
-        </button>
-        <h2 id="settings-confirm-title">{title}</h2>
-        <p>{body}</p>
-        <div className="modal-actions">
-          <button
-            type="button"
-            className="secondary-button"
+        <AlertDialogHeader className="items-start text-left">
+          <AlertDialogTitle className="text-[var(--text-primary)]">{title}</AlertDialogTitle>
+          <AlertDialogDescription className="text-[var(--text-secondary)]">
+            {body}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="border-[color:var(--panel-border)]/70 bg-white/5">
+          <AlertDialogCancel
             onClick={onClose}
             disabled={isBusy}
+            className="border-white/15 bg-white/5 text-[var(--text-primary)] hover:bg-white/10"
           >
             {cancelLabel ?? t('dialogs.resetNo')}
-          </button>
-          <button
-            type="button"
-            className={tone === 'danger' ? 'danger-button' : 'primary-button'}
+          </AlertDialogCancel>
+          <AlertDialogAction
             onClick={onConfirm}
             disabled={isBusy}
+            variant={tone === 'danger' ? 'destructive' : 'default'}
+            className={
+              tone === 'danger'
+                ? 'border-rose-200/15 bg-rose-500/10 text-rose-100 hover:bg-rose-500/20'
+                : 'border-white/15 bg-white/12 text-[var(--text-primary)] hover:bg-white/18'
+            }
           >
             {confirmLabel}
-          </button>
-        </div>
-      </section>
-    </div>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

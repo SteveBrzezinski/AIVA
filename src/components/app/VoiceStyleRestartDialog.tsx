@@ -1,5 +1,16 @@
 import { useTranslation } from 'react-i18next';
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+
 type VoiceStyleRestartDialogProps = {
   open: boolean;
   changeSummary: {
@@ -13,15 +24,9 @@ type VoiceStyleRestartDialogProps = {
   onConfirm: () => void;
 };
 
-export function VoiceStyleRestartDialog(
-  props: VoiceStyleRestartDialogProps,
-): JSX.Element | null {
+export function VoiceStyleRestartDialog(props: VoiceStyleRestartDialogProps): JSX.Element {
   const { t } = useTranslation();
   const { open, changeSummary, isBusy, onClose, onConfirm } = props;
-
-  if (!open) {
-    return null;
-  }
 
   const { genderChanged, modelChanged, voiceChanged, providerChanged } = changeSummary;
   const keyStem =
@@ -34,57 +39,54 @@ export function VoiceStyleRestartDialog(
           : providerChanged && !modelChanged && !voiceChanged && !genderChanged
             ? 'voiceProviderRestart'
             : 'voiceSessionConfigRestart';
-  const titleKey =
-    `dialogs.${keyStem}Title`;
+  const titleKey = `dialogs.${keyStem}Title`;
   const bodyKey = `dialogs.${keyStem}Body`;
   const detailKey = `dialogs.${keyStem}Detail`;
   const confirmKey = `dialogs.${keyStem}Confirm`;
   const confirmingKey = `dialogs.${keyStem}Confirming`;
 
   return (
-    <div
-      className="modal-backdrop"
-      role="presentation"
-      onClick={isBusy ? undefined : onClose}
+    <AlertDialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen && !isBusy) {
+          onClose();
+        }
+      }}
     >
-      <section
-        className="modal-card"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="voice-style-restart-title"
-        onClick={(event) => event.stopPropagation()}
+      <AlertDialogContent
+        className="border border-[color:var(--panel-border)] bg-transparent text-[var(--text-primary)] shadow-none"
+        style={{
+          background: 'var(--panel-bg)',
+          boxShadow: 'var(--panel-shadow)',
+        }}
       >
-        <button
-          type="button"
-          className="modal-close"
-          aria-label={t('dialogs.closeVoiceStyleRestart')}
-          onClick={onClose}
-          disabled={isBusy}
-        >
-          x
-        </button>
-        <h2 id="voice-style-restart-title">{t(titleKey)}</h2>
-        <p>{t(bodyKey)}</p>
-        <p>{t(detailKey)}</p>
-        <div className="modal-actions">
-          <button
-            type="button"
-            className="secondary-button"
+        <AlertDialogHeader className="items-start text-left">
+          <AlertDialogTitle className="text-[var(--text-primary)]">
+            {t(titleKey)}
+          </AlertDialogTitle>
+          <AlertDialogDescription className="space-y-2 text-[var(--text-secondary)]">
+            <span className="block">{t(bodyKey)}</span>
+            <span className="block">{t(detailKey)}</span>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="border-[color:var(--panel-border)]/70 bg-white/5">
+          <AlertDialogCancel
             onClick={onClose}
             disabled={isBusy}
+            className="border-white/15 bg-white/5 text-[var(--text-primary)] hover:bg-white/10"
           >
             {t('dialogs.voiceStyleRestartNo')}
-          </button>
-          <button
-            type="button"
-            className="primary-button"
+          </AlertDialogCancel>
+          <AlertDialogAction
             onClick={onConfirm}
             disabled={isBusy}
+            className="border-white/15 bg-white/12 text-[var(--text-primary)] hover:bg-white/18"
           >
             {isBusy ? t(confirmingKey) : t(confirmKey)}
-          </button>
-        </div>
-      </section>
-    </div>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

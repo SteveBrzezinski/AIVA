@@ -1,6 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
+import { AppSurfaceCard, AppSurfaceContent, AppSurfaceHeader } from '@/components/ui/app-surface';
 import type { VoiceTimer } from '../../lib/voiceOverlay';
 import {
   formatVoiceTimerDuration,
@@ -24,13 +29,12 @@ function splitDuration(durationMs: number): { minutes: number; seconds: number }
   };
 }
 
-function TimerEditorDialogContent({
+function TimerEditorDialogBody({
   timer,
-  variant = 'modal',
   isBusy,
   onClose,
   onSubmit,
-}: Omit<TimerEditorDialogProps, 'open'>): JSX.Element {
+}: Omit<TimerEditorDialogProps, 'open' | 'variant'>): JSX.Element {
   const { t } = useTranslation();
   const defaults = useMemo(
     () => splitDuration(timer ? getVoiceTimerRemainingMs(timer) : 15 * 60 * 1000),
@@ -46,130 +50,148 @@ function TimerEditorDialogContent({
     Math.max(1, durationMinutes * 60 + durationSeconds) * 1000,
   );
   const saveDisabled = isBusy || (durationMinutes === 0 && durationSeconds === 0);
-  const isModal = variant === 'modal';
 
   return (
-    <div
-      className={isModal ? 'modal-backdrop timer-editor-backdrop' : 'timer-editor-popover'}
-      role="presentation"
-      onClick={isModal && !isBusy ? onClose : undefined}
-    >
-      <section
-        className={`modal-card timer-editor-card ${
-          isModal ? 'timer-editor-card--modal' : 'timer-editor-card--dock'
-        }`}
-        role="dialog"
-        aria-modal={isModal ? true : undefined}
-        aria-labelledby="timer-editor-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <button
+    <>
+      <div className="grid gap-5 md:grid-cols-2">
+        <FormField
+          label={t('timers.timerName')}
+          hint={t('dialogs.timerEditorNameNote')}
+          className="md:col-span-2"
+        >
+          <Input
+            type="text"
+            autoComplete="off"
+            placeholder={t('dialogs.timerEditorNamePlaceholder')}
+            value={title}
+            className="h-11 border-white/15 bg-black/20 text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+            onChange={(event) => setTitle(event.target.value)}
+            disabled={isBusy}
+          />
+        </FormField>
+
+        <FormField label={t('dialogs.timerEditorMinutes')}>
+          <Input
+            type="number"
+            min="0"
+            max="1440"
+            step="1"
+            value={minutes}
+            className="h-11 border-white/15 bg-black/20 text-[var(--text-primary)]"
+            onChange={(event) => setMinutes(event.target.value)}
+            disabled={isBusy}
+          />
+        </FormField>
+
+        <FormField label={t('dialogs.timerEditorSeconds')}>
+          <Input
+            type="number"
+            min="0"
+            max="59"
+            step="1"
+            value={seconds}
+            className="h-11 border-white/15 bg-black/20 text-[var(--text-primary)]"
+            onChange={(event) => setSeconds(event.target.value)}
+            disabled={isBusy}
+          />
+        </FormField>
+      </div>
+
+      <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+        <strong className="block text-sm text-[var(--text-primary)]">
+          {t('dialogs.timerEditorPreviewLabel')}
+        </strong>
+        <span className="mt-1 block text-sm text-[var(--text-secondary)]">{durationPreview}</span>
+      </div>
+
+      <div className="flex flex-col-reverse gap-3 border-t border-[color:var(--panel-border)]/70 bg-white/5 px-4 py-4 sm:flex-row sm:justify-end">
+        <Button
           type="button"
-          className="modal-close"
-          aria-label={t('dialogs.closeTimerEditor')}
+          variant="outline"
+          className="border-white/15 bg-white/5 text-[var(--text-primary)] hover:bg-white/10"
           onClick={onClose}
           disabled={isBusy}
         >
-          x
-        </button>
-        <span className="info-label timer-editor-eyebrow">
-          {timer ? t('timers.editTimer') : t('timers.addTimer')}
-        </span>
-        <h2 id="timer-editor-title">
-          {timer ? t('dialogs.timerEditorTitleEdit') : t('dialogs.timerEditorTitleCreate')}
-        </h2>
-        <p>{t('dialogs.timerEditorBody')}</p>
-
-        <div className="timer-editor-grid">
-          <label className="settings-field settings-field--wide">
-            <span className="info-label">{t('timers.timerName')}</span>
-            <input
-              type="text"
-              autoComplete="off"
-              placeholder={t('dialogs.timerEditorNamePlaceholder')}
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              disabled={isBusy}
-            />
-            <span className="field-note">{t('dialogs.timerEditorNameNote')}</span>
-          </label>
-
-          <label className="settings-field">
-            <span className="info-label">{t('dialogs.timerEditorMinutes')}</span>
-            <input
-              type="number"
-              min="0"
-              max="1440"
-              step="1"
-              value={minutes}
-              onChange={(event) => setMinutes(event.target.value)}
-              disabled={isBusy}
-            />
-          </label>
-
-          <label className="settings-field">
-            <span className="info-label">{t('dialogs.timerEditorSeconds')}</span>
-            <input
-              type="number"
-              min="0"
-              max="59"
-              step="1"
-              value={seconds}
-              onChange={(event) => setSeconds(event.target.value)}
-              disabled={isBusy}
-            />
-          </label>
-        </div>
-
-        <div className="timer-editor-preview">
-          <strong>{t('dialogs.timerEditorPreviewLabel')}</strong>
-          <span>{durationPreview}</span>
-        </div>
-
-        <div className="modal-actions">
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={onClose}
-            disabled={isBusy}
-          >
-            {t('dialogs.timerEditorCancel')}
-          </button>
-          <button
-            type="button"
-            className="primary-button"
-            onClick={() => onSubmit({ title: title.trim(), durationMinutes, durationSeconds })}
-            disabled={saveDisabled}
-          >
-            {isBusy
-              ? t('dialogs.timerEditorSaving')
-              : timer
-                ? t('dialogs.timerEditorSave')
-                : t('dialogs.timerEditorCreate')}
-          </button>
-        </div>
-      </section>
-    </div>
+          {t('dialogs.timerEditorCancel')}
+        </Button>
+        <Button
+          type="button"
+          className="border-white/15 bg-white/12 text-[var(--text-primary)] hover:bg-white/18"
+          onClick={() => onSubmit({ title: title.trim(), durationMinutes, durationSeconds })}
+          disabled={saveDisabled}
+        >
+          {isBusy
+            ? t('dialogs.timerEditorSaving')
+            : timer
+              ? t('dialogs.timerEditorSave')
+              : t('dialogs.timerEditorCreate')}
+        </Button>
+      </div>
+    </>
   );
 }
 
-export function TimerEditorDialog(
-  props: TimerEditorDialogProps,
-): JSX.Element | null {
-  const { open, timer, variant, isBusy, onClose, onSubmit } = props;
+export function TimerEditorDialog(props: TimerEditorDialogProps): JSX.Element | null {
+  const { t } = useTranslation();
+  const { open, timer, variant = 'modal', isBusy, onClose, onSubmit } = props;
 
   if (!open) {
     return null;
   }
 
+  if (variant === 'dock') {
+    return (
+      <AppSurfaceCard className="w-full">
+        <AppSurfaceHeader
+          title={timer ? t('dialogs.timerEditorTitleEdit') : t('dialogs.timerEditorTitleCreate')}
+          description={t('dialogs.timerEditorBody')}
+        />
+        <AppSurfaceContent className="space-y-5">
+          <TimerEditorDialogBody
+            key={timer?.id ?? 'create'}
+            timer={timer}
+            isBusy={isBusy}
+            onClose={onClose}
+            onSubmit={onSubmit}
+          />
+        </AppSurfaceContent>
+      </AppSurfaceCard>
+    );
+  }
+
   return (
-    <TimerEditorDialogContent
-      key={timer?.id ?? 'create'}
-      timer={timer}
-      variant={variant}
-      isBusy={isBusy}
-      onClose={onClose}
-      onSubmit={onSubmit}
-    />
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen && !isBusy) {
+          onClose();
+        }
+      }}
+    >
+      <DialogContent
+        showCloseButton={!isBusy}
+        className="max-w-xl border border-[color:var(--panel-border)] bg-transparent text-[var(--text-primary)] shadow-none"
+        style={{
+          background: 'var(--panel-bg)',
+          boxShadow: 'var(--panel-shadow)',
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle className="text-[var(--text-primary)]">
+            {timer ? t('dialogs.timerEditorTitleEdit') : t('dialogs.timerEditorTitleCreate')}
+          </DialogTitle>
+          <DialogDescription className="text-[var(--text-secondary)]">
+            {t('dialogs.timerEditorBody')}
+          </DialogDescription>
+        </DialogHeader>
+        <TimerEditorDialogBody
+          key={timer?.id ?? 'create'}
+          timer={timer}
+          isBusy={isBusy}
+          onClose={onClose}
+          onSubmit={onSubmit}
+        />
+      </DialogContent>
+    </Dialog>
   );
 }

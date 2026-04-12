@@ -1,5 +1,8 @@
 import { Trans, useTranslation } from 'react-i18next';
 
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+
 import type { CalibrationStep } from '../../lib/app/appModel';
 
 type AssistantTrainingDialogProps = {
@@ -39,81 +42,97 @@ export function AssistantTrainingDialog(
   }
 
   return (
-    <div className="modal-backdrop" role="presentation" onClick={onClose}>
-      <section
-        className="modal-card modal-card--wide"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="assistant-training-title"
-        onClick={(event) => event.stopPropagation()}
+    <Dialog open={step !== null} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
+      <DialogContent
+        className="max-w-2xl border border-[color:var(--panel-border)] bg-transparent text-[var(--text-primary)] shadow-none"
+        style={{
+          background: 'var(--panel-bg)',
+          boxShadow: 'var(--panel-shadow)',
+        }}
       >
-        <button
-          type="button"
-          className="modal-close"
-          aria-label={t('dialogs.closeTraining')}
-          onClick={onClose}
-        >
-          x
-        </button>
-        <h2 id="assistant-training-title">{t('dialogs.trainingTitle')}</h2>
-        <p>
-          {step.progress}) {step.headline}
-        </p>
-        <div className="training-phrase-box">
-          <strong>{step.prompt}</strong>
+        <DialogHeader>
+          <DialogTitle className="text-[var(--text-primary)]">
+            {t('dialogs.trainingTitle')}
+          </DialogTitle>
+          <DialogDescription className="text-[var(--text-secondary)]">
+            {step.progress}) {step.headline}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-5">
+          <div className="rounded-2xl border border-white/10 bg-white/5 px-5 py-6 text-center">
+            <strong className="text-lg text-[var(--text-primary)]">{step.prompt}</strong>
+          </div>
+
+          <p className="text-sm leading-6 text-[var(--text-secondary)]">
+            <Trans
+              i18nKey="dialogs.trainingNote"
+              values={{ language: step.recognitionLanguage }}
+              components={{ code: <code /> }}
+            />
+          </p>
+
+          <div className="flex flex-wrap gap-3">
+            <Button
+              type="button"
+              className="border-white/15 bg-white/12 text-[var(--text-primary)] hover:bg-white/18"
+              disabled={isRecording}
+              onClick={onStartRecording}
+            >
+              {t('dialogs.start')}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="border-white/15 bg-white/5 text-[var(--text-primary)] hover:bg-white/10"
+              disabled={!isRecording}
+              onClick={onStopRecording}
+            >
+              {t('dialogs.stop')}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="border-white/15 bg-white/5 text-[var(--text-primary)] hover:bg-white/10"
+              disabled={!capturedTranscript.trim()}
+              onClick={onRetry}
+            >
+              {t('dialogs.retry')}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="border-white/15 bg-white/5 text-[var(--text-primary)] hover:bg-white/10"
+              disabled={!capturedTranscript.trim()}
+              onClick={onConfirm}
+            >
+              {t('dialogs.confirm')}
+            </Button>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <section className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                {t('dialogs.liveCapture')}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                {liveTranscript || t('dialogs.noTranscriptYet')}
+              </p>
+            </section>
+            <section className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                {t('dialogs.capturedSample')}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                {capturedTranscript || t('dialogs.reviewAfterStop')}
+              </p>
+            </section>
+          </div>
+
+          {status ? <p className="text-sm text-[var(--text-secondary)]">{status}</p> : null}
+          {error ? <p className="text-sm text-rose-300">{error}</p> : null}
         </div>
-        <p className="field-note">
-          <Trans
-            i18nKey="dialogs.trainingNote"
-            values={{ language: step.recognitionLanguage }}
-            components={{ code: <code /> }}
-          />
-        </p>
-        <div className="modal-actions">
-          <button
-            type="button"
-            className="primary-button"
-            disabled={isRecording}
-            onClick={onStartRecording}
-          >
-            {t('dialogs.start')}
-          </button>
-          <button
-            type="button"
-            className="secondary-button"
-            disabled={!isRecording}
-            onClick={onStopRecording}
-          >
-            {t('dialogs.stop')}
-          </button>
-          <button
-            type="button"
-            className="secondary-button"
-            disabled={!capturedTranscript.trim()}
-            onClick={onRetry}
-          >
-            {t('dialogs.retry')}
-          </button>
-          <button
-            type="button"
-            className="secondary-button"
-            disabled={!capturedTranscript.trim()}
-            onClick={onConfirm}
-          >
-            {t('dialogs.confirm')}
-          </button>
-        </div>
-        <div className="result-block">
-          <span className="info-label">{t('dialogs.liveCapture')}</span>
-          <p>{liveTranscript || t('dialogs.noTranscriptYet')}</p>
-        </div>
-        <div className="result-block">
-          <span className="info-label">{t('dialogs.capturedSample')}</span>
-          <p>{capturedTranscript || t('dialogs.reviewAfterStop')}</p>
-        </div>
-        {status ? <p className="field-note">{status}</p> : null}
-        {error ? <p className="field-note field-note--error">{error}</p> : null}
-      </section>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

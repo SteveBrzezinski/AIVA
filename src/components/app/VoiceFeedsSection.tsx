@@ -1,5 +1,10 @@
 import { useTranslation } from 'react-i18next';
 
+import {
+  AppSurfaceCard,
+  AppSurfaceContent,
+  AppSurfaceHeader,
+} from '@/components/ui/app-surface';
 import type { VoiceConnectionState, VoiceFeedItem } from '../../lib/realtimeVoiceAgent';
 
 type VoiceFeedsSectionProps = {
@@ -17,25 +22,29 @@ function FeedColumn(props: {
   const { title, counter, emptyState, items } = props;
 
   return (
-    <article className="feed-card">
-      <div className="feed-header">
-        <span className="info-label">{title}</span>
-        <strong>{counter}</strong>
-      </div>
-      <div className="feed-list">
+    <AppSurfaceCard className="min-h-0">
+      <AppSurfaceHeader title={title} action={<span className="text-sm text-[var(--text-muted)]">{counter}</span>} />
+      <AppSurfaceContent className="max-h-[28rem] space-y-3 overflow-y-auto">
         {items.length ? (
           items.map((item) => (
-            <article className={`feed-item feed-item--${item.kind}`} key={item.id}>
-              <strong>{item.title}</strong>
-              <pre>{item.body}</pre>
-              <small>{new Date(item.timestampMs).toLocaleTimeString()}</small>
+            <article
+              className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm"
+              key={item.id}
+            >
+              <strong className="block text-[var(--text-primary)]">{item.title}</strong>
+              <pre className="mt-2 whitespace-pre-wrap break-words font-mono text-xs leading-5 text-[var(--text-secondary)]">
+                {item.body}
+              </pre>
+              <small className="mt-3 block text-[11px] uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                {new Date(item.timestampMs).toLocaleTimeString()}
+              </small>
             </article>
           ))
         ) : (
-          <p className="feed-empty">{emptyState}</p>
+          <p className="text-sm text-[var(--text-muted)]">{emptyState}</p>
         )}
-      </div>
-    </article>
+      </AppSurfaceContent>
+    </AppSurfaceCard>
   );
 }
 
@@ -44,7 +53,7 @@ export function VoiceFeedsSection(props: VoiceFeedsSectionProps): JSX.Element {
   const { voiceAgentState, voiceEventFeed, voiceTaskFeed } = props;
 
   return (
-    <section className="feed-grid">
+    <section className="grid gap-4 xl:grid-cols-2">
       <FeedColumn
         title={t('feeds.realtimeEventFeed')}
         counter={voiceAgentState}

@@ -1,5 +1,13 @@
+import { Pause, Pencil, Play, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  AppSurfaceCard,
+  AppSurfaceContent,
+  AppSurfaceHeader,
+} from '@/components/ui/app-surface';
 import {
   formatVoiceTimerDuration,
   formatVoiceTimerRemaining,
@@ -26,7 +34,6 @@ export function TimerListPanel(props: TimerListPanelProps): JSX.Element {
   const {
     title,
     subtitle,
-    variant,
     timers,
     nowMs,
     isLoaded,
@@ -38,106 +45,114 @@ export function TimerListPanel(props: TimerListPanelProps): JSX.Element {
     onResume,
   } = props;
 
-  const containerClassName =
-    variant === 'dock' ? 'timer-panel timer-panel--dock' : 'timer-panel timer-panel--dashboard';
-
   return (
-    <section className={containerClassName}>
-      <div className="timer-panel__header">
-        <div>
-          <span className="info-label">{title}</span>
-          {subtitle ? <p>{subtitle}</p> : null}
-        </div>
-        <button type="button" className="secondary-button timer-panel__add" onClick={onAdd}>
-          {t('timers.addTimer')}
-        </button>
-      </div>
+    <AppSurfaceCard>
+      <AppSurfaceHeader
+        title={title}
+        description={subtitle}
+        action={
+          <Button
+            type="button"
+            className="border-white/15 bg-white/10 text-[var(--text-primary)] hover:bg-white/15"
+            variant="outline"
+            onClick={onAdd}
+          >
+            <Plus className="size-4" />
+            {t('timers.addTimer')}
+          </Button>
+        }
+      />
+      <AppSurfaceContent className="space-y-4">
+        {error ? <p className="text-sm text-rose-300">{error}</p> : null}
 
-      {error ? <p className="field-note field-note--error">{error}</p> : null}
-
-      <div className="timer-panel__list">
         {!isLoaded ? (
-          <p className="timer-panel__empty">{t('timers.loading')}</p>
+          <p className="text-sm text-[var(--text-muted)]">{t('timers.loading')}</p>
         ) : timers.length ? (
-          timers.map((timer) => (
-            <article
-              key={timer.id}
-              className={`timer-card timer-card--${timer.status}`}
-            >
-              <div className="timer-card__copy">
-                <div className="timer-card__headline">
-                  <strong>{timer.title}</strong>
-                  <span className={`timer-status timer-status--${timer.status}`}>
-                    {timer.status === 'running'
-                      ? t('timers.running')
-                      : timer.status === 'paused'
-                        ? t('timers.paused')
-                        : t('timers.completed')}
-                  </span>
+          <div className="space-y-3">
+            {timers.map((timer) => (
+              <article
+                key={timer.id}
+                className="flex flex-col gap-4 rounded-xl border border-white/10 bg-white/5 p-4 lg:flex-row lg:items-center lg:justify-between"
+              >
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <strong className="text-base text-[var(--text-primary)]">{timer.title}</strong>
+                    <Badge
+                      variant="outline"
+                      className="border-white/15 bg-white/8 text-[var(--text-primary)]"
+                    >
+                      {timer.status === 'running'
+                        ? t('timers.running')
+                        : timer.status === 'paused'
+                          ? t('timers.paused')
+                          : t('timers.completed')}
+                    </Badge>
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-[var(--text-secondary)]">
+                    <span>{formatVoiceTimerRemaining(timer, nowMs)}</span>
+                    <span>
+                      {t('timers.totalDuration', {
+                        duration: formatVoiceTimerDuration(timer.durationMs),
+                      })}
+                    </span>
+                  </div>
                 </div>
-                <div className="timer-card__meta">
-                  <span>{formatVoiceTimerRemaining(timer, nowMs)}</span>
-                  <span>{t('timers.totalDuration', { duration: formatVoiceTimerDuration(timer.durationMs) })}</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  {timer.status === 'running' ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="border-white/15 bg-white/8 text-[var(--text-primary)] hover:bg-white/15"
+                      onClick={() => onPause(timer)}
+                      aria-label={t('timers.pauseTimer')}
+                      title={t('timers.pauseTimer')}
+                    >
+                      <Pause className="size-4" />
+                    </Button>
+                  ) : timer.status === 'paused' ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="border-white/15 bg-white/8 text-[var(--text-primary)] hover:bg-white/15"
+                      onClick={() => onResume(timer)}
+                      aria-label={t('timers.resumeTimer')}
+                      title={t('timers.resumeTimer')}
+                    >
+                      <Play className="size-4" />
+                    </Button>
+                  ) : null}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="border-white/15 bg-white/8 text-[var(--text-primary)] hover:bg-white/15"
+                    onClick={() => onEdit(timer)}
+                    aria-label={t('timers.editTimer')}
+                    title={t('timers.editTimer')}
+                  >
+                    <Pencil className="size-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="border-rose-200/15 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20"
+                    onClick={() => onDelete(timer)}
+                    aria-label={t('timers.deleteTimer')}
+                    title={t('timers.deleteTimer')}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
                 </div>
-              </div>
-              <div className="timer-card__actions">
-                {timer.status === 'running' ? (
-                  <button
-                    type="button"
-                    className="secondary-button secondary-button--icon"
-                    onClick={() => onPause(timer)}
-                    aria-label={t('timers.pauseTimer')}
-                    title={t('timers.pauseTimer')}
-                  >
-                    ||
-                  </button>
-                ) : timer.status === 'paused' ? (
-                  <button
-                    type="button"
-                    className="secondary-button secondary-button--icon"
-                    onClick={() => onResume(timer)}
-                    aria-label={t('timers.resumeTimer')}
-                    title={t('timers.resumeTimer')}
-                  >
-                    {'>'}
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  className="secondary-button secondary-button--icon"
-                  onClick={() => onEdit(timer)}
-                  aria-label={t('timers.editTimer')}
-                  title={t('timers.editTimer')}
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M12 20h9" />
-                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  className="danger-button secondary-button--icon"
-                  onClick={() => onDelete(timer)}
-                  aria-label={t('timers.deleteTimer')}
-                  title={t('timers.deleteTimer')}
-                >
-                  x
-                </button>
-              </div>
-            </article>
-          ))
+              </article>
+            ))}
+          </div>
         ) : (
-          <p className="timer-panel__empty">{t('timers.empty')}</p>
+          <p className="text-sm text-[var(--text-muted)]">{t('timers.empty')}</p>
         )}
-      </div>
-    </section>
+      </AppSurfaceContent>
+    </AppSurfaceCard>
   );
 }
