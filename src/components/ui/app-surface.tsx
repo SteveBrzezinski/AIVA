@@ -20,7 +20,7 @@ export function AppSurfaceCard({
   return (
     <Card
       className={cn(
-        'border border-[color:var(--panel-border)] bg-transparent text-[var(--text-primary)] shadow-none backdrop-blur-xl',
+        'app-surface-card relative isolate border border-[color:var(--panel-border)] bg-transparent text-[var(--text-primary)] shadow-none backdrop-blur-xl',
         className,
       )}
       style={{

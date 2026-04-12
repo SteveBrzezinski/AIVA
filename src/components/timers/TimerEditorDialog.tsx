@@ -64,7 +64,7 @@ function TimerEditorDialogBody({
             autoComplete="off"
             placeholder={t('dialogs.timerEditorNamePlaceholder')}
             value={title}
-            className="h-11 border-white/15 bg-black/20 text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+            className="h-11 border-[color:var(--input-border)] bg-[var(--input-bg)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] hover:border-[color:var(--button-secondary-border-hover)] focus-visible:border-[color:var(--input-border-focus)]"
             onChange={(event) => setTitle(event.target.value)}
             disabled={isBusy}
           />
@@ -77,7 +77,7 @@ function TimerEditorDialogBody({
             max="1440"
             step="1"
             value={minutes}
-            className="h-11 border-white/15 bg-black/20 text-[var(--text-primary)]"
+            className="h-11 border-[color:var(--input-border)] bg-[var(--input-bg)] text-[var(--text-primary)] hover:border-[color:var(--button-secondary-border-hover)] focus-visible:border-[color:var(--input-border-focus)]"
             onChange={(event) => setMinutes(event.target.value)}
             disabled={isBusy}
           />
@@ -90,25 +90,24 @@ function TimerEditorDialogBody({
             max="59"
             step="1"
             value={seconds}
-            className="h-11 border-white/15 bg-black/20 text-[var(--text-primary)]"
+            className="h-11 border-[color:var(--input-border)] bg-[var(--input-bg)] text-[var(--text-primary)] hover:border-[color:var(--button-secondary-border-hover)] focus-visible:border-[color:var(--input-border-focus)]"
             onChange={(event) => setSeconds(event.target.value)}
             disabled={isBusy}
           />
         </FormField>
       </div>
 
-      <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+      <div className="rounded-xl border border-[color:var(--panel-border)] bg-[var(--panel-bg-soft)] px-4 py-3">
         <strong className="block text-sm text-[var(--text-primary)]">
           {t('dialogs.timerEditorPreviewLabel')}
         </strong>
         <span className="mt-1 block text-sm text-[var(--text-secondary)]">{durationPreview}</span>
       </div>
 
-      <div className="flex flex-col-reverse gap-3 border-t border-[color:var(--panel-border)]/70 bg-white/5 px-4 py-4 sm:flex-row sm:justify-end">
+      <div className="flex flex-col-reverse gap-3 border-t border-[color:var(--panel-border)] bg-[var(--panel-bg-soft)] px-4 py-4 sm:flex-row sm:justify-end">
         <Button
           type="button"
           variant="outline"
-          className="border-white/15 bg-white/5 text-[var(--text-primary)] hover:bg-white/10"
           onClick={onClose}
           disabled={isBusy}
         >
@@ -116,7 +115,6 @@ function TimerEditorDialogBody({
         </Button>
         <Button
           type="button"
-          className="border-white/15 bg-white/12 text-[var(--text-primary)] hover:bg-white/18"
           onClick={() => onSubmit({ title: title.trim(), durationMinutes, durationSeconds })}
           disabled={saveDisabled}
         >

@@ -6,6 +6,7 @@ import {
   onVoiceChatState,
   requestVoiceChatSync,
   submitVoiceChatMessage,
+  toggleChatWindow,
   transcribeChatAudio,
   type VoiceChatState,
 } from './lib/voiceOverlay';
@@ -89,6 +90,29 @@ function StopIcon() {
         width="9.6"
         height="9.6"
         rx="2"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg className="voice-chat-button-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M6 6l12 12"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+      <path
+        d="M18 6 6 18"
         fill="none"
         stroke="currentColor"
         strokeLinecap="round"
@@ -290,7 +314,7 @@ export default function ChatOverlayApp() {
       ? `Sprich jetzt... ${Math.max(1, Math.round(recordingElapsedMs / 1000))}s`
       : recordingPhase === 'transcribing'
         ? 'Transkribiere Aufnahme...'
-        : chatState.statusText);
+        : '');
   const canSend =
     inputValue.trim().length > 0 &&
     recordingPhase === 'idle' &&
@@ -413,6 +437,15 @@ export default function ChatOverlayApp() {
     }
   }
 
+  async function handleCloseChat(): Promise<void> {
+    try {
+      setLocalError('');
+      await toggleChatWindow();
+    } catch (error: unknown) {
+      setLocalError(error instanceof Error ? error.message : String(error));
+    }
+  }
+
   return (
     <main className="voice-chat-screen">
       <section className="voice-chat-shell" aria-label="CoralCompanion Chat">
@@ -421,15 +454,26 @@ export default function ChatOverlayApp() {
             <strong>Voice Chat</strong>
             <p>{describeConnectionState(chatState.connectionState, chatState.assistantActive)}</p>
           </div>
-          <span
-            className={`voice-chat-connection${
-              chatState.connectionState === 'error' ? ' voice-chat-connection--error' : ''
-            }`}
-          >
-            {chatState.isAssistantResponding
-              ? 'Antwortet'
-              : describeConnectionState(chatState.connectionState, chatState.assistantActive)}
-          </span>
+          <div className="voice-chat-header-actions">
+            <span
+              className={`voice-chat-connection${
+                chatState.connectionState === 'error' ? ' voice-chat-connection--error' : ''
+              }`}
+            >
+              {chatState.isAssistantResponding
+                ? 'Antwortet'
+                : describeConnectionState(chatState.connectionState, chatState.assistantActive)}
+            </span>
+            <button
+              type="button"
+              className="voice-chat-close-button"
+              aria-label="Chat schließen"
+              title="Chat schließen"
+              onClick={() => void handleCloseChat()}
+            >
+              <CloseIcon />
+            </button>
+          </div>
         </header>
 
         <div ref={messagesRef} className="voice-chat-messages">
@@ -469,9 +513,6 @@ export default function ChatOverlayApp() {
         </div>
 
         <footer className="voice-chat-composer">
-          <label className="voice-chat-composer-label" htmlFor="voice-chat-input">
-            Nachricht
-          </label>
           <div className="voice-chat-composer-row">
             <textarea
               id="voice-chat-input"
@@ -523,9 +564,11 @@ export default function ChatOverlayApp() {
             </div>
           </div>
 
-          <p className={`voice-chat-status${localError ? ' voice-chat-status--error' : ''}`}>
-            {composerStatus}
-          </p>
+          {composerStatus ? (
+            <p className={`voice-chat-status${localError ? ' voice-chat-status--error' : ''}`}>
+              {composerStatus}
+            </p>
+          ) : null}
         </footer>
       </section>
     </main>

@@ -165,10 +165,10 @@ export default function OverlayDock() {
     const color = normalizeHexColor(actionBarActiveGlowColor);
     return {
       ['--edge-action-active-text' as string]: color,
-      ['--edge-action-active-glow' as string]: withAlpha(color, 0.92),
-      ['--edge-action-active-glow-soft' as string]: withAlpha(color, 0.34),
-      ['--edge-action-active-border' as string]: withAlpha(color, 0.52),
-      ['--edge-action-active-surface' as string]: withAlpha(color, 0.14),
+      ['--edge-action-active-glow' as string]: withAlpha(color, 0.24),
+      ['--edge-action-active-glow-soft' as string]: withAlpha(color, 0.1),
+      ['--edge-action-active-border' as string]: withAlpha(color, 0.22),
+      ['--edge-action-active-surface' as string]: withAlpha(color, 0.08),
     };
   }, [actionBarActiveGlowColor]);
 
@@ -675,9 +675,7 @@ export default function OverlayDock() {
         >
           <button
             type="button"
-            className={`edge-nav-btn edge-nav-btn--primary ${
-              isSpeakActive ? 'edge-nav-btn--active' : ''
-            }`}
+            className={`edge-nav-btn ${isSpeakActive ? 'edge-nav-btn--active' : ''}`}
             data-display-mode={actionBarDisplayMode}
             aria-label={i18n.t('overlayDock.speak')}
             title={i18n.t('overlayDock.speak')}
