@@ -1,11 +1,14 @@
 import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { DESIGN_THEME_OPTIONS, getDesignThemeLabel, normalizeDesignThemeId } from './designThemes';
-import { defaultVoiceAgentVoiceForGender } from './lib/app/appModel';
+import {
+  formatRealtimeVoiceLabel,
+  realtimeVoiceOptionsForModel,
+  sanitizeVoiceAgentVoiceForModel,
+} from './lib/app/realtimeVoiceCatalog';
 import type {
   AppSettings,
   HostedAccountStatus,
-  HostedBillingPlan,
   LanguageOption,
 } from './lib/voiceOverlay';
 import {
@@ -30,25 +33,11 @@ type SettingsViewProps = {
   canSaveSettings: boolean;
   onSave: () => Promise<unknown>;
   onReset: () => void;
-  onBack: () => void;
   onOpenTraining: () => Promise<void>;
   hostedAccount: HostedAccountStatus | null;
   hostedAccountError: string | null;
-  isHostedAccountBusy: boolean;
-  hostedBillingPlans: HostedBillingPlan[];
-  selectedHostedPlanKey: string;
-  hostedBillingError: string | null;
-  isHostedCheckoutBusy: boolean;
-  onHostedLogin: (credentials: {
-    baseUrl: string;
-    email: string;
-    password: string;
-  }) => Promise<void>;
-  onHostedRefresh: () => Promise<void>;
-  onHostedLogout: () => Promise<void>;
-  onHostedPlanChange: (planKey: string) => void;
-  onHostedCheckout: () => Promise<void>;
   normalizeLanguageCode: (language: string) => string;
+  hostedSignedIn: boolean;
 };
 
 type SettingsSection = {
@@ -98,27 +87,14 @@ export default function SettingsView({
   canSaveSettings,
   onSave,
   onReset,
-  onBack,
   onOpenTraining,
   hostedAccount,
   hostedAccountError,
-  isHostedAccountBusy,
-  hostedBillingPlans,
-  selectedHostedPlanKey,
-  hostedBillingError,
-  isHostedCheckoutBusy,
-  onHostedLogin,
-  onHostedRefresh,
-  onHostedLogout,
-  onHostedPlanChange,
-  onHostedCheckout,
   normalizeLanguageCode,
+  hostedSignedIn,
 }: SettingsViewProps) {
   const { t } = useTranslation();
   const [activeSection, setActiveSection] = useState<SettingsSectionId | null>(null);
-  const [hostedEmailDraft, setHostedEmailDraft] = useState<string | null>(null);
-  const [hostedPassword, setHostedPassword] = useState('');
-  const hostedEmail = hostedEmailDraft ?? settings.hostedAccountEmail;
 
   const isHostedMode = settings.aiProviderMode === 'hosted';
   const hostedRealtimeEnabled = Boolean(
@@ -134,6 +110,10 @@ export default function SettingsView({
   const selectedThemeLabel = useMemo(
     () => getDesignThemeLabel(settings.designThemeId),
     [settings.designThemeId],
+  );
+  const availableVoiceOptions = useMemo(
+    () => realtimeVoiceOptionsForModel(settings.voiceAgentModel),
+    [settings.voiceAgentModel],
   );
   const assistantGenderLabel = useMemo(() => {
     const selectedOption = VOICE_AGENT_GENDER_OPTIONS.find(
@@ -448,12 +428,17 @@ export default function SettingsView({
               <span className="info-label">{t('settings.voiceAssistantModel')}</span>
               <select
                 value={settings.voiceAgentModel}
-                onChange={(event) =>
+                onChange={(event) => {
+                  const nextModel = event.target.value;
                   setSettings({
                     ...settings,
-                    voiceAgentModel: event.target.value,
-                  })
-                }
+                    voiceAgentModel: nextModel,
+                    voiceAgentVoice: sanitizeVoiceAgentVoiceForModel(
+                      settings.voiceAgentVoice,
+                      nextModel,
+                    ),
+                  });
+                }}
               >
                 {VOICE_AGENT_MODEL_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -465,6 +450,29 @@ export default function SettingsView({
             </label>
 
             <label className="settings-field">
+              <span className="info-label">{t('settings.voiceAssistantVoice')}</span>
+              <select
+                value={sanitizeVoiceAgentVoiceForModel(
+                  settings.voiceAgentVoice,
+                  settings.voiceAgentModel,
+                )}
+                onChange={(event) =>
+                  setSettings({
+                    ...settings,
+                    voiceAgentVoice: event.target.value,
+                  })
+                }
+              >
+                {availableVoiceOptions.map((voice) => (
+                  <option key={voice} value={voice}>
+                    {formatRealtimeVoiceLabel(voice)}
+                  </option>
+                ))}
+              </select>
+              <span className="field-note">{t('settings.voiceAssistantVoiceNote')}</span>
+            </label>
+
+            <label className="settings-field">
               <span className="info-label">{t('settings.voiceAssistantGender')}</span>
               <select
                 value={settings.voiceAgentGender}
@@ -472,9 +480,6 @@ export default function SettingsView({
                   setSettings({
                     ...settings,
                     voiceAgentGender: event.target.value as AppSettings['voiceAgentGender'],
-                    voiceAgentVoice: defaultVoiceAgentVoiceForGender(
-                      event.target.value as AppSettings['voiceAgentGender'],
-                    ),
                   })
                 }
               >
@@ -625,7 +630,7 @@ export default function SettingsView({
             <label className="settings-field settings-field--wide">
               <span className="info-label">{t('settings.aiProviderMode')}</span>
               <select
-                value={settings.aiProviderMode}
+                value={hostedSignedIn ? settings.aiProviderMode : 'byo'}
                 onChange={(event) =>
                   setSettings({
                     ...settings,
@@ -634,55 +639,44 @@ export default function SettingsView({
                 }
               >
                 <option value="byo">{t('settings.aiProviderModeByo')}</option>
-                <option value="hosted">{t('settings.aiProviderModeHosted')}</option>
+                {hostedSignedIn ? (
+                  <option value="hosted">{t('settings.aiProviderModeHosted')}</option>
+                ) : null}
               </select>
               <span className="field-note">{t('settings.aiProviderModeNote')}</span>
-              {isHostedMode ? (
+              {!hostedSignedIn ? (
+                <span className="field-note">{t('settings.hostedLoginPageNote')}</span>
+              ) : null}
+              {isHostedMode && hostedSignedIn ? (
                 <span className="field-note field-note--warning">
                   {t('settings.hostedModeScopeNote')}
                 </span>
               ) : null}
             </label>
 
-            {isHostedMode ? (
+            {isHostedMode && hostedSignedIn ? (
               <>
-                <label className="settings-field settings-field--wide">
-                  <span className="info-label">{t('settings.hostedApiBaseUrl')}</span>
-                  <input
-                    type="url"
-                    autoComplete="off"
-                    placeholder="https://app.example.com"
-                    value={settings.hostedApiBaseUrl}
-                    onChange={(event) =>
-                      setSettings({ ...settings, hostedApiBaseUrl: event.target.value })
-                    }
-                  />
-                  <span className="field-note">
-                    <Trans
-                      i18nKey="settings.hostedApiBaseUrlNote"
-                      components={{ code: <code /> }}
-                    />
-                  </span>
-                </label>
-
                 <div className="settings-field settings-field--wide">
                   <span className="info-label">{t('settings.hostedAccount')}</span>
                   <div className="settings-auth-panel">
                     <div className="settings-auth-summary">
                       <strong>
-                        {hostedAccount?.connected
+                        {hostedSignedIn
                           ? t('settings.hostedAccountConnected')
                           : t('settings.hostedAccountDisconnected')}
                       </strong>
                       <p>
                         {hostedAccountError
                           ? hostedAccountError
-                          : hostedAccount?.connected
+                          : hostedSignedIn
                             ? t('settings.hostedAccountSummary', {
-                                email: hostedAccount.user?.email ?? hostedEmail.trim(),
+                                email:
+                                  hostedAccount?.user?.email ??
+                                  settings.hostedAccountEmail.trim() ??
+                                  '',
                                 workspace:
-                                  hostedAccount.currentTeam?.name ??
-                                  hostedAccount.currentTeam?.slug ??
+                                  hostedAccount?.currentTeam?.name ??
+                                  hostedAccount?.currentTeam?.slug ??
                                   t('settings.hostedWorkspaceCurrentDefault'),
                               })
                             : t('settings.hostedAccountSummaryDisconnected')}
@@ -696,95 +690,19 @@ export default function SettingsView({
                           })}
                         </p>
                       ) : null}
-                      {hostedAccount?.connected ? (
+                      {hostedSignedIn ? (
                         <p>
                           {hostedRealtimeEnabled
                             ? t('settings.hostedRealtimeReady')
                             : t('settings.hostedRealtimeUnavailable')}
                         </p>
                       ) : null}
-                    </div>
-
-                    <div className="settings-auth-grid">
-                      <input
-                        type="email"
-                        autoComplete="username"
-                        placeholder="name@example.com"
-                        value={hostedEmail}
-                        onChange={(event) => setHostedEmailDraft(event.target.value)}
-                      />
-                      <input
-                        type="password"
-                        autoComplete="current-password"
-                        placeholder={t('settings.hostedPasswordPlaceholder')}
-                        value={hostedPassword}
-                        onChange={(event) => setHostedPassword(event.target.value)}
-                      />
-                    </div>
-
-                    <div className="settings-actions">
-                      <button
-                        type="button"
-                        className="secondary-button"
-                        disabled={
-                          isHostedAccountBusy ||
-                          isSavingSettings ||
-                          !settings.hostedApiBaseUrl.trim() ||
-                          !hostedEmail.trim() ||
-                          !hostedPassword.trim()
-                        }
-                        onClick={() => {
-                          void (async () => {
-                            await onHostedLogin({
-                              baseUrl: settings.hostedApiBaseUrl,
-                              email: hostedEmail,
-                              password: hostedPassword,
-                            });
-                            setHostedEmailDraft(null);
-                            setHostedPassword('');
-                          })();
-                        }}
-                      >
-                        {isHostedAccountBusy
-                          ? t('settings.hostedSigningIn')
-                          : t('settings.hostedSignIn')}
-                      </button>
-                      <button
-                        type="button"
-                        className="secondary-button"
-                        disabled={
-                          isHostedAccountBusy ||
-                          isSavingSettings ||
-                          !settings.hostedApiBaseUrl.trim() ||
-                          !settings.hostedAccessToken.trim()
-                        }
-                        onClick={() => void onHostedRefresh()}
-                      >
-                        {t('settings.hostedRefresh')}
-                      </button>
-                      <button
-                        type="button"
-                        className="danger-button"
-                        disabled={
-                          isHostedAccountBusy ||
-                          isSavingSettings ||
-                          !settings.hostedAccessToken.trim()
-                        }
-                        onClick={() => {
-                          void (async () => {
-                            await onHostedLogout();
-                            setHostedEmailDraft(null);
-                            setHostedPassword('');
-                          })();
-                        }}
-                      >
-                        {t('settings.hostedSignOut')}
-                      </button>
+                      <p>{t('settings.hostedLoginPageNote')}</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="settings-field">
+                <div className="settings-field settings-field--wide">
                   <span className="info-label">{t('settings.hostedWorkspace')}</span>
                   {hostedAccount?.teams.length ? (
                     <select
@@ -827,58 +745,6 @@ export default function SettingsView({
                   <span className="field-note">
                     {t('settings.hostedWorkspaceNote')}
                   </span>
-                </div>
-
-                <div className="settings-field settings-field--wide">
-                  <span className="info-label">{t('settings.hostedBilling')}</span>
-                  <div className="settings-auth-panel">
-                    <div className="settings-auth-summary">
-                      <strong>{t('settings.hostedBillingTitle')}</strong>
-                      <p>{t('settings.hostedBillingNote')}</p>
-                      {hostedBillingError ? (
-                        <p className="field-note field-note--error">{hostedBillingError}</p>
-                      ) : null}
-                    </div>
-
-                    <div className="settings-auth-grid">
-                      <select
-                        value={selectedHostedPlanKey}
-                        disabled={!hostedBillingPlans.length || isHostedCheckoutBusy}
-                        onChange={(event) => onHostedPlanChange(event.target.value)}
-                      >
-                        {hostedBillingPlans.length ? (
-                          hostedBillingPlans.map((plan) => (
-                            <option key={plan.key} value={plan.key}>
-                              {t('settings.hostedBillingPlanOption', {
-                                name: plan.name,
-                                seats: plan.seatLimit,
-                              })}
-                            </option>
-                          ))
-                        ) : (
-                          <option value="">{t('settings.hostedBillingNoPlans')}</option>
-                        )}
-                      </select>
-                    </div>
-
-                    <div className="settings-actions">
-                      <button
-                        type="button"
-                        className="primary-button"
-                        disabled={
-                          isHostedCheckoutBusy ||
-                          isHostedAccountBusy ||
-                          !hostedAccount?.connected ||
-                          !selectedHostedPlanKey
-                        }
-                        onClick={() => void onHostedCheckout()}
-                      >
-                        {isHostedCheckoutBusy
-                          ? t('settings.hostedBillingOpening')
-                          : t('settings.hostedBillingCheckout')}
-                      </button>
-                    </div>
-                  </div>
                 </div>
               </>
             ) : (
@@ -1073,14 +939,6 @@ export default function SettingsView({
     <>
       <section className="hero-card settings-page-hero">
         <div className="settings-page-toolbar">
-          <button type="button" className="toolbar-button toolbar-button--ghost" onClick={onBack}>
-            <span className="toolbar-button__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M15 18l-6-6 6-6" />
-              </svg>
-            </span>
-            <span className="toolbar-button__label">{t('settingsPage.dashboard')}</span>
-          </button>
           <div className="settings-actions">
             <button type="button" className="secondary-button" disabled={saveDisabled} onClick={() => void onSave()}>
               {isSavingSettings ? t('settings.saving') : t('settings.save')}

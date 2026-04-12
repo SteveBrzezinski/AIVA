@@ -1,20 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Window, getCurrentWindow } from '@tauri-apps/api/window';
+import { DEBUG_NAV_ENABLED, DEFAULT_HOSTED_BACKEND_URL } from './appEnv';
 import { applyDesignTheme } from './designThemes';
 import SettingsView from './SettingsView';
 import {
   captureAndSpeak,
   captureAndTranslate,
-  createHostedCheckoutSession,
-  getHostedBillingPlans,
   getHostedAccountStatus,
   loginHostedAccount,
   logoutHostedAccount,
-  openExternalUrl,
   resetSettings,
   updateSettings,
   type AppSettings,
-  type HostedBillingPlan,
   type HotkeyStatus,
   type HostedAccountStatus,
 } from './lib/voiceOverlay';
@@ -56,12 +53,69 @@ import {
 import { useVoiceTimers } from './hooks/useVoiceTimers';
 import type { VoiceTimer } from './lib/voiceOverlay';
 
-type AppView = 'dashboard' | 'settings';
+type AppView = 'dashboard' | 'settings' | 'debug';
+
+type VoiceSessionChangeSummary = {
+  genderChanged: boolean;
+  modelChanged: boolean;
+  voiceChanged: boolean;
+  providerChanged: boolean;
+};
 
 type PendingVoiceSessionChange = {
   settings: AppSettings;
-  kind: 'gender' | 'model' | 'model-and-gender';
+  summary: VoiceSessionChangeSummary;
 };
+
+type PendingBackgroundVoiceSessionAction = {
+  reason: string;
+  action: 'restart' | 'disconnect';
+};
+
+function buildVoiceSessionChangeSummary(
+  next: AppSettings,
+  current: AppSettings,
+): VoiceSessionChangeSummary {
+  return {
+    genderChanged: next.voiceAgentGender !== current.voiceAgentGender,
+    modelChanged: next.voiceAgentModel !== current.voiceAgentModel,
+    voiceChanged: next.voiceAgentVoice !== current.voiceAgentVoice,
+    providerChanged: next.aiProviderMode !== current.aiProviderMode,
+  };
+}
+
+function hasVoiceSessionChange(summary: VoiceSessionChangeSummary): boolean {
+  return (
+    summary.genderChanged ||
+    summary.modelChanged ||
+    summary.voiceChanged ||
+    summary.providerChanged
+  );
+}
+
+function getVoiceSessionChangeReason(summary: VoiceSessionChangeSummary): string {
+  const segments = [
+    summary.providerChanged ? 'provider' : null,
+    summary.modelChanged ? 'model' : null,
+    summary.voiceChanged ? 'voice' : null,
+    summary.genderChanged ? 'gender' : null,
+  ].filter(Boolean);
+
+  return `settings-${segments.join('-')}-change`;
+}
+
+function getVoiceSessionChangeAction(
+  summary: VoiceSessionChangeSummary,
+): 'restart' | 'disconnect' {
+  return (
+    summary.genderChanged &&
+    !summary.modelChanged &&
+    !summary.voiceChanged &&
+    !summary.providerChanged
+  )
+    ? 'restart'
+    : 'disconnect';
+}
 
 export default function App() {
   const [uiState, setUiState] = useState<UiState>('idle');
@@ -101,11 +155,14 @@ export default function App() {
   const [hostedAccount, setHostedAccount] = useState<HostedAccountStatus | null>(null);
   const [hostedAccountError, setHostedAccountError] = useState<string | null>(null);
   const [isHostedAccountBusy, setIsHostedAccountBusy] = useState(false);
-  const [hostedBillingPlans, setHostedBillingPlans] = useState<HostedBillingPlan[]>([]);
-  const [selectedHostedPlanKey, setSelectedHostedPlanKey] = useState('');
-  const [hostedBillingError, setHostedBillingError] = useState<string | null>(null);
-  const [isHostedCheckoutBusy, setIsHostedCheckoutBusy] = useState(false);
-  const [pendingVoiceSessionRestartReason, setPendingVoiceSessionRestartReason] = useState<string | null>(null);
+  const [showAccountModal, setShowAccountModal] = useState(false);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginProviderMode, setLoginProviderMode] = useState<AppSettings['aiProviderMode']>(
+    'hosted',
+  );
+  const [pendingVoiceSessionAction, setPendingVoiceSessionAction] =
+    useState<PendingBackgroundVoiceSessionAction | null>(null);
   const [pendingVoiceSessionChange, setPendingVoiceSessionChange] =
     useState<PendingVoiceSessionChange | null>(null);
   const [timerEditorMode, setTimerEditorMode] = useState<'create' | 'edit' | null>(null);
@@ -187,10 +244,27 @@ export default function App() {
   const assistantCalibrationComplete = isAssistantCalibrationComplete(settings);
   const canSaveSettings =
     !assistantNameError && (!assistantCalibrationRequired || assistantCalibrationComplete);
+  const resolvedHostedBaseUrl =
+    settings.hostedApiBaseUrl.trim() ||
+    savedSettings.hostedApiBaseUrl.trim() ||
+    DEFAULT_HOSTED_BACKEND_URL;
+  const hostedSignedIn =
+    hostedAccount?.connected ?? Boolean(savedSettings.hostedAccessToken.trim());
+  const hostedStatusMeta = hostedSignedIn
+    ? hostedAccount?.user?.email?.trim() || savedSettings.hostedAccountEmail.trim()
+    : '';
 
   const syncHostedSettings = useCallback((nextHostedSettings: AppSettings): void => {
-    setSettings((current) => mergeHostedSettings(current, nextHostedSettings));
-    setSavedSettings((current) => mergeHostedSettings(current, nextHostedSettings));
+    setSettings((current) => ({
+      ...mergeHostedSettings(current, nextHostedSettings),
+      aiProviderMode: nextHostedSettings.aiProviderMode as AppSettings['aiProviderMode'],
+      hostedWorkspaceSlug: nextHostedSettings.hostedWorkspaceSlug,
+    }));
+    setSavedSettings((current) => ({
+      ...mergeHostedSettings(current, nextHostedSettings),
+      aiProviderMode: nextHostedSettings.aiProviderMode as AppSettings['aiProviderMode'],
+      hostedWorkspaceSlug: nextHostedSettings.hostedWorkspaceSlug,
+    }));
   }, [setSavedSettings, setSettings]);
 
   useEffect(() => {
@@ -295,19 +369,15 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (!initialStateLoaded || settings.aiProviderMode !== 'hosted') {
+    if (!initialStateLoaded) {
       setHostedAccount(null);
       setHostedAccountError(null);
-      setHostedBillingPlans([]);
-      setHostedBillingError(null);
       return;
     }
 
     if (!savedSettings.hostedApiBaseUrl.trim() || !savedSettings.hostedAccessToken.trim()) {
       setHostedAccount(null);
       setHostedAccountError(null);
-      setHostedBillingPlans([]);
-      setHostedBillingError(null);
       return;
     }
 
@@ -343,85 +413,7 @@ export default function App() {
     initialStateLoaded,
     savedSettings.hostedAccessToken,
     savedSettings.hostedApiBaseUrl,
-    settings.aiProviderMode,
   ]);
-
-  useEffect(() => {
-    if (!initialStateLoaded || settings.aiProviderMode !== 'hosted') {
-      setHostedBillingPlans([]);
-      setHostedBillingError(null);
-      return;
-    }
-
-    if (!savedSettings.hostedApiBaseUrl.trim() || !savedSettings.hostedAccessToken.trim()) {
-      setHostedBillingPlans([]);
-      setHostedBillingError(null);
-      return;
-    }
-
-    let active = true;
-    setHostedBillingError(null);
-
-    void getHostedBillingPlans()
-      .then((plans) => {
-        if (!active) {
-          return;
-        }
-        setHostedBillingPlans(plans);
-      })
-      .catch((error: unknown) => {
-        if (!active) {
-          return;
-        }
-        const detail = error instanceof Error ? error.message : String(error);
-        setHostedBillingPlans([]);
-        setHostedBillingError(detail);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [
-    initialStateLoaded,
-    savedSettings.hostedAccessToken,
-    savedSettings.hostedApiBaseUrl,
-    settings.aiProviderMode,
-  ]);
-
-  useEffect(() => {
-    if (!hostedBillingPlans.length) {
-      setSelectedHostedPlanKey('');
-      return;
-    }
-
-    if (!hostedBillingPlans.some((plan) => plan.key === selectedHostedPlanKey)) {
-      setSelectedHostedPlanKey(hostedBillingPlans[0]?.key ?? '');
-    }
-  }, [hostedBillingPlans, selectedHostedPlanKey]);
-
-  const refreshHostedAccount = async (): Promise<void> => {
-    setIsHostedAccountBusy(true);
-    try {
-      const [account, plans] = await Promise.all([
-        getHostedAccountStatus(),
-        getHostedBillingPlans(),
-      ]);
-      setHostedAccount(account);
-      setHostedAccountError(null);
-      setHostedBillingPlans(plans);
-      setHostedBillingError(null);
-      setUiState('success');
-      setMessage(i18n.t('app.hostedStatusRefreshed'));
-    } catch (error: unknown) {
-      const detail = error instanceof Error ? error.message : String(error);
-      setHostedAccount(null);
-      setHostedAccountError(detail);
-      setUiState('error');
-      setMessage(i18n.t('app.hostedStatusFailed', { detail }));
-    } finally {
-      setIsHostedAccountBusy(false);
-    }
-  };
 
   const handleHostedLogin = async (credentials: {
     baseUrl: string;
@@ -434,12 +426,21 @@ export default function App() {
         credentials.baseUrl,
         credentials.email,
         credentials.password,
+        loginProviderMode,
       );
       syncHostedSettings(result.settings);
-      setPendingVoiceSessionRestartReason('hosted-login');
+      if (result.settings.aiProviderMode === 'hosted') {
+        setPendingVoiceSessionAction({
+          reason: 'hosted-login',
+          action: 'restart',
+        });
+      }
+      setShowAccountModal(false);
+      setLoginEmail('');
+      setLoginPassword('');
+      setLoginProviderMode('hosted');
       setHostedAccount(result.account);
       setHostedAccountError(null);
-      setHostedBillingError(null);
       setUiState('success');
       setMessage(
         i18n.t('app.hostedLoginSuccess', {
@@ -464,11 +465,17 @@ export default function App() {
     try {
       const nextSettings = await logoutHostedAccount();
       syncHostedSettings(nextSettings);
-      setPendingVoiceSessionRestartReason('hosted-logout');
+      if (savedSettings.aiProviderMode === 'hosted') {
+        setPendingVoiceSessionAction({
+          reason: 'hosted-logout',
+          action: 'disconnect',
+        });
+      }
+      setShowAccountModal(false);
+      setLoginProviderMode('hosted');
+      setLoginPassword('');
       setHostedAccount(null);
       setHostedAccountError(null);
-      setHostedBillingPlans([]);
-      setHostedBillingError(null);
       setUiState('success');
       setMessage(i18n.t('app.hostedLogoutSuccess'));
     } catch (error: unknown) {
@@ -480,27 +487,6 @@ export default function App() {
     }
   };
 
-  const handleHostedCheckout = async (): Promise<void> => {
-    setIsHostedCheckoutBusy(true);
-    try {
-      const session = await createHostedCheckoutSession(selectedHostedPlanKey);
-      await openExternalUrl(session.url);
-      setUiState('success');
-      setMessage(
-        i18n.t('app.hostedCheckoutOpened', {
-          plan: session.planKey,
-          workspace: session.team.name,
-        }),
-      );
-    } catch (error: unknown) {
-      const detail = error instanceof Error ? error.message : String(error);
-      setUiState('error');
-      setMessage(i18n.t('app.hostedCheckoutFailed', { detail }));
-    } finally {
-      setIsHostedCheckoutBusy(false);
-    }
-  };
-
   const voiceRuntime = useVoiceAssistantRuntime({
     settings,
     savedSettings,
@@ -509,18 +495,24 @@ export default function App() {
   });
   const voiceTimers = useVoiceTimers();
   const restartVoiceAgentSession = voiceRuntime.restartVoiceAgentSession;
+  const closeVoiceAgentSession = voiceRuntime.closeVoiceAgentSession;
   const assistantVoiceActive = voiceRuntime.assistantActive;
 
   useEffect(() => {
-    if (!pendingVoiceSessionRestartReason) {
+    if (!pendingVoiceSessionAction) {
       return;
     }
 
     let active = true;
-    const reason = pendingVoiceSessionRestartReason;
-    setPendingVoiceSessionRestartReason(null);
+    const nextAction = pendingVoiceSessionAction;
+    setPendingVoiceSessionAction(null);
 
-    void restartVoiceAgentSession(reason, assistantVoiceActive).catch((error: unknown) => {
+    const runAction =
+      nextAction.action === 'disconnect'
+        ? closeVoiceAgentSession(nextAction.reason)
+        : restartVoiceAgentSession(nextAction.reason, assistantVoiceActive);
+
+    void runAction.catch((error: unknown) => {
       if (!active) {
         return;
       }
@@ -533,30 +525,25 @@ export default function App() {
       active = false;
     };
   }, [
-    pendingVoiceSessionRestartReason,
+    pendingVoiceSessionAction,
     assistantVoiceActive,
+    closeVoiceAgentSession,
     restartVoiceAgentSession,
   ]);
 
   const handleSaveSettingsRequest = useCallback(async (): Promise<AppSettings | undefined> => {
-    const genderChanged = settings.voiceAgentGender !== savedSettings.voiceAgentGender;
-    const modelChanged = settings.voiceAgentModel !== savedSettings.voiceAgentModel;
+    const summary = buildVoiceSessionChangeSummary(settings, savedSettings);
 
-    if (genderChanged || modelChanged) {
+    if (hasVoiceSessionChange(summary)) {
       setPendingVoiceSessionChange({
         settings,
-        kind:
-          genderChanged && modelChanged
-            ? 'model-and-gender'
-            : modelChanged
-              ? 'model'
-              : 'gender',
+        summary,
       });
       return undefined;
     }
 
     return persistSettings(settings);
-  }, [persistSettings, savedSettings.voiceAgentGender, savedSettings.voiceAgentModel, settings]);
+  }, [persistSettings, savedSettings, settings]);
 
   const handleConfirmVoiceStyleRestart = useCallback(async (): Promise<void> => {
     const pendingChange = pendingVoiceSessionChange;
@@ -566,13 +553,8 @@ export default function App() {
 
     try {
       await persistSettings(pendingChange.settings, i18n.t('app.settingsSavedFuture'), {
-        restartReason:
-          pendingChange.kind === 'gender'
-            ? 'settings-gender-change'
-            : pendingChange.kind === 'model'
-              ? 'settings-model-change'
-              : 'settings-model-and-gender-change',
-        sessionAction: pendingChange.kind === 'gender' ? 'restart' : 'disconnect',
+        restartReason: getVoiceSessionChangeReason(pendingChange.summary),
+        sessionAction: getVoiceSessionChangeAction(pendingChange.summary),
       });
     } finally {
       setPendingVoiceSessionChange(null);
@@ -1068,6 +1050,252 @@ export default function App() {
     }
   };
 
+  const openAccountLoginModal = useCallback((): void => {
+    setHostedAccountError(null);
+    setLoginProviderMode('hosted');
+    setLoginEmail(savedSettings.hostedAccountEmail);
+    setLoginPassword('');
+    setShowAccountModal(true);
+  }, [savedSettings.hostedAccountEmail]);
+
+  const loginEmailValue = loginEmail || savedSettings.hostedAccountEmail;
+
+  const renderDashboardView = (): JSX.Element => (
+    <>
+      <HeroSection
+        hotkeyRegistered={hotkeyStatus.registered}
+        speakHotkey={hotkeyStatus.accelerator}
+        translateHotkey={hotkeyStatus.translateAccelerator}
+        isBusy={uiState === 'working'}
+        isSavingSettings={isSavingSettings}
+        assistantActive={voiceRuntime.assistantActive}
+        voiceAgentState={voiceRuntime.voiceAgentState}
+        onReadSelectedText={() => void runReadSelectedText()}
+        onTranslateSelectedText={() => void runTranslateSelectedText()}
+        onActivateAssistant={() => void voiceRuntime.activateAssistantVoice('manual')}
+        onDeactivateAssistant={() => void voiceRuntime.deactivateAssistantVoice('manual')}
+      />
+
+      <section className="dashboard-summary-grid" aria-label={i18n.t('dashboardHome.summaryAria')}>
+        <article className="dashboard-summary-card">
+          <span className="dashboard-summary-card__eyebrow">
+            {i18n.t('dashboardHome.assistantEyebrow')}
+          </span>
+          <h2>{settings.assistantName || 'Ava'}</h2>
+          <p className="dashboard-summary-card__copy">
+            {voiceRuntime.assistantStateDetail || voiceRuntime.liveTranscriptionStatus}
+          </p>
+          <div className="dashboard-summary-card__meta">
+            <span className="status-chip">
+              {voiceRuntime.assistantActive
+                ? i18n.t('assistantStatus.assistantActive')
+                : voiceRuntime.isLiveTranscribing
+                  ? i18n.t('dashboardHome.assistantListening')
+                  : i18n.t('dashboardHome.assistantMuted')}
+            </span>
+            <span className="status-chip">{settings.voiceAgentModel}</span>
+          </div>
+        </article>
+
+        <article className="dashboard-summary-card">
+          <span className="dashboard-summary-card__eyebrow">
+            {i18n.t('dashboardHome.accountEyebrow')}
+          </span>
+          <h2>
+            {hostedSignedIn
+              ? i18n.t('settings.hostedAccountConnected')
+              : i18n.t('settings.hostedAccountDisconnected')}
+          </h2>
+          <p className="dashboard-summary-card__copy">
+            {hostedSignedIn
+              ? i18n.t('dashboardHome.accountConnectedCopy', {
+                  email: hostedAccount?.user?.email ?? savedSettings.hostedAccountEmail,
+                })
+              : i18n.t('dashboardHome.accountDisconnectedCopy')}
+          </p>
+          {hostedSignedIn ? (
+            <div className="dashboard-summary-list">
+              <div>
+                <span>{i18n.t('dashboardHome.accountWorkspaceLabel')}</span>
+                <strong>
+                  {hostedAccount?.currentTeam?.name ??
+                    hostedAccount?.currentTeam?.slug ??
+                    i18n.t('settings.hostedWorkspaceCurrentDefault')}
+                </strong>
+              </div>
+            </div>
+          ) : null}
+          {!hostedSignedIn ? (
+            <div className="dashboard-summary-card__actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => openAccountLoginModal()}
+              >
+                {i18n.t('shell.authLogin')}
+              </button>
+            </div>
+          ) : null}
+        </article>
+
+        <article className="dashboard-summary-card">
+          <span className="dashboard-summary-card__eyebrow">
+            {i18n.t('dashboardHome.modeEyebrow')}
+          </span>
+          <h2>
+            {settings.aiProviderMode === 'hosted'
+              ? i18n.t('settings.aiProviderModeHosted')
+              : i18n.t('settings.aiProviderModeByo')}
+          </h2>
+          <p className="dashboard-summary-card__copy">{message}</p>
+          <div className="dashboard-summary-list">
+            <div>
+              <span>{i18n.t('dashboardHome.modeModelLabel')}</span>
+              <strong>{settings.voiceAgentModel}</strong>
+            </div>
+            <div>
+              <span>{i18n.t('dashboardHome.modeLanguageLabel')}</span>
+              <strong>{settings.sttLanguage.toUpperCase()}</strong>
+            </div>
+            <div>
+              <span>{i18n.t('dashboardHome.modeSessionLabel')}</span>
+              <strong>{voiceRuntime.voiceAgentState}</strong>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <TimerSection
+        timers={voiceTimers.timers}
+        nowMs={voiceTimers.nowMs}
+        isLoaded={voiceTimers.isLoaded}
+        error={voiceTimers.error}
+        onAdd={() => {
+          setTimerEditorMode('create');
+          setTimerEditorTimer(null);
+        }}
+        onEdit={(timer) => {
+          setTimerEditorMode('edit');
+          setTimerEditorTimer(timer);
+        }}
+        onPause={(timer) => void handlePauseTimer(timer)}
+        onResume={(timer) => void handleResumeTimer(timer)}
+        onDelete={(timer) => void handleDeleteTimer(timer)}
+      />
+    </>
+  );
+
+  const renderDebugView = (): JSX.Element => (
+    <>
+      <section className="hero-card app-page-hero">
+        <div className="status-row">
+          <span className="status-dot" aria-hidden="true" />
+          <span className="status-text">{appStatus}</span>
+        </div>
+        <h1>{i18n.t('debugPage.title')}</h1>
+        <p className="hero-copy">{i18n.t('debugPage.copy')}</p>
+      </section>
+
+      <ReadinessGrid items={readinessItems} />
+
+      <AssistantStatusSection
+        voiceAgentState={voiceRuntime.voiceAgentState}
+        assistantActive={voiceRuntime.assistantActive}
+        isLiveTranscribing={voiceRuntime.isLiveTranscribing}
+        liveTranscriptionStatus={voiceRuntime.liveTranscriptionStatus}
+        assistantStateDetail={voiceRuntime.assistantStateDetail}
+        voiceAgentDetail={voiceRuntime.voiceAgentDetail}
+        voiceAgentSession={voiceRuntime.voiceAgentSession}
+        assistantWakePhrase={voiceRuntime.assistantWakePhrase}
+        wakeThreshold={settings.assistantWakeThreshold}
+        cueCooldownMs={settings.assistantCueCooldownMs}
+        liveTranscript={voiceRuntime.liveTranscript}
+        sttProviderSnapshots={voiceRuntime.providerSnapshots}
+        lastSttDebugLogPath={voiceRuntime.lastSttDebugLogPath}
+      />
+
+      <VoiceFeedsSection
+        voiceAgentState={voiceRuntime.voiceAgentState}
+        voiceEventFeed={voiceRuntime.voiceEventFeed}
+        voiceTaskFeed={voiceRuntime.voiceTaskFeed}
+      />
+
+      <LatestRunSection
+        uiState={uiState}
+        message={message}
+        capturedPreview={capturedPreview}
+        translatedPreview={translatedPreview}
+        lastTtsMode={lastTtsMode}
+        lastRequestedTtsMode={lastRequestedTtsMode}
+        lastSessionStrategy={lastSessionStrategy}
+        lastSessionId={lastSessionId}
+        lastSessionFallbackReason={lastSessionFallbackReason}
+        lastSttProvider={voiceRuntime.lastSttProvider}
+        lastSttActiveTranscript={voiceRuntime.lastSttActiveTranscript}
+        lastSttDebugLogPath={voiceRuntime.lastSttDebugLogPath}
+        startLatencyMs={startLatencyMs}
+        hotkeyToFirstAudioMs={hotkeyToFirstAudioMs}
+        hotkeyToFirstPlaybackMs={hotkeyToFirstPlaybackMs}
+        captureDurationMs={captureDurationMs}
+        captureToTtsStartMs={captureToTtsStartMs}
+        ttsToFirstAudioMs={ttsToFirstAudioMs}
+        firstAudioToPlaybackMs={firstAudioToPlaybackMs}
+        hotkeyStartedAtMs={hotkeyStartedAtMs}
+        captureStartedAtMs={captureStartedAtMs}
+        captureFinishedAtMs={captureFinishedAtMs}
+        ttsStartedAtMs={ttsStartedAtMs}
+        firstAudioReceivedAtMs={firstAudioReceivedAtMs}
+        firstAudioPlaybackStartedAtMs={firstAudioPlaybackStartedAtMs}
+        lastAudioPath={lastAudioPath}
+        lastAudioOutputDirectory={lastAudioOutputDirectory}
+        lastAudioChunkCount={lastAudioChunkCount}
+      />
+
+      <RunHistorySection entries={runHistory} onClear={() => setRunHistory([])} />
+
+      <UsageSection
+        assistantWakePhrase={voiceRuntime.assistantWakePhrase}
+        activateHotkey={hotkeyStatus.activateAccelerator}
+        deactivateHotkey={hotkeyStatus.deactivateAccelerator}
+        speakHotkey={hotkeyStatus.accelerator}
+        translateHotkey={hotkeyStatus.translateAccelerator}
+      />
+    </>
+  );
+
+  const renderActiveView = (): JSX.Element => {
+    switch (activeView) {
+      case 'settings':
+        return (
+          <SettingsView
+            settings={settings}
+            setSettings={setSettings}
+            languageOptions={languageOptions}
+            assistantNameError={assistantNameError}
+            assistantCalibrationRequired={assistantCalibrationRequired}
+            assistantCalibrationComplete={assistantCalibrationComplete}
+            assistantTrainingReadyName={assistantTrainingReadyName}
+            isSavingSettings={isSavingSettings}
+            isWorking={uiState === 'working'}
+            hasUnsavedChanges={hasUnsavedChanges}
+            canSaveSettings={canSaveSettings}
+            onSave={handleSaveSettingsRequest}
+            onReset={() => setShowResetDialog(true)}
+            onOpenTraining={openAssistantTrainingDialog}
+            hostedAccount={hostedAccount}
+            hostedAccountError={hostedAccountError}
+            normalizeLanguageCode={normalizeLanguageCode}
+            hostedSignedIn={hostedSignedIn}
+          />
+        );
+      case 'debug':
+        return DEBUG_NAV_ENABLED ? renderDebugView() : renderDashboardView();
+      case 'dashboard':
+      default:
+        return renderDashboardView();
+    }
+  };
+
   return (
     <>
       <div className={`app-frame ${isMainWindowMaximized ? 'app-frame--maximized' : ''}`}>
@@ -1080,7 +1308,56 @@ export default function App() {
             <span className="window-titlebar__mark" aria-hidden="true" />
             <span className="window-titlebar__title">Voice Overlay Assistant</span>
           </div>
-          <div className="window-titlebar__controls" aria-label="Window controls">
+          <nav className="window-titlebar__nav" aria-label={i18n.t('shell.navigationLabel')}>
+            <button
+              type="button"
+              className={`window-titlebar__nav-button ${activeView === 'dashboard' ? 'window-titlebar__nav-button--active' : ''}`}
+              onClick={() => setActiveView('dashboard')}
+            >
+              {i18n.t('shell.navDashboard')}
+            </button>
+            <button
+              type="button"
+              className={`window-titlebar__nav-button ${activeView === 'settings' ? 'window-titlebar__nav-button--active' : ''}`}
+              onClick={() => setActiveView('settings')}
+            >
+              {i18n.t('shell.navSettings')}
+            </button>
+            {DEBUG_NAV_ENABLED ? (
+              <button
+                type="button"
+                className={`window-titlebar__nav-button ${activeView === 'debug' ? 'window-titlebar__nav-button--active' : ''}`}
+                onClick={() => setActiveView('debug')}
+              >
+                {i18n.t('shell.navDebug')}
+              </button>
+            ) : null}
+          </nav>
+          <div className="window-titlebar__side">
+            {hostedStatusMeta ? (
+              <div className="window-titlebar__account" aria-live="polite">
+                <span className="window-titlebar__account-copy">{hostedStatusMeta}</span>
+              </div>
+            ) : null}
+            <button
+              type="button"
+              className={`window-titlebar__auth-button ${
+                hostedSignedIn
+                  ? 'window-titlebar__auth-button--logout'
+                  : 'window-titlebar__auth-button--login'
+              }`}
+              onClick={() => {
+                if (hostedSignedIn) {
+                  void handleHostedLogout();
+                  return;
+                }
+
+                openAccountLoginModal();
+              }}
+            >
+              {hostedSignedIn ? i18n.t('shell.authLogout') : i18n.t('shell.authLogin')}
+            </button>
+            <div className="window-titlebar__controls" aria-label="Window controls">
             <button
               type="button"
               className="window-titlebar__control"
@@ -1137,144 +1414,104 @@ export default function App() {
                 <path d="M9.5 2.5l-7 7" />
               </svg>
             </button>
+            </div>
           </div>
         </header>
 
-        <main className="app-shell">
-          {activeView === 'dashboard' ? (
-            <>
-              <HeroSection
-                hotkeyRegistered={hotkeyStatus.registered}
-                speakHotkey={hotkeyStatus.accelerator}
-                translateHotkey={hotkeyStatus.translateAccelerator}
-                isBusy={uiState === 'working'}
-                isSavingSettings={isSavingSettings}
-                assistantActive={voiceRuntime.assistantActive}
-                voiceAgentState={voiceRuntime.voiceAgentState}
-                onReadSelectedText={() => void runReadSelectedText()}
-                onTranslateSelectedText={() => void runTranslateSelectedText()}
-                onActivateAssistant={() => void voiceRuntime.activateAssistantVoice('manual')}
-                onDeactivateAssistant={() => void voiceRuntime.deactivateAssistantVoice('manual')}
-                onOpenSettings={() => void openSettingsWindow()}
-              />
-
-              <ReadinessGrid items={readinessItems} />
-
-              <AssistantStatusSection
-                voiceAgentState={voiceRuntime.voiceAgentState}
-                assistantActive={voiceRuntime.assistantActive}
-                isLiveTranscribing={voiceRuntime.isLiveTranscribing}
-                liveTranscriptionStatus={voiceRuntime.liveTranscriptionStatus}
-                assistantStateDetail={voiceRuntime.assistantStateDetail}
-                voiceAgentDetail={voiceRuntime.voiceAgentDetail}
-                voiceAgentSession={voiceRuntime.voiceAgentSession}
-                assistantWakePhrase={voiceRuntime.assistantWakePhrase}
-                wakeThreshold={settings.assistantWakeThreshold}
-                cueCooldownMs={settings.assistantCueCooldownMs}
-                liveTranscript={voiceRuntime.liveTranscript}
-                sttProviderSnapshots={voiceRuntime.providerSnapshots}
-                lastSttDebugLogPath={voiceRuntime.lastSttDebugLogPath}
-              />
-
-              <TimerSection
-                timers={voiceTimers.timers}
-                nowMs={voiceTimers.nowMs}
-                isLoaded={voiceTimers.isLoaded}
-                error={voiceTimers.error}
-                onAdd={() => {
-                  setTimerEditorMode('create');
-                  setTimerEditorTimer(null);
-                }}
-                onEdit={(timer) => {
-                  setTimerEditorMode('edit');
-                  setTimerEditorTimer(timer);
-                }}
-                onPause={(timer) => void handlePauseTimer(timer)}
-                onResume={(timer) => void handleResumeTimer(timer)}
-                onDelete={(timer) => void handleDeleteTimer(timer)}
-              />
-
-              <VoiceFeedsSection
-                voiceAgentState={voiceRuntime.voiceAgentState}
-                voiceEventFeed={voiceRuntime.voiceEventFeed}
-                voiceTaskFeed={voiceRuntime.voiceTaskFeed}
-              />
-
-              <LatestRunSection
-                uiState={uiState}
-                message={message}
-                capturedPreview={capturedPreview}
-                translatedPreview={translatedPreview}
-                lastTtsMode={lastTtsMode}
-                lastRequestedTtsMode={lastRequestedTtsMode}
-                lastSessionStrategy={lastSessionStrategy}
-                lastSessionId={lastSessionId}
-                lastSessionFallbackReason={lastSessionFallbackReason}
-                lastSttProvider={voiceRuntime.lastSttProvider}
-                lastSttActiveTranscript={voiceRuntime.lastSttActiveTranscript}
-                lastSttDebugLogPath={voiceRuntime.lastSttDebugLogPath}
-                startLatencyMs={startLatencyMs}
-                hotkeyToFirstAudioMs={hotkeyToFirstAudioMs}
-                hotkeyToFirstPlaybackMs={hotkeyToFirstPlaybackMs}
-                captureDurationMs={captureDurationMs}
-                captureToTtsStartMs={captureToTtsStartMs}
-                ttsToFirstAudioMs={ttsToFirstAudioMs}
-                firstAudioToPlaybackMs={firstAudioToPlaybackMs}
-                hotkeyStartedAtMs={hotkeyStartedAtMs}
-                captureStartedAtMs={captureStartedAtMs}
-                captureFinishedAtMs={captureFinishedAtMs}
-                ttsStartedAtMs={ttsStartedAtMs}
-                firstAudioReceivedAtMs={firstAudioReceivedAtMs}
-                firstAudioPlaybackStartedAtMs={firstAudioPlaybackStartedAtMs}
-                lastAudioPath={lastAudioPath}
-                lastAudioOutputDirectory={lastAudioOutputDirectory}
-                lastAudioChunkCount={lastAudioChunkCount}
-              />
-
-              <RunHistorySection entries={runHistory} onClear={() => setRunHistory([])} />
-
-              <UsageSection
-                assistantWakePhrase={voiceRuntime.assistantWakePhrase}
-                activateHotkey={hotkeyStatus.activateAccelerator}
-                deactivateHotkey={hotkeyStatus.deactivateAccelerator}
-                speakHotkey={hotkeyStatus.accelerator}
-                translateHotkey={hotkeyStatus.translateAccelerator}
-              />
-            </>
-          ) : (
-            <SettingsView
-              settings={settings}
-              setSettings={setSettings}
-              languageOptions={languageOptions}
-              assistantNameError={assistantNameError}
-              assistantCalibrationRequired={assistantCalibrationRequired}
-              assistantCalibrationComplete={assistantCalibrationComplete}
-              assistantTrainingReadyName={assistantTrainingReadyName}
-              isSavingSettings={isSavingSettings}
-              isWorking={uiState === 'working'}
-              hasUnsavedChanges={hasUnsavedChanges}
-              canSaveSettings={canSaveSettings}
-              onSave={handleSaveSettingsRequest}
-              onReset={() => setShowResetDialog(true)}
-              onBack={() => setActiveView('dashboard')}
-              onOpenTraining={openAssistantTrainingDialog}
-              hostedAccount={hostedAccount}
-              hostedAccountError={hostedAccountError}
-              isHostedAccountBusy={isHostedAccountBusy}
-              hostedBillingPlans={hostedBillingPlans}
-              selectedHostedPlanKey={selectedHostedPlanKey}
-              hostedBillingError={hostedBillingError}
-              isHostedCheckoutBusy={isHostedCheckoutBusy}
-              onHostedLogin={handleHostedLogin}
-              onHostedRefresh={refreshHostedAccount}
-              onHostedLogout={handleHostedLogout}
-              onHostedPlanChange={setSelectedHostedPlanKey}
-              onHostedCheckout={handleHostedCheckout}
-              normalizeLanguageCode={normalizeLanguageCode}
-            />
-          )}
-        </main>
+        <main className="app-shell">{renderActiveView()}</main>
       </div>
+
+      {showAccountModal ? (
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          onClick={isHostedAccountBusy ? undefined : () => setShowAccountModal(false)}
+        >
+          <section
+            className="modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="account-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="modal-close"
+              aria-label={i18n.t('dialogs.closeAccountLogin')}
+              onClick={() => setShowAccountModal(false)}
+              disabled={isHostedAccountBusy}
+            >
+              x
+            </button>
+            <span className="settings-panel-eyebrow">{i18n.t('shell.authLogin')}</span>
+            <h2 id="account-modal-title">{i18n.t('loginPage.formTitle')}</h2>
+            <p>{i18n.t('loginPage.copy')}</p>
+            <div className="login-card__grid account-modal__grid">
+              <label className="settings-field settings-field--wide">
+                <span className="info-label">{i18n.t('settings.aiProviderMode')}</span>
+                <select
+                  value={loginProviderMode}
+                  onChange={(event) =>
+                    setLoginProviderMode(event.target.value as AppSettings['aiProviderMode'])
+                  }
+                >
+                  <option value="hosted">{i18n.t('settings.aiProviderModeHosted')}</option>
+                  <option value="byo">{i18n.t('settings.aiProviderModeByo')}</option>
+                </select>
+              </label>
+              <label className="settings-field">
+                <span className="info-label">{i18n.t('loginPage.usernameLabel')}</span>
+                <input
+                  type="email"
+                  autoComplete="username"
+                  placeholder="name@example.com"
+                  value={loginEmailValue}
+                  onChange={(event) => setLoginEmail(event.target.value)}
+                />
+              </label>
+              <label className="settings-field">
+                <span className="info-label">{i18n.t('loginPage.passwordLabel')}</span>
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  placeholder={i18n.t('settings.hostedPasswordPlaceholder')}
+                  value={loginPassword}
+                  onChange={(event) => setLoginPassword(event.target.value)}
+                />
+              </label>
+            </div>
+            {hostedAccountError ? (
+              <p className="field-note field-note--error">{hostedAccountError}</p>
+            ) : null}
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setShowAccountModal(false)}
+                disabled={isHostedAccountBusy}
+              >
+                {i18n.t('dialogs.voiceStyleRestartNo')}
+              </button>
+              <button
+                type="button"
+                className="primary-button"
+                disabled={isHostedAccountBusy || !loginEmailValue.trim() || !loginPassword.trim()}
+                onClick={() =>
+                  void handleHostedLogin({
+                    baseUrl: resolvedHostedBaseUrl,
+                    email: loginEmailValue,
+                    password: loginPassword,
+                  })
+                }
+              >
+                {isHostedAccountBusy
+                  ? i18n.t('settings.hostedSigningIn')
+                  : i18n.t('settings.hostedSignIn')}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
 
       {showAssistantTrainingDialog ? (
         <AssistantTrainingDialog
@@ -1300,7 +1537,14 @@ export default function App() {
 
       <VoiceStyleRestartDialog
         open={pendingVoiceSessionChange !== null}
-        changeKind={pendingVoiceSessionChange?.kind ?? 'gender'}
+        changeSummary={
+          pendingVoiceSessionChange?.summary ?? {
+            genderChanged: true,
+            modelChanged: false,
+            voiceChanged: false,
+            providerChanged: false,
+          }
+        }
         isBusy={isSavingSettings}
         onClose={() => setPendingVoiceSessionChange(null)}
         onConfirm={() => void handleConfirmVoiceStyleRestart()}

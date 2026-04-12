@@ -473,11 +473,13 @@ export async function loginHostedAccount(
   baseUrl: string,
   email: string,
   password: string,
+  providerMode: AppSettings['aiProviderMode'],
 ): Promise<HostedAccountSyncResult> {
   return invoke<HostedAccountSyncResult>('login_hosted_account_command', {
     baseUrl,
     email,
     password,
+    providerMode,
   });
 }
 

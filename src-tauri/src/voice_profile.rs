@@ -2,10 +2,8 @@ use crate::settings::{
     default_voice_agent_preferred_language, sanitize_voice_agent_gender,
     sanitize_voice_agent_model, AppSettings,
 };
+use crate::realtime_voice::sanitize_realtime_voice_for_model;
 use serde::Serialize;
-
-const SUPPORTED_REALTIME_VOICES: &[&str] =
-    &["alloy", "ash", "ballad", "cedar", "coral", "echo", "marin", "sage", "shimmer", "verse"];
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -55,19 +53,13 @@ fn sanitize_multiline(value: &str, fallback: &str) -> String {
     }
 }
 
-pub fn sanitize_realtime_voice(value: &str, fallback: &str) -> String {
-    let normalized = sanitize_line(value, fallback).to_lowercase();
-    if SUPPORTED_REALTIME_VOICES.contains(&normalized.as_str()) {
-        normalized
-    } else {
-        fallback.to_string()
-    }
-}
-
 pub fn build_voice_agent_profile(settings: &AppSettings) -> VoiceAgentProfile {
     VoiceAgentProfile {
         name: sanitize_line(&settings.assistant_name, "AIVA"),
-        voice: sanitize_realtime_voice(&settings.voice_agent_voice, "marin"),
+        voice: sanitize_realtime_voice_for_model(
+            &settings.voice_agent_voice,
+            &settings.voice_agent_model,
+        ),
         model: sanitize_voice_agent_model(settings.voice_agent_model.clone()),
         personality: sanitize_multiline(
             &settings.voice_agent_personality,

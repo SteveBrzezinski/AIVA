@@ -3,6 +3,7 @@ pub mod background;
 pub mod hosted_backend;
 pub mod hotkey;
 pub mod run_controller;
+pub mod realtime_voice;
 pub mod selection_capture;
 pub mod settings;
 pub mod stt;

@@ -1,4 +1,4 @@
-use crate::settings::{AppSettings, SettingsState};
+use crate::settings::{configured_hosted_api_base_url, AppSettings, SettingsState};
 use reqwest::{
     blocking::{Client, Response},
     header::{HeaderMap, HeaderValue, ACCEPT},
@@ -247,6 +247,7 @@ pub fn login_hosted_account_command(
     base_url: String,
     email: String,
     password: String,
+    provider_mode: Option<String>,
     settings: State<'_, SettingsState>,
 ) -> Result<HostedAccountSyncResult, String> {
     let normalized_base_url = normalize_base_url(&base_url)?;
@@ -276,7 +277,15 @@ pub fn login_hosted_account_command(
         .map_err(|error| format!("Failed to decode hosted sign-in response: {error}"))?;
 
     let mut next_settings = settings.get();
-    next_settings.ai_provider_mode = "hosted".to_string();
+    next_settings.ai_provider_mode = match provider_mode
+        .unwrap_or_else(|| "hosted".to_string())
+        .trim()
+        .to_lowercase()
+        .as_str()
+    {
+        "hosted" => "hosted".to_string(),
+        _ => "byo".to_string(),
+    };
     next_settings.hosted_api_base_url = normalized_base_url.clone();
     next_settings.hosted_account_email = normalized_email;
     next_settings.hosted_access_token = payload.data.token;
@@ -331,7 +340,9 @@ pub fn logout_hosted_account_command(
     }
 
     let mut next_settings = current_settings;
+    next_settings.ai_provider_mode = "byo".to_string();
     next_settings.hosted_access_token.clear();
+    next_settings.hosted_workspace_slug.clear();
     settings.update(next_settings)
 }
 
@@ -701,7 +712,7 @@ fn normalize_password(value: &str) -> Result<String, String> {
 }
 
 fn resolve_hosted_base_url(settings: &AppSettings) -> Result<String, String> {
-    normalize_base_url(&settings.hosted_api_base_url)
+    normalize_base_url(&configured_hosted_api_base_url(&settings.hosted_api_base_url))
 }
 
 fn resolve_hosted_access_token(settings: &AppSettings) -> Result<String, String> {

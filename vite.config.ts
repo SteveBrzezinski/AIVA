@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   clearScreen: false,
+  envPrefix: ['VITE_', 'TAURI_', 'DEBUG', 'BACKEND_'],
   server: {
     port: 1420,
     strictPort: true,
@@ -11,7 +12,6 @@ export default defineConfig({
       ignored: ['**/src-tauri/**'],
     },
   },
-  envPrefix: ['VITE_', 'TAURI_'],
   build: {
     target: ['es2020', 'chrome105', 'safari13'],
     minify: !process.env.TAURI_DEBUG ? 'esbuild' : false,

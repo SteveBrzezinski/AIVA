@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { LogicalPosition, LogicalSize, currentMonitor, getCurrentWindow, primaryMonitor } from '@tauri-apps/api/window';
 import { DEFAULT_DESIGN_THEME_ID } from './designThemes';
+import { defaultVoiceAgentVoiceForModel } from './lib/app/realtimeVoiceCatalog';
 import { OVERLAY_ACTION_EVENT, OVERLAY_STATE_EVENT, type OverlayAction, type OverlayState } from './lib/overlayBridge';
 import { getSettings, speakText, type AppSettings } from './lib/voiceOverlay';
 
@@ -35,7 +36,7 @@ const fallbackSettings: AppSettings = {
   sttLanguage: 'de',
   assistantName: 'Ava',
   voiceAgentModel: 'gpt-realtime',
-  voiceAgentVoice: 'sage',
+  voiceAgentVoice: defaultVoiceAgentVoiceForModel('gpt-realtime'),
   voiceAgentPersonality: 'Composed, technically precise, friendly, and concise.',
   voiceAgentBehavior: 'If a PC task is unclear, ask immediately. If something takes longer, acknowledge it briefly and follow up with the result.',
   voiceAgentExtraInstructions: 'Keep using the stored assistant name unchanged and do not rename yourself.',

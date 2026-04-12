@@ -1,4 +1,6 @@
 use crate::background;
+use crate::realtime_voice::default_realtime_voice_for_model;
+use crate::realtime_voice::sanitize_realtime_voice_for_model;
 use serde::{Deserialize, Serialize};
 use std::{
     env, fs,
@@ -17,6 +19,7 @@ const DEFAULT_ACTION_BAR_ACTIVE_GLOW_COLOR: &str = "#b63131";
 const DEFAULT_PLAYBACK_SPEED: f32 = 1.0;
 const DEFAULT_ASSISTANT_WAKE_THRESHOLD: u8 = 68;
 const DEFAULT_ASSISTANT_CUE_COOLDOWN_MS: u32 = 1200;
+const DEFAULT_HOSTED_BACKEND_URL: &str = "http://localhost";
 const DEFAULT_VOICE_AGENT_PERSONALITY: &str =
     "Composed, technically precise, friendly, and concise.";
 const DEFAULT_VOICE_AGENT_BEHAVIOR: &str =
@@ -83,7 +86,7 @@ impl Default for AppSettings {
             playback_speed: DEFAULT_PLAYBACK_SPEED,
             openai_api_key: String::new(),
             ai_provider_mode: "byo".to_string(),
-            hosted_api_base_url: String::new(),
+            hosted_api_base_url: configured_hosted_api_base_url(""),
             hosted_account_email: String::new(),
             hosted_access_token: String::new(),
             hosted_workspace_slug: String::new(),
@@ -92,8 +95,7 @@ impl Default for AppSettings {
             launch_at_login: false,
             start_hidden_on_launch: true,
             voice_agent_model: "gpt-realtime".to_string(),
-            voice_agent_voice: default_voice_agent_voice_for_gender(DEFAULT_VOICE_AGENT_GENDER)
-                .to_string(),
+            voice_agent_voice: default_realtime_voice_for_model("gpt-realtime").to_string(),
             voice_agent_personality: DEFAULT_VOICE_AGENT_PERSONALITY.to_string(),
             voice_agent_behavior: DEFAULT_VOICE_AGENT_BEHAVIOR.to_string(),
             voice_agent_extra_instructions: DEFAULT_VOICE_AGENT_EXTRA_INSTRUCTIONS.to_string(),
@@ -249,10 +251,15 @@ pub fn sanitize_settings(mut settings: AppSettings) -> AppSettings {
     settings.playback_speed = sanitize_playback_speed(settings.playback_speed);
     settings.openai_api_key = settings.openai_api_key.trim().to_string();
     settings.ai_provider_mode = sanitize_provider_mode(settings.ai_provider_mode);
-    settings.hosted_api_base_url = sanitize_api_base_url(settings.hosted_api_base_url);
+    settings.hosted_api_base_url =
+        configured_hosted_api_base_url(&settings.hosted_api_base_url);
     settings.hosted_account_email = settings.hosted_account_email.trim().to_lowercase();
     settings.hosted_access_token = settings.hosted_access_token.trim().to_string();
     settings.hosted_workspace_slug = settings.hosted_workspace_slug.trim().to_lowercase();
+    if settings.hosted_access_token.is_empty() {
+        settings.ai_provider_mode = "byo".to_string();
+        settings.hosted_workspace_slug.clear();
+    }
     settings.stt_language = if settings.stt_language.trim().is_empty() {
         "de".to_string()
     } else {
@@ -279,8 +286,10 @@ pub fn sanitize_settings(mut settings: AppSettings) -> AppSettings {
     settings.voice_agent_preferred_language =
         default_voice_agent_preferred_language(&settings.stt_language);
     settings.voice_agent_gender = sanitize_voice_agent_gender(settings.voice_agent_gender);
-    settings.voice_agent_voice = default_voice_agent_voice_for_gender(&settings.voice_agent_gender)
-        .to_string();
+    settings.voice_agent_voice = sanitize_realtime_voice_for_model(
+        &settings.voice_agent_voice,
+        &settings.voice_agent_model,
+    );
     settings.voice_agent_tone_notes =
         sanitize_multiline(settings.voice_agent_tone_notes, String::new());
     settings.timer_notification_mode =
@@ -380,8 +389,26 @@ fn sanitize_provider_mode(value: String) -> String {
     }
 }
 
-fn sanitize_api_base_url(value: String) -> String {
+fn normalize_api_base_url(value: &str) -> String {
     value.trim().trim_end_matches('/').to_string()
+}
+
+pub fn configured_hosted_api_base_url(current: &str) -> String {
+    load_env_file_if_present();
+
+    let from_env = env::var("BACKEND_URL")
+        .map(|value| normalize_api_base_url(&value))
+        .unwrap_or_default();
+    if !from_env.is_empty() {
+        return from_env;
+    }
+
+    let from_settings = normalize_api_base_url(current);
+    if !from_settings.is_empty() {
+        return from_settings;
+    }
+
+    DEFAULT_HOSTED_BACKEND_URL.to_string()
 }
 
 pub fn sanitize_voice_agent_gender(value: String) -> String {
@@ -399,14 +426,6 @@ pub fn sanitize_voice_agent_model(value: String) -> String {
         }
         "gpt-realtime" | "gpt-realtime-1.5" | "realtime" => "gpt-realtime".to_string(),
         _ => AppSettings::default().voice_agent_model,
-    }
-}
-
-pub fn default_voice_agent_voice_for_gender(gender: &str) -> &'static str {
-    match sanitize_voice_agent_gender(gender.to_string()).as_str() {
-        "masculine" => "cedar",
-        "neutral" => "sage",
-        _ => "marin",
     }
 }
 

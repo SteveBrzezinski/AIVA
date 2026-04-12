@@ -1,4 +1,6 @@
 import i18n from '../../i18n.js';
+import { DEFAULT_HOSTED_BACKEND_URL } from '../../appEnv.js';
+import { defaultVoiceAgentVoiceForModel } from './realtimeVoiceCatalog.js';
 import {
   ASSISTANT_MATCH_THRESHOLD_MAX,
   ASSISTANT_MATCH_THRESHOLD_MIN,
@@ -79,19 +81,6 @@ export function defaultVoiceAgentPreferredLanguage(languageCode: string): string
   }
 }
 
-export function defaultVoiceAgentVoiceForGender(
-  gender: AppSettings['voiceAgentGender'],
-): AppSettings['voiceAgentVoice'] {
-  switch (gender) {
-    case 'masculine':
-      return 'cedar';
-    case 'neutral':
-      return 'sage';
-    default:
-      return 'marin';
-  }
-}
-
 export function defaultVoiceAgentExtraInstructions(): string {
   return 'Keep using the stored assistant name unchanged and do not rename yourself.';
 }
@@ -108,7 +97,7 @@ export const fallbackSettings: AppSettings = {
   playbackSpeed: 1,
   openaiApiKey: '',
   aiProviderMode: 'byo',
-  hostedApiBaseUrl: '',
+  hostedApiBaseUrl: DEFAULT_HOSTED_BACKEND_URL,
   hostedAccountEmail: '',
   hostedAccessToken: '',
   hostedWorkspaceSlug: '',
@@ -117,7 +106,7 @@ export const fallbackSettings: AppSettings = {
   startHiddenOnLaunch: true,
   assistantName: 'Ava',
   voiceAgentModel: 'gpt-realtime',
-  voiceAgentVoice: defaultVoiceAgentVoiceForGender('neutral'),
+  voiceAgentVoice: defaultVoiceAgentVoiceForModel('gpt-realtime'),
   voiceAgentPersonality: 'Composed, technically precise, friendly, and concise.',
   voiceAgentBehavior:
     'If a PC task is unclear, ask immediately. If something takes longer, acknowledge it briefly and follow up with the result.',
@@ -139,7 +128,6 @@ export const fallbackSettings: AppSettings = {
 export function mergeHostedSettings(target: AppSettings, source: AppSettings): AppSettings {
   return {
     ...target,
-    aiProviderMode: source.aiProviderMode,
     hostedApiBaseUrl: source.hostedApiBaseUrl,
     hostedAccountEmail: source.hostedAccountEmail,
     hostedAccessToken: source.hostedAccessToken,

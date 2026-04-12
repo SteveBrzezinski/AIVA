@@ -2,7 +2,12 @@ import { useTranslation } from 'react-i18next';
 
 type VoiceStyleRestartDialogProps = {
   open: boolean;
-  changeKind: 'gender' | 'model' | 'model-and-gender';
+  changeSummary: {
+    genderChanged: boolean;
+    modelChanged: boolean;
+    voiceChanged: boolean;
+    providerChanged: boolean;
+  };
   isBusy: boolean;
   onClose: () => void;
   onConfirm: () => void;
@@ -12,42 +17,29 @@ export function VoiceStyleRestartDialog(
   props: VoiceStyleRestartDialogProps,
 ): JSX.Element | null {
   const { t } = useTranslation();
-  const { open, changeKind, isBusy, onClose, onConfirm } = props;
+  const { open, changeSummary, isBusy, onClose, onConfirm } = props;
 
   if (!open) {
     return null;
   }
 
+  const { genderChanged, modelChanged, voiceChanged, providerChanged } = changeSummary;
+  const keyStem =
+    genderChanged && !modelChanged && !voiceChanged && !providerChanged
+      ? 'voiceStyleRestart'
+      : modelChanged && !voiceChanged && !providerChanged && !genderChanged
+        ? 'voiceModelRestart'
+        : voiceChanged && !modelChanged && !providerChanged && !genderChanged
+          ? 'voiceSelectionRestart'
+          : providerChanged && !modelChanged && !voiceChanged && !genderChanged
+            ? 'voiceProviderRestart'
+            : 'voiceSessionConfigRestart';
   const titleKey =
-    changeKind === 'model'
-      ? 'dialogs.voiceModelRestartTitle'
-      : changeKind === 'model-and-gender'
-        ? 'dialogs.voiceStyleModelRestartTitle'
-        : 'dialogs.voiceStyleRestartTitle';
-  const bodyKey =
-    changeKind === 'model'
-      ? 'dialogs.voiceModelRestartBody'
-      : changeKind === 'model-and-gender'
-        ? 'dialogs.voiceStyleModelRestartBody'
-        : 'dialogs.voiceStyleRestartBody';
-  const detailKey =
-    changeKind === 'model'
-      ? 'dialogs.voiceModelRestartDetail'
-      : changeKind === 'model-and-gender'
-        ? 'dialogs.voiceStyleModelRestartDetail'
-        : 'dialogs.voiceStyleRestartDetail';
-  const confirmKey =
-    changeKind === 'model'
-      ? 'dialogs.voiceModelRestartConfirm'
-      : changeKind === 'model-and-gender'
-        ? 'dialogs.voiceStyleModelRestartConfirm'
-        : 'dialogs.voiceStyleRestartConfirm';
-  const confirmingKey =
-    changeKind === 'model'
-      ? 'dialogs.voiceModelRestartConfirming'
-      : changeKind === 'model-and-gender'
-        ? 'dialogs.voiceStyleModelRestartConfirming'
-        : 'dialogs.voiceStyleRestartConfirming';
+    `dialogs.${keyStem}Title`;
+  const bodyKey = `dialogs.${keyStem}Body`;
+  const detailKey = `dialogs.${keyStem}Detail`;
+  const confirmKey = `dialogs.${keyStem}Confirm`;
+  const confirmingKey = `dialogs.${keyStem}Confirming`;
 
   return (
     <div
