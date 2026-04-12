@@ -74,7 +74,7 @@ export function SettingsConfirmDialog(props: SettingsConfirmDialogProps): JSX.El
             className={
               tone === 'danger'
                 ? 'border-[color:var(--danger-border)] bg-[var(--danger-bg)] text-[color:#8f2d3a] hover:bg-[rgba(186,49,64,0.18)]'
-                : 'border-[color:var(--button-primary-border)] bg-[var(--button-primary-bg)] text-[var(--button-primary-text)] shadow-[var(--button-primary-shadow)] hover:bg-[var(--button-primary-bg-hover)]'
+                : 'border-[color:var(--button-primary-border)] bg-[var(--button-primary-bg)] !text-[var(--button-primary-text)] shadow-[var(--button-primary-shadow)] hover:bg-[var(--button-primary-bg-hover)]'
             }
           >
             {confirmLabel}

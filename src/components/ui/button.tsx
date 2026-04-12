@@ -10,7 +10,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "border-[color:var(--button-primary-border)] bg-[var(--button-primary-bg)] text-[var(--button-primary-text)] shadow-[var(--button-primary-shadow)] hover:-translate-y-0.5 hover:bg-[var(--button-primary-bg-hover)]",
+          "border-[color:var(--button-primary-border)] bg-[var(--button-primary-bg)] !text-[var(--button-primary-text)] shadow-[var(--button-primary-shadow)] hover:-translate-y-0.5 hover:bg-[var(--button-primary-bg-hover)]",
         outline:
           "border-[color:var(--button-secondary-border)] bg-[var(--button-secondary-bg)] text-[var(--text-primary)] hover:-translate-y-0.5 hover:border-[color:var(--button-secondary-border-hover)] hover:bg-[var(--button-secondary-bg-hover)] hover:text-[var(--text-primary)] aria-expanded:border-[color:var(--button-secondary-border-hover)] aria-expanded:bg-[var(--button-secondary-bg-hover)] aria-expanded:text-[var(--text-primary)]",
         secondary:

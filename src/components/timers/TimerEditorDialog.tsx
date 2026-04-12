@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -143,6 +144,20 @@ export function TimerEditorDialog(props: TimerEditorDialogProps): JSX.Element | 
         <AppSurfaceHeader
           title={timer ? t('dialogs.timerEditorTitleEdit') : t('dialogs.timerEditorTitleCreate')}
           description={t('dialogs.timerEditorBody')}
+          action={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 text-[var(--text-secondary)] hover:bg-[var(--button-secondary-bg-hover)] hover:text-[var(--text-primary)]"
+              onClick={onClose}
+              disabled={isBusy}
+              aria-label={t('dialogs.timerEditorCancel')}
+              title={t('dialogs.timerEditorCancel')}
+            >
+              <X className="size-4" />
+            </Button>
+          }
         />
         <AppSurfaceContent className="space-y-5">
           <TimerEditorDialogBody

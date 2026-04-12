@@ -1027,7 +1027,7 @@ export default function App() {
   const loginEmailValue = loginEmail || savedSettings.hostedAccountEmail;
 
   const renderDashboardView = (): JSX.Element => (
-    <div className="space-y-6">
+    <div className="app-main-view-scroll space-y-6">
       <HeroSection />
 
       <section
@@ -1082,7 +1082,7 @@ export default function App() {
             <Button
               type="button"
               variant="outline"
-              className="border-[color:var(--button-primary-border)] bg-[var(--button-primary-bg)] text-[var(--button-primary-text)] shadow-[var(--button-primary-shadow)] hover:bg-[var(--button-primary-bg-hover)]"
+              className="border-[color:var(--button-primary-border)] bg-[var(--button-primary-bg)] !text-[var(--button-primary-text)] shadow-[var(--button-primary-shadow)] hover:bg-[var(--button-primary-bg-hover)]"
               onClick={() => openAccountLoginModal()}
             >
               {i18n.t('shell.authLogin')}
@@ -1149,7 +1149,7 @@ export default function App() {
   );
 
   const renderDebugView = (): JSX.Element => (
-    <div className="space-y-6">
+    <div className="app-main-view-scroll space-y-6">
       <AppPageHeader title={i18n.t('debugPage.title')} description={i18n.t('debugPage.copy')} />
 
       <ReadinessGrid items={readinessItems} />
@@ -1264,27 +1264,29 @@ export default function App() {
     switch (activeView) {
       case 'settings':
         return (
-          <SettingsView
-            settings={settings}
-            savedSettings={savedSettings}
-            setSettings={setSettings}
-            languageOptions={languageOptions}
-            assistantNameError={assistantNameError}
-            assistantCalibrationRequired={assistantCalibrationRequired}
-            assistantCalibrationComplete={assistantCalibrationComplete}
-            assistantTrainingReadyName={assistantTrainingReadyName}
-            isSavingSettings={isSavingSettings}
-            isWorking={uiState === 'working'}
-            canSaveSettings={canSaveSettings}
-            onSaveSection={handleSaveSettingsSection}
-            onResetSection={handleResetSettingsSection}
-            onResetAll={resetAllSettings}
-            onOpenTraining={openAssistantTrainingDialog}
-            hostedAccount={hostedAccount}
-            hostedAccountError={hostedAccountError}
-            normalizeLanguageCode={normalizeLanguageCode}
-            hostedSignedIn={hostedSignedIn}
-          />
+          <div className="flex min-h-0 flex-1 flex-col">
+            <SettingsView
+              settings={settings}
+              savedSettings={savedSettings}
+              setSettings={setSettings}
+              languageOptions={languageOptions}
+              assistantNameError={assistantNameError}
+              assistantCalibrationRequired={assistantCalibrationRequired}
+              assistantCalibrationComplete={assistantCalibrationComplete}
+              assistantTrainingReadyName={assistantTrainingReadyName}
+              isSavingSettings={isSavingSettings}
+              isWorking={uiState === 'working'}
+              canSaveSettings={canSaveSettings}
+              onSaveSection={handleSaveSettingsSection}
+              onResetSection={handleResetSettingsSection}
+              onResetAll={resetAllSettings}
+              onOpenTraining={openAssistantTrainingDialog}
+              hostedAccount={hostedAccount}
+              hostedAccountError={hostedAccountError}
+              normalizeLanguageCode={normalizeLanguageCode}
+              hostedSignedIn={hostedSignedIn}
+            />
+          </div>
         );
       case 'debug':
         return DEBUG_NAV_ENABLED ? renderDebugView() : renderDashboardView();
@@ -1297,7 +1299,7 @@ export default function App() {
   return (
     <>
       <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
-        <div className="min-h-screen text-[var(--text-primary)]">
+        <div className="app-main-window flex h-[100dvh] flex-col overflow-hidden text-[var(--text-primary)]">
           <header
             className="sticky top-0 z-30 border-b border-[color:var(--panel-border)]/70 backdrop-blur-xl"
             data-tauri-drag-region
@@ -1363,7 +1365,7 @@ export default function App() {
                     'hidden h-10 md:inline-flex',
                     hostedSignedIn
                       ? 'border-[color:var(--danger-border)] bg-[var(--danger-bg)] text-[color:#8f2d3a] hover:bg-[rgba(186,49,64,0.18)]'
-                      : 'border-[color:var(--button-primary-border)] bg-[var(--button-primary-bg)] text-[var(--button-primary-text)] shadow-[var(--button-primary-shadow)] hover:bg-[var(--button-primary-bg-hover)]',
+                      : 'border-[color:var(--button-primary-border)] bg-[var(--button-primary-bg)] !text-[var(--button-primary-text)] shadow-[var(--button-primary-shadow)] hover:bg-[var(--button-primary-bg-hover)]',
                   )}
                   onClick={() => {
                     if (hostedSignedIn) {
@@ -1448,7 +1450,7 @@ export default function App() {
                     'h-11 w-full justify-center',
                     hostedSignedIn
                       ? 'border-[color:var(--danger-border)] bg-[var(--danger-bg)] text-[color:#8f2d3a] hover:bg-[rgba(186,49,64,0.18)]'
-                      : 'border-[color:var(--button-primary-border)] bg-[var(--button-primary-bg)] text-[var(--button-primary-text)] shadow-[var(--button-primary-shadow)] hover:bg-[var(--button-primary-bg-hover)]',
+                      : 'border-[color:var(--button-primary-border)] bg-[var(--button-primary-bg)] !text-[var(--button-primary-text)] shadow-[var(--button-primary-shadow)] hover:bg-[var(--button-primary-bg-hover)]',
                   )}
                   onClick={() => {
                     setMobileNavOpen(false);
@@ -1466,7 +1468,7 @@ export default function App() {
             </div>
           </SheetContent>
 
-          <main className="app-desktop-shell mx-auto flex w-full flex-col gap-6 px-4 py-6 sm:px-6 2xl:py-8">
+          <main className="app-desktop-shell mx-auto flex min-h-0 flex-1 flex-col overflow-hidden px-4 py-6 sm:px-6 2xl:py-8">
             {renderActiveView()}
           </main>
         </div>
@@ -1554,7 +1556,7 @@ export default function App() {
               </Button>
               <Button
                 type="button"
-                className="border-[color:var(--button-primary-border)] bg-[var(--button-primary-bg)] text-[var(--button-primary-text)] shadow-[var(--button-primary-shadow)] hover:bg-[var(--button-primary-bg-hover)]"
+                className="border-[color:var(--button-primary-border)] bg-[var(--button-primary-bg)] !text-[var(--button-primary-text)] shadow-[var(--button-primary-shadow)] hover:bg-[var(--button-primary-bg-hover)]"
                 disabled={isHostedAccountBusy || !loginEmailValue.trim() || !loginPassword.trim()}
                 onClick={() =>
                   void handleHostedLogin({

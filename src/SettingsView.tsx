@@ -358,7 +358,7 @@ export default function SettingsView({
           <Button
             type="button"
             variant="outline"
-            className="h-11 border-[color:var(--button-primary-border)] bg-[var(--button-primary-bg)] text-[var(--button-primary-text)] shadow-[var(--button-primary-shadow)] hover:bg-[var(--button-primary-bg-hover)]"
+            className="h-11 border-[color:var(--button-primary-border)] bg-[var(--button-primary-bg)] !text-[var(--button-primary-text)] shadow-[var(--button-primary-shadow)] hover:bg-[var(--button-primary-bg-hover)]"
             disabled={Boolean(assistantNameError) || isSavingSettings}
             onClick={() => void onOpenTraining()}
           >
@@ -729,7 +729,7 @@ export default function SettingsView({
         : theme.label;
 
     return (
-      <div className="space-y-6">
+      <div className="flex h-full min-h-0 flex-col gap-6 overflow-hidden">
         <section className="space-y-4">
           <div className="space-y-1">
             <h3 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">
@@ -827,7 +827,7 @@ export default function SettingsView({
 
   return (
     <>
-      <div className="space-y-6">
+      <div className="flex h-full min-h-0 flex-col gap-6 overflow-hidden">
         <AppPageHeader
           title={t('settings.title')}
           action={
@@ -843,8 +843,8 @@ export default function SettingsView({
           }
         />
 
-        <div className="grid gap-6 xl:gap-8 lg:grid-cols-[240px_minmax(0,1fr)] 2xl:grid-cols-[290px_minmax(0,1fr)]">
-          <aside className="lg:pt-2">
+        <div className="grid min-h-0 flex-1 gap-6 overflow-hidden xl:gap-8 lg:grid-cols-[240px_minmax(0,1fr)] 2xl:grid-cols-[290px_minmax(0,1fr)]">
+          <aside className="min-h-0 lg:pt-2">
             <nav
               className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-x-hidden"
               aria-label={t('settingsPage.categories')}
@@ -865,7 +865,10 @@ export default function SettingsView({
             </nav>
           </aside>
 
-          <AppSurfaceCard className="min-h-[40rem] overflow-hidden 2xl:min-h-[46rem]">
+          <AppSurfaceCard
+            className="flex h-full min-h-0 flex-col overflow-hidden"
+            style={{ boxShadow: 'none' }}
+          >
             <div
               className="sticky top-0 z-10 flex flex-col gap-4 border-b border-[color:var(--panel-border)]/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between 2xl:px-7 2xl:py-5"
               style={{ background: 'var(--panel-bg)' }}
@@ -878,7 +881,7 @@ export default function SettingsView({
                   type="button"
                   variant="outline"
                   disabled={saveDisabled}
-                  className="h-11 border-[color:var(--button-primary-border)] bg-[var(--button-primary-bg)] text-[var(--button-primary-text)] shadow-[var(--button-primary-shadow)] hover:bg-[var(--button-primary-bg-hover)]"
+                  className="h-11 border-[color:var(--button-primary-border)] bg-[var(--button-primary-bg)] !text-[var(--button-primary-text)] shadow-[var(--button-primary-shadow)] hover:bg-[var(--button-primary-bg-hover)]"
                   onClick={() => void onSaveSection(activeSection)}
                 >
                   {isSavingSettings ? t('settings.saving') : t('settings.save')}
@@ -895,7 +898,7 @@ export default function SettingsView({
               </div>
             </div>
 
-            <div className="max-h-[calc(100dvh-14rem)] overflow-y-auto px-5 py-5 2xl:max-h-[calc(100dvh-15rem)] 2xl:px-7 2xl:py-6">
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 2xl:px-7 2xl:py-6">
               {renderActiveSection()}
             </div>
           </AppSurfaceCard>

@@ -185,6 +185,7 @@ label:has([data-slot='radio-group-item']) {
 
 html[data-theme='coral-companion'],
 body[data-theme='coral-companion'] {
+  color-scheme: light;
   --text-primary: #0f172a;
   --text-secondary: #526072;
   --text-muted: #7e8a9a;
@@ -207,10 +208,10 @@ body[data-theme='coral-companion'] {
   --panel-glow-medium: rgba(255, 122, 61, 0.12);
   --panel-glow-strong: rgba(255, 122, 61, 0.18);
   --button-primary-text: #ffffff;
-  --button-primary-bg: linear-gradient(180deg, #ff7a3d 0%, #f06525 100%);
-  --button-primary-bg-hover: linear-gradient(180deg, #ff965f 0%, #ff7a3d 100%);
-  --button-primary-border: rgba(240, 101, 37, 0.42);
-  --button-primary-shadow: 0 14px 40px rgba(255, 122, 61, 0.28);
+  --button-primary-bg: #f06525;
+  --button-primary-bg-hover: #ff7a3d;
+  --button-primary-border: transparent;
+  --button-primary-shadow: none;
   --button-secondary-bg: rgba(255, 255, 255, 0.82);
   --button-secondary-bg-hover: rgba(255, 248, 242, 0.96);
   --button-secondary-border: rgba(82, 96, 114, 0.1);
@@ -227,9 +228,9 @@ body[data-theme='coral-companion'] {
   --input-bg: rgba(255, 255, 255, 0.94);
   --input-border: rgba(82, 96, 114, 0.12);
   --input-border-focus: rgba(240, 101, 37, 0.28);
-  --scrollbar-track: rgba(240, 101, 37, 0.06);
-  --scrollbar-thumb: rgba(240, 101, 37, 0.16);
-  --scrollbar-thumb-hover: rgba(240, 101, 37, 0.24);
+  --scrollbar-track: rgba(255, 253, 250, 0.96);
+  --scrollbar-thumb: rgba(240, 101, 37, 0.58);
+  --scrollbar-thumb-hover: rgba(240, 101, 37, 0.82);
   --overlay-shell: rgba(255, 255, 255, 0.98);
   --overlay-shell-border: rgba(82, 96, 114, 0.1);
   --overlay-shell-highlight: rgba(255, 255, 255, 0.96);
@@ -1540,7 +1541,7 @@ body[data-theme='kitsune-matsuri'] {
 * {
   box-sizing: border-box;
   scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
 *::-webkit-scrollbar {
@@ -1549,18 +1550,18 @@ body[data-theme='kitsune-matsuri'] {
 }
 
 *::-webkit-scrollbar-track {
-  background: var(--scrollbar-track);
+  background: transparent;
   border-radius: 999px;
 }
 
 *::-webkit-scrollbar-thumb {
   border-radius: 999px;
-  background: linear-gradient(180deg, var(--scrollbar-thumb) 0%, rgba(255, 255, 255, 0.08) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, var(--scrollbar-thumb) 0%, var(--scrollbar-thumb) 100%);
+  border: 1px solid transparent;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, var(--scrollbar-thumb-hover) 0%, rgba(255, 255, 255, 0.12) 100%);
+  background: linear-gradient(180deg, var(--scrollbar-thumb-hover) 0%, var(--scrollbar-thumb-hover) 100%);
 }
 
 body {
@@ -1579,9 +1580,22 @@ body {
   background-attachment: fixed;
 }
 
+body:not(.overlay-body) {
+  overflow: hidden;
+}
+
 html {
   background-color: var(--app-bg-end);
-  scrollbar-gutter: stable;
+  background:
+    var(--app-bg-pattern),
+    radial-gradient(circle at top, var(--app-bg-aurora), transparent 34%),
+    radial-gradient(circle at 85% 12%, var(--app-bg-aurora-secondary), transparent 26%),
+    radial-gradient(circle at 14% 78%, var(--app-bg-aurora), transparent 22%),
+    radial-gradient(circle at top left, var(--app-bg-aurora), transparent 24%),
+    radial-gradient(circle at top right, var(--app-bg-aurora-secondary), transparent 28%),
+    linear-gradient(180deg, var(--app-bg-start) 0%, var(--app-bg-end) 100%);
+  background-attachment: fixed;
+  overflow: hidden;
 }
 
 button,
@@ -1597,11 +1611,11 @@ code {
 }
 
 #root {
-  min-height: 100dvh;
+  height: 100dvh;
 }
 
 .app-frame {
-  min-height: 100dvh;
+  height: 100dvh;
 }
 
 .app-shell,
@@ -1612,6 +1626,15 @@ code {
 
 .app-shell {
   padding: 18px 24px 64px;
+}
+
+.app-main-view-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 0.375rem;
+  scrollbar-gutter: stable;
 }
 
 .dashboard-home-grid {

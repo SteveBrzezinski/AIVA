@@ -53,7 +53,7 @@ export function TimerListPanel(props: TimerListPanelProps): JSX.Element {
         action={
           <Button
             type="button"
-            className="border-[color:var(--button-primary-border)] bg-[var(--button-primary-bg)] text-[var(--button-primary-text)] shadow-[var(--button-primary-shadow)] hover:bg-[var(--button-primary-bg-hover)]"
+            className="border-[color:var(--button-primary-border)] bg-[var(--button-primary-bg)] !text-[var(--button-primary-text)] shadow-[var(--button-primary-shadow)] hover:bg-[var(--button-primary-bg-hover)]"
             variant="outline"
             onClick={onAdd}
           >
