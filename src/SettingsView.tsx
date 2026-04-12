@@ -17,7 +17,11 @@ import { Slider } from '@/components/ui/slider';
 import { AppPageHeader, AppSurfaceCard } from '@/components/ui/app-surface';
 import { cn } from '@/lib/utils';
 import { SettingsConfirmDialog } from './components/app/SettingsConfirmDialog';
-import { DESIGN_THEME_OPTIONS, normalizeDesignThemeId } from './designThemes';
+import {
+  DESIGN_THEME_OPTIONS,
+  getDesignThemeOption,
+  normalizeDesignThemeId,
+} from './designThemes';
 import {
   ASSISTANT_CUE_COOLDOWN_MS_MAX,
   ASSISTANT_MATCH_THRESHOLD_MAX,
@@ -175,9 +179,8 @@ export default function SettingsView({
       { id: 'general', label: t('settingsPage.sections.general.label') },
       { id: 'assistant', label: t('settingsPage.sections.assistant.label') },
       { id: 'startup', label: t('settingsPage.sections.startup.label') },
-      { id: 'api', label: t('settingsPage.sections.api.label') },
+      { id: 'api', label: t('settingsPage.sections.authorization.label') },
       { id: 'design', label: t('settingsPage.sections.design.label') },
-      { id: 'actionbar', label: t('settingsPage.sections.actionbar.label') },
     ],
     [t],
   );
@@ -653,73 +656,7 @@ export default function SettingsView({
     </div>
   );
 
-  const renderDesignSection = (): JSX.Element => {
-    const selectedThemeId = normalizeDesignThemeId(settings.designThemeId);
-
-    return (
-      <div className="space-y-4">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {DESIGN_THEME_OPTIONS.map((theme) => {
-            const isActive = selectedThemeId === theme.id;
-            const themeAccent = t(`settingsPage.themeCards.${theme.id}.accent`, {
-              defaultValue: theme.accent,
-            });
-            const themeDescription = t(`settingsPage.themeCards.${theme.id}.description`, {
-              defaultValue: theme.description,
-            });
-            const themeContrast = t(`settingsPage.themeCards.${theme.id}.contrast`, {
-              defaultValue: theme.contrast,
-            });
-
-            return (
-              <button
-                type="button"
-                key={theme.id}
-                data-preview-theme={theme.id}
-                className={cn(
-                  'flex h-full flex-col gap-4 rounded-2xl border p-4 text-left transition-all',
-                  isActive
-                    ? 'border-white/30 bg-white/10 shadow-[0_0_24px_rgba(255,255,255,0.08)]'
-                    : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/8',
-                )}
-                onClick={() => updateSettings({ designThemeId: theme.id })}
-              >
-                <div className="design-card__preview" aria-hidden="true">
-                  <span className="design-card__preview-window" />
-                  <span className="design-card__preview-rail" />
-                  <span className="design-card__preview-panel" />
-                  <span className="design-card__preview-orb">
-                    <span className="design-card__preview-ring design-card__preview-ring--outer" />
-                    <span className="design-card__preview-ring design-card__preview-ring--middle" />
-                    <span className="design-card__preview-core" />
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  <p className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">
-                    {themeAccent}
-                  </p>
-                  <strong className="block text-base text-[var(--text-primary)]">
-                    {theme.label}
-                  </strong>
-                  <p className="text-sm leading-6 text-[var(--text-secondary)]">
-                    {themeDescription}
-                  </p>
-                </div>
-                <span className="mt-auto text-xs text-[var(--text-muted)]">
-                  {isActive ? t('settingsPage.designSelectedForPreview') : themeContrast}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-        <p className="text-xs leading-5 text-[var(--text-muted)]">
-          {t('settingsPage.designApplyNote')}
-        </p>
-      </div>
-    );
-  };
-
-  const renderActionbarSection = (): JSX.Element => (
+  const renderActionbarControls = (): JSX.Element => (
     <div className={FIELD_GRID_CLASS}>
       <FormField
         label={t('settingsPage.sections.actionbar.fieldsetLegend')}
@@ -782,6 +719,76 @@ export default function SettingsView({
     </div>
   );
 
+  const renderDesignSection = (): JSX.Element => {
+    const selectedThemeId = normalizeDesignThemeId(settings.designThemeId);
+    const selectedTheme = getDesignThemeOption(selectedThemeId);
+
+    return (
+      <div className="space-y-6">
+        <section className="space-y-4">
+          <div className="space-y-1">
+            <h3 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">
+              {t('settingsPage.designSections.themes')}
+            </h3>
+            <p className="text-sm leading-6 text-[var(--text-secondary)]">
+              {t('settingsPage.designApplyNote')}
+            </p>
+          </div>
+          <FormField label={t('settingsPage.designThemeSelectLabel')} className="max-w-sm">
+            <SettingSelect
+              value={selectedThemeId}
+              onValueChange={(value) =>
+                updateSettings({ designThemeId: normalizeDesignThemeId(value) })
+              }
+              options={DESIGN_THEME_OPTIONS.map((theme) => ({
+                value: theme.id,
+                label: theme.label,
+              }))}
+            />
+          </FormField>
+          <div
+            className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-5"
+          >
+            <div className="space-y-2">
+              <strong className="block text-base text-[var(--text-primary)]">
+                {selectedTheme.label}
+              </strong>
+              <p className="text-sm leading-6 text-[var(--text-secondary)]">
+                {t(`settingsPage.themeCards.${selectedTheme.id}.description`, {
+                  defaultValue: selectedTheme.description,
+                })}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1 text-xs text-[var(--text-secondary)]">
+                {t(`settingsPage.themeCards.${selectedTheme.id}.accent`, {
+                  defaultValue: selectedTheme.accent,
+                })}
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1 text-xs text-[var(--text-secondary)]">
+                {t(`settingsPage.themeCards.${selectedTheme.id}.contrast`, {
+                  defaultValue: selectedTheme.contrast,
+                })}
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1 text-xs text-[var(--text-secondary)]">
+                {selectedTheme.id}
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          <div className="space-y-1">
+            <h3 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">
+              {t('settingsPage.designSections.actionbar')}
+            </h3>
+          </div>
+          {renderActionbarControls()}
+        </section>
+      </div>
+    );
+  };
+
   const renderActiveSection = (): JSX.Element => {
     switch (activeSection) {
       case 'assistant':
@@ -792,8 +799,6 @@ export default function SettingsView({
         return renderApiSection();
       case 'design':
         return renderDesignSection();
-      case 'actionbar':
-        return renderActionbarSection();
       case 'general':
       default:
         return renderGeneralSection();

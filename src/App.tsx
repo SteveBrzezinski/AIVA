@@ -310,8 +310,8 @@ export default function App() {
   }, [settings.uiLanguage]);
 
   useEffect(() => {
-    void applyDesignTheme(settings.designThemeId, appWindowRef.current);
-  }, [settings.designThemeId]);
+    void applyDesignTheme(savedSettings.designThemeId, appWindowRef.current);
+  }, [savedSettings.designThemeId]);
 
   const syncMainWindowMaximized = useCallback(async (): Promise<void> => {
     try {

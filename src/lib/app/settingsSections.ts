@@ -5,8 +5,7 @@ export type SettingsSectionId =
   | 'assistant'
   | 'startup'
   | 'api'
-  | 'design'
-  | 'actionbar';
+  | 'design';
 
 const SETTINGS_SECTION_FIELDS: Record<SettingsSectionId, Array<keyof AppSettings>> = {
   general: [
@@ -30,8 +29,7 @@ const SETTINGS_SECTION_FIELDS: Record<SettingsSectionId, Array<keyof AppSettings
   ],
   startup: ['launchAtLogin', 'startHiddenOnLaunch'],
   api: ['aiProviderMode', 'openaiApiKey', 'hostedWorkspaceSlug'],
-  design: ['designThemeId'],
-  actionbar: ['actionBarDisplayMode', 'actionBarActiveGlowColor'],
+  design: ['designThemeId', 'actionBarDisplayMode', 'actionBarActiveGlowColor'],
 };
 
 export const SETTINGS_SECTION_ORDER: SettingsSectionId[] = [
@@ -40,7 +38,6 @@ export const SETTINGS_SECTION_ORDER: SettingsSectionId[] = [
   'startup',
   'api',
   'design',
-  'actionbar',
 ];
 
 export function mergeSettingsSection(

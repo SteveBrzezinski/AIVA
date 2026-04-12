@@ -224,8 +224,12 @@
     "apiSummaryHostedRequired": "Hosted / Anmeldung erforderlich",
     "apiSummaryByoCustomKey": "BYO / eigener API-Schlüssel",
     "apiSummaryByoEnvKey": "BYO / .env-Schlüssel aktiv",
-    "designSelectedForPreview": "Für Vorschau ausgewählt",
-    "designApplyNote": "Das Hauptfenster zeigt deine Auswahl sofort in der Vorschau. Speichere die Einstellungen, um das Design auf Actionbar, Orb-Overlay und künftige Starts zu übernehmen.",
+    "designApplyNote": "Das ausgewählte Theme wird erst übernommen, nachdem du die Einstellungen gespeichert hast.",
+    "designThemeSelectLabel": "Theme",
+    "designSections": {
+      "themes": "Themes",
+      "actionbar": "Action Bar"
+    },
     "sections": {
       "general": {
         "label": "Allgemein",
@@ -244,6 +248,11 @@
       },
       "api": {
         "label": "API",
+        "description": "Provider-Modus, Hosted-Konto, Abrechnung und OpenAI-Zugriff aus dev.",
+        "helper": "Hier bleibt der Dev-Provider-Flow erhalten: eigener OpenAI-Schlüssel oder Anmeldung am Hosted-Backend."
+      },
+      "authorization": {
+        "label": "Authorization",
         "description": "Provider-Modus, Hosted-Konto, Abrechnung und OpenAI-Zugriff aus dev.",
         "helper": "Hier bleibt der Dev-Provider-Flow erhalten: eigener OpenAI-Schlüssel oder Anmeldung am Hosted-Backend."
       },

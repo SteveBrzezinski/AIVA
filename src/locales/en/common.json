@@ -224,8 +224,12 @@
     "apiSummaryHostedRequired": "Hosted / sign in required",
     "apiSummaryByoCustomKey": "BYO / custom API key",
     "apiSummaryByoEnvKey": "BYO / using .env key",
-    "designSelectedForPreview": "Selected for preview",
-    "designApplyNote": "The main window previews your selection immediately. Save the settings to push the design to the action bar, the orb overlay, and future launches.",
+    "designApplyNote": "The selected theme is applied only after you save the settings.",
+    "designThemeSelectLabel": "Theme",
+    "designSections": {
+      "themes": "Themes",
+      "actionbar": "Action Bar"
+    },
     "sections": {
       "general": {
         "label": "General",
@@ -244,6 +248,11 @@
       },
       "api": {
         "label": "API",
+        "description": "Provider mode, hosted account, billing, and OpenAI access from dev.",
+        "helper": "This keeps the dev provider flow: bring your own OpenAI key or sign in to the hosted backend."
+      },
+      "authorization": {
+        "label": "Authorization",
         "description": "Provider mode, hosted account, billing, and OpenAI access from dev.",
         "helper": "This keeps the dev provider flow: bring your own OpenAI key or sign in to the hosted backend."
       },
