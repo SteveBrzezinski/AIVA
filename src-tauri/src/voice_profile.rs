@@ -1,8 +1,8 @@
-use crate::settings::{
-    default_voice_agent_preferred_language, sanitize_voice_agent_gender,
-    sanitize_voice_agent_model, AppSettings,
-};
 use crate::realtime_voice::sanitize_realtime_voice_for_model;
+use crate::settings::{
+    AppSettings, default_voice_agent_preferred_language, sanitize_voice_agent_gender,
+    sanitize_voice_agent_model,
+};
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
@@ -43,8 +43,12 @@ fn sanitize_line(value: &str, fallback: &str) -> String {
 }
 
 fn sanitize_multiline(value: &str, fallback: &str) -> String {
-    let normalized =
-        value.lines().map(str::trim).filter(|line| !line.is_empty()).collect::<Vec<_>>().join("\n");
+    let normalized = value
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n");
 
     if normalized.is_empty() {
         fallback.to_string()
@@ -155,10 +159,7 @@ pub fn build_assistant_instructions(settings: &AppSettings) -> String {
             "- Your name is fixed to {} and comes from the wake-word configuration. Never change it yourself.",
             state.source_assistant_name
         ),
-        format!(
-            "- Use {} by default.",
-            identity.preferred_language
-        ),
+        format!("- Use {} by default.", identity.preferred_language),
         format!(
             "- Your configured gender presentation is {}. {}",
             voice_agent_gender_label(&identity.gender),
@@ -183,13 +184,14 @@ pub fn build_assistant_instructions(settings: &AppSettings) -> String {
         "9. For questions about the current time, date, weekday, timezone, or 'right now', use get_current_time instead of guessing.".to_string(),
         "10. Use the timer tools for countdowns, reminders, pauses, resumptions, deletions, renames, duration changes, or questions about remaining time. If no timer title is given, the local tool layer will generate one. When a timer has already finished and the user asks to stop, silence, dismiss, remove, or clear it, dismiss the finished timer so the repeating alert stops.".to_string(),
         "11. Treat timer-completion SYSTEM_EVENT messages as background reminders. Announce them naturally without the prefix.".to_string(),
-        "12. Before every answer to a new user turn, silently run a conversation-end check: decide whether the user is likely done, signing off, dismissing you, or ending the conversation for now.".to_string(),
-        "13. If the latest user turn sounds like a closing or final confirmation, prefer ending the conversation over continuing it. This includes short closing turns such as 'thanks, that's all', 'okay bye', 'see you', 'good night', 'danke das war's', 'das war alles', 'bis dann', 'tschüss', or similar sign-offs.".to_string(),
+        "12. Before every answer to a new user turn, silently run a conversation-end check: decide whether the latest user turn means the conversation should end now or remain open.".to_string(),
+        "13. Treat direct sign-offs, dismissals, and final confirmations as conversation endings even when they are extremely short or appear immediately after activation. If the user wakes you and then says a brief goodbye, dismissal, or 'that is all' style turn as their first request, end the conversation instead of continuing it.".to_string(),
         "14. If you ask the user a follow-up question, ask for confirmation, or otherwise leave the turn open for the user to answer, the conversation is not over. In that case do not use deactivate_voice_assistant.".to_string(),
-        "15. If the conversation-end check is positive or even moderately likely, reply with one brief farewell in the user's language and then use deactivate_voice_assistant as the final step. The farewell and the tool call belong to the same closing turn: first finish the farewell, then call the tool last. Do not keep helping, do not ask a follow-up question, and do not continue with new suggestions unless the user clearly asks to continue.".to_string(),
-        "16. If you decide to say any closing or farewell at all, calling deactivate_voice_assistant in that same turn is mandatory. A spoken sign-off without the tool is a mistake.".to_string(),
-        "17. If you are unsure whether the user is done, keep the conversation open. Do not say goodbye unless you truly intend to end the conversation now.".to_string(),
-        "18. Keep responses concise, natural, and conversational by default.".to_string(),
+        "15. If the conversation-end check is positive or even moderately likely, reply with exactly one very short farewell in the user's language and then use deactivate_voice_assistant as the final step. The farewell and the tool call belong to the same closing turn: first finish the farewell, then call the tool last.".to_string(),
+        "16. Closing farewells must stay minimal. Prefer one short sentence or one to four words such as 'Tschuess.', 'Bis dann.', 'Mach's gut.', or 'Goodbye.' Do not say meta phrases like 'Dann verabschiede ich mich jetzt', do not explain that you are shutting down, and do not add new help or suggestions.".to_string(),
+        "17. If you decide to say any closing or farewell at all, calling deactivate_voice_assistant in that same turn is mandatory. A spoken sign-off without the tool is a mistake.".to_string(),
+        "18. If you are unsure whether the user is done, keep the conversation open. Do not say goodbye unless you truly intend to end the conversation now.".to_string(),
+        "19. Keep responses concise, natural, and conversational by default.".to_string(),
     ]
     .into_iter()
     .filter(|line| !line.trim().is_empty())
@@ -207,8 +209,9 @@ mod tests {
         let instructions = build_assistant_instructions(&AppSettings::default());
 
         assert!(instructions.contains("silently run a conversation-end check"));
-        assert!(instructions.contains("danke das war's"));
-        assert!(instructions.contains("brief farewell in the user's language"));
+        assert!(instructions.contains("appear immediately after activation"));
+        assert!(instructions.contains("very short farewell"));
+        assert!(instructions.contains("one to four words"));
         assert!(instructions.contains("the conversation is not over"));
         assert!(instructions.contains("deactivate_voice_assistant as the final step"));
         assert!(instructions.contains("first finish the farewell, then call the tool last"));

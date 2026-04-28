@@ -74,6 +74,15 @@ type RealtimeResponseContext = {
   resumeListeningAfterDone?: boolean;
 };
 
+type ConversationEndDecision = {
+  shouldDeactivate: boolean;
+  reason: string;
+  confidence: 'low' | 'medium' | 'high';
+  signals: string[];
+  latestUserTurn: string;
+  assistantReply: string;
+};
+
 export class RealtimeVoiceAgentController {
   private callbacks: RealtimeVoiceAgentCallbacks;
   private peerConnection: RTCPeerConnection | null = null;
@@ -102,6 +111,7 @@ export class RealtimeVoiceAgentController {
   private resumeListeningAfterOutputSuppression = false;
   private audioElementCleanup: (() => void) | null = null;
   private pendingGracefulDeactivateReason: string | null = null;
+  private latestObservedUserTurn = '';
 
   constructor(callbacks: RealtimeVoiceAgentCallbacks) {
     this.callbacks = callbacks;
@@ -329,6 +339,7 @@ export class RealtimeVoiceAgentController {
     this.audioElement = null;
     this.session = null;
     this.recentMemory = null;
+    this.latestObservedUserTurn = '';
     this.remoteAudioOutputActive = false;
     this.serverResponseActive = false;
     this.serverAudioBufferActive = false;
@@ -340,6 +351,7 @@ export class RealtimeVoiceAgentController {
   }
 
   observeExternalUserTranscript(transcript: string): void {
+    this.latestObservedUserTurn = transcript.trim();
     this.memoryTracker.rememberExternalUserTranscript(transcript);
   }
 
@@ -569,10 +581,19 @@ export class RealtimeVoiceAgentController {
         this.responseContexts.delete(responseId);
       }
 
+      const endDecision =
+        !responseContext?.channel && !gracefulDeactivateReason
+          ? evaluateConversationEndDecision(this.latestObservedUserTurn, assistantText)
+          : null;
+
+      if (endDecision) {
+        this.log('events', 'lifecycle', 'conversation end decision', endDecision);
+      }
+
       if (gracefulDeactivateReason) {
         this.requestGracefulDeactivate(gracefulDeactivateReason);
-      } else if (!executedToolCall && looksLikeAssistantFarewell(assistantText)) {
-        this.requestGracefulDeactivate('assistant-farewell-fallback');
+      } else if (!executedToolCall && endDecision?.shouldDeactivate) {
+        this.requestGracefulDeactivate(endDecision.reason);
       }
 
       if (
@@ -1105,6 +1126,56 @@ export class RealtimeVoiceAgentController {
   }
 }
 
+function evaluateConversationEndDecision(
+  latestUserTurn: string,
+  assistantReply: string,
+): ConversationEndDecision {
+  const normalizedUserTurn = normalizeConversationText(latestUserTurn);
+  const normalizedAssistantReply = normalizeConversationText(assistantReply);
+  const userWordCount = countWords(normalizedUserTurn);
+  const assistantLeavesTurnOpen =
+    assistantReply.includes('?') || normalizedAssistantReply.includes(' wie kann ich') ||
+    normalizedAssistantReply.includes('womit kann ich') ||
+    normalizedAssistantReply.includes('anything else') ||
+    normalizedAssistantReply.includes('how can i help');
+
+  const signals: string[] = [];
+  let score = 0;
+
+  if (looksLikeClosingUserTurn(normalizedUserTurn)) {
+    signals.push('user-turn-looks-closing');
+    score += 3;
+  }
+
+  if (userWordCount > 0 && userWordCount <= 4) {
+    signals.push('user-turn-is-very-short');
+    score += 1;
+  }
+
+  if (looksLikeAssistantFarewell(assistantReply)) {
+    signals.push('assistant-reply-looks-like-farewell');
+    score += 3;
+  }
+
+  if (assistantLeavesTurnOpen) {
+    signals.push('assistant-left-turn-open');
+    score -= 4;
+  }
+
+  const shouldDeactivate =
+    (signals.includes('user-turn-looks-closing') && !assistantLeavesTurnOpen) ||
+    (signals.includes('assistant-reply-looks-like-farewell') && score >= 3);
+
+  return {
+    shouldDeactivate,
+    reason: shouldDeactivate ? 'assistant-conversation-end-fallback' : 'conversation-continues',
+    confidence: score >= 5 ? 'high' : score >= 3 ? 'medium' : 'low',
+    signals,
+    latestUserTurn,
+    assistantReply,
+  };
+}
+
 function looksLikeAssistantFarewell(text: string): boolean {
   const normalized = normalizeConversationText(text);
   if (!normalized || normalized.length > 180) {
@@ -1119,6 +1190,9 @@ function looksLikeAssistantFarewell(text: string): boolean {
     'bis bald',
     'bis spater',
     'machs gut',
+    'machs gut',
+    'hau rein',
+    'ciao',
     'bye',
     'goodbye',
     'see you',
@@ -1126,12 +1200,68 @@ function looksLikeAssistantFarewell(text: string): boolean {
     'talk to you later',
     'good night',
     'have a good one',
-  ].some(
-    (phrase) =>
-      normalized === phrase ||
-      normalized.endsWith(` ${phrase}`) ||
-      normalized.includes(`${phrase} `),
-  );
+  ].some((phrase) => matchesConversationPhrase(normalized, phrase));
+}
+
+function looksLikeClosingUserTurn(normalizedText: string): boolean {
+  if (!normalizedText || normalizedText.length > 180) {
+    return false;
+  }
+
+  const closingPhrases = [
+    'tschuss',
+    'tschuess',
+    'bis dann',
+    'bis bald',
+    'bis spater',
+    'machs gut',
+    'machs gut',
+    'hau rein',
+    'ciao',
+    'bye',
+    'goodbye',
+    'see you',
+    'see you later',
+    'talk to you later',
+    'good night',
+    'danke das wars',
+    'das wars',
+    'das war alles',
+    'mehr nicht',
+    'mehr brauche ich nicht',
+    'reicht so',
+    'passt so',
+    'das reicht',
+    'ich bin fertig',
+    'wir sind fertig',
+  ];
+
+  if (closingPhrases.some((phrase) => matchesConversationPhrase(normalizedText, phrase))) {
+    return true;
+  }
+
+  const hasThanks = normalizedText.includes('danke') || normalizedText.includes('thanks');
+  const hasFinality =
+    normalizedText.includes('wars') ||
+    normalizedText.includes('war alles') ||
+    normalizedText.includes('reicht') ||
+    normalizedText.includes('passt') ||
+    normalizedText.includes('fertig') ||
+    normalizedText.includes('genug');
+
+  return hasThanks && hasFinality;
+}
+
+function matchesConversationPhrase(text: string, phrase: string): boolean {
+  return text === phrase || text.startsWith(`${phrase} `) || text.endsWith(` ${phrase}`) || text.includes(` ${phrase} `);
+}
+
+function countWords(text: string): number {
+  if (!text) {
+    return 0;
+  }
+
+  return text.split(/\s+/).filter(Boolean).length;
 }
 
 function normalizeConversationText(value: string): string {
