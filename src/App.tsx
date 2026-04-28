@@ -32,6 +32,7 @@ import {
 } from './lib/app/settingsSections';
 import { useAppBootstrap } from './hooks/useAppBootstrap';
 import { useAssistantTraining } from './hooks/useAssistantTraining';
+import { usePushToDictation } from './hooks/usePushToDictation';
 import { useVoiceAssistantRuntime } from './hooks/useVoiceAssistantRuntime';
 import i18n, { normalizeUiLanguage } from './i18n';
 import { AssistantStatusSection } from './components/app/AssistantStatusSection';
@@ -526,6 +527,10 @@ export default function App() {
     savedSettings,
     initialStateLoaded,
     ensureSavedSettings,
+  });
+  usePushToDictation({
+    settings: savedSettings,
+    initialStateLoaded,
   });
   const voiceTimers = useVoiceTimers();
   const restartVoiceAgentSession = voiceRuntime.restartVoiceAgentSession;

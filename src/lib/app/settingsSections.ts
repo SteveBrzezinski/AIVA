@@ -14,6 +14,7 @@ const SETTINGS_SECTION_FIELDS: Record<SettingsSectionId, Array<keyof AppSettings
     'uiLanguage',
     'timerNotificationMode',
     'timerSignalTone',
+    'dictationStatusNotifications',
   ],
   assistant: [
     'assistantName',

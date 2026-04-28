@@ -310,6 +310,21 @@ export default function SettingsView({
           ]}
         />
       </FormField>
+
+      <FormField
+        label={t('settings.dictationStatusNotifications')}
+        hint={t('settings.dictationStatusNotificationsNote')}
+      >
+        <label className="flex min-h-11 items-center gap-3 rounded-xl border border-[color:var(--panel-border)] bg-[var(--panel-bg-deep)] px-4 py-3 text-sm text-[var(--text-primary)]">
+          <Checkbox
+            checked={settings.dictationStatusNotifications}
+            onCheckedChange={(checked) =>
+              updateSettings({ dictationStatusNotifications: checked === true })
+            }
+          />
+          <span>{t('settings.dictationStatusNotificationsToggle')}</span>
+        </label>
+      </FormField>
     </div>
   );
 

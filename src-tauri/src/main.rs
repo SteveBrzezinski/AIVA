@@ -2,8 +2,8 @@
 
 use tauri::Manager;
 use voice_overlay_assistant::{
-    app_icon, audio_output, background, hotkey, run_controller, settings, timer_audio,
-    voice_tasks, voice_timers,
+    app_icon, audio_output, background, hotkey, run_controller, settings, timer_audio, voice_tasks,
+    voice_timers,
 };
 
 #[tauri::command]
@@ -66,6 +66,9 @@ fn main() {
             voice_overlay_assistant::open_external_url_command,
             voice_overlay_assistant::append_stt_debug_log_command,
             voice_overlay_assistant::transcribe_chat_audio_command,
+            voice_overlay_assistant::report_dictation_transcribing_command,
+            voice_overlay_assistant::report_dictation_error_command,
+            voice_overlay_assistant::insert_dictation_text_command,
             voice_overlay_assistant::pause_resume_current_run,
             voice_overlay_assistant::cancel_current_run,
             voice_overlay_assistant::create_voice_agent_session_command,

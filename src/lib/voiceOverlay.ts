@@ -1,6 +1,10 @@
 import { invoke } from '@tauri-apps/api/core';
 import { emitTo, listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type { DesignThemeId } from '../designThemes.js';
+import {
+  ACTION_BAR_WINDOW_LABEL,
+  DICTATION_NOTIFICATION_EVENT,
+} from './overlayBridge';
 
 export type CaptureOptions = {
   copyDelayMs?: number;
@@ -55,6 +59,7 @@ export type AppSettings = {
   voiceAgentOnboardingComplete: boolean;
   timerNotificationMode: 'signal' | 'voice';
   timerSignalTone: 'soft-bell' | 'digital-pulse' | 'glass-rise';
+  dictationStatusNotifications: boolean;
   assistantWakeSamples: string[];
   assistantNameSamples: string[];
   assistantSampleLanguage: string;
@@ -341,6 +346,8 @@ export type HotkeyStatus = {
   cancelAccelerator: string;
   activateAccelerator: string;
   deactivateAccelerator: string;
+  dictationPasteAccelerator: string;
+  dictationClipboardAccelerator: string;
   platform: 'windows' | 'unsupported';
   state: 'idle' | 'registering' | 'working' | 'success' | 'error' | 'unsupported';
   message: string;
@@ -377,6 +384,13 @@ export type HotkeyStatus = {
 export type LiveSttControlEvent = {
   action: 'activate' | 'deactivate';
   source: string;
+};
+
+export type DictationHotkeyEvent = {
+  action: 'start' | 'stop';
+  mode: 'paste' | 'clipboard';
+  source: string;
+  accelerator: string;
 };
 
 export type MainWindowVisibilityPayload = {
@@ -441,8 +455,37 @@ export type TranscribeChatAudioResult = {
   language?: string | null;
 };
 
+export type DictationInsertResult = {
+  text: string;
+  mode: 'paste' | 'clipboard';
+  pasted: boolean;
+};
+
+export type DictationNotificationKind =
+  | 'listening'
+  | 'transcribing'
+  | 'pasted'
+  | 'clipboard'
+  | 'error';
+
+export type DictationNotificationPayload = {
+  kind: DictationNotificationKind;
+  title: string;
+  detail?: string | null;
+  mode?: DictationHotkeyEvent['mode'] | null;
+  createdAtMs: number;
+};
+
+export type DictationNotificationRequest = Omit<
+  DictationNotificationPayload,
+  'createdAtMs'
+> & {
+  createdAtMs?: number;
+};
+
 const HOTKEY_STATUS_EVENT = 'hotkey-status';
 const LIVE_STT_CONTROL_EVENT = 'live-stt-control';
+const DICTATION_HOTKEY_EVENT = 'dictation-hotkey';
 const SETTINGS_EVENT = 'settings-updated';
 const VOICE_AGENT_TASK_EVENT = 'voice-agent-task';
 const VOICE_TIMER_EVENT = 'voice-timer';
@@ -555,6 +598,18 @@ export async function onHotkeyStatus(callback: (status: HotkeyStatus) => void): 
 
 export async function onLiveSttControl(callback: (event: LiveSttControlEvent) => void): Promise<UnlistenFn> {
   return listen<LiveSttControlEvent>(LIVE_STT_CONTROL_EVENT, (event) => callback(event.payload));
+}
+
+export async function onDictationHotkey(callback: (event: DictationHotkeyEvent) => void): Promise<UnlistenFn> {
+  return listen<DictationHotkeyEvent>(DICTATION_HOTKEY_EVENT, (event) => callback(event.payload));
+}
+
+export async function onDictationNotification(
+  callback: (payload: DictationNotificationPayload) => void,
+): Promise<UnlistenFn> {
+  return listen<DictationNotificationPayload>(DICTATION_NOTIFICATION_EVENT, (event) =>
+    callback(event.payload),
+  );
 }
 
 export async function onSettingsUpdated(callback: (settings: AppSettings) => void): Promise<UnlistenFn> {
@@ -677,6 +732,46 @@ export async function transcribeChatAudio(
   request: TranscribeChatAudioRequest,
 ): Promise<TranscribeChatAudioResult> {
   return invoke<TranscribeChatAudioResult>('transcribe_chat_audio_command', { request });
+}
+
+export async function reportDictationTranscribing(
+  mode: DictationHotkeyEvent['mode'],
+  detail?: string,
+): Promise<void> {
+  await invoke('report_dictation_transcribing_command', {
+    request: { mode, detail },
+  });
+}
+
+export async function reportDictationError(
+  mode: DictationHotkeyEvent['mode'],
+  detail: string,
+): Promise<void> {
+  await invoke('report_dictation_error_command', {
+    request: { mode, detail },
+  });
+}
+
+export async function insertDictationText(
+  text: string,
+  mode: DictationHotkeyEvent['mode'],
+): Promise<DictationInsertResult> {
+  return invoke<DictationInsertResult>('insert_dictation_text_command', {
+    request: { text, mode },
+  });
+}
+
+export async function emitDictationNotification(
+  request: DictationNotificationRequest,
+): Promise<void> {
+  await emitTo<DictationNotificationPayload>(
+    ACTION_BAR_WINDOW_LABEL,
+    DICTATION_NOTIFICATION_EVENT,
+    {
+      ...request,
+      createdAtMs: request.createdAtMs ?? Date.now(),
+    },
+  );
 }
 
 export async function captureAndSpeak(

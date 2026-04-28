@@ -136,13 +136,22 @@ pub fn setup_background<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
 }
 
 pub fn setup_overlay_windows<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
-    ensure_overlay_window(app, ACTION_BAR_WINDOW_LABEL, "Action Bar Overlay", 22.0, 84.0, true)?;
+    ensure_overlay_window(
+        app,
+        ACTION_BAR_WINDOW_LABEL,
+        "Action Bar Overlay",
+        22.0,
+        84.0,
+        true,
+        true,
+    )?;
     ensure_overlay_window(
         app,
         VOICE_OVERLAY_WINDOW_LABEL,
         "Voice Overlay Orb",
         224.0,
         224.0,
+        true,
         true,
     )?;
     ensure_overlay_window(
@@ -152,6 +161,7 @@ pub fn setup_overlay_windows<R: Runtime>(app: &AppHandle<R>) -> Result<(), Strin
         320.0,
         208.0,
         false,
+        true,
     )?;
     Ok(())
 }
@@ -163,6 +173,7 @@ fn ensure_overlay_window<R: Runtime>(
     width: f64,
     height: f64,
     visible: bool,
+    focusable: bool,
 ) -> Result<(), String> {
     if app.get_webview_window(label).is_some() {
         return Ok(());
@@ -174,6 +185,8 @@ fn ensure_overlay_window<R: Runtime>(
         .resizable(false)
         .decorations(false)
         .always_on_top(true)
+        .focused(false)
+        .focusable(focusable)
         .transparent(true)
         .shadow(false)
         .skip_taskbar(true)

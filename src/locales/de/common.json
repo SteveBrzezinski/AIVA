@@ -77,12 +77,25 @@
       "chatFailed": "Das Chatfenster konnte nicht umgeschaltet werden: {{detail}}"
     }
   },
+  "dictationNotifications": {
+    "listeningTitle": "Diktat aktiv",
+    "listeningDetail": "Sprich jetzt. Loslassen beendet die Aufnahme.",
+    "transcribingTitle": "Transkription laeuft",
+    "transcribingDetail": "Audio wird verarbeitet.",
+    "pastedTitle": "Text eingefuegt",
+    "pastedDetail": "Die Transkription wurde eingefuegt und liegt im Clipboard.",
+    "clipboardTitle": "Im Clipboard gespeichert",
+    "clipboardDetail": "Die Transkription liegt im Clipboard bereit.",
+    "errorTitle": "Diktat fehlgeschlagen"
+  },
   "readiness": {
     "ariaLabel": "Projektstatus",
     "globalSpeakHotkey": "Globaler Vorlese-Hotkey",
     "globalTranslateHotkey": "Globaler Übersetzungs-Hotkey",
     "assistantActivateHotkey": "Hotkey Assistent aktivieren",
     "assistantDeactivateHotkey": "Hotkey Assistent deaktivieren",
+    "globalDictationPasteHotkey": "Diktieren-und-einfuegen-Hotkey",
+    "globalDictationClipboardHotkey": "Diktieren-ins-Clipboard-Hotkey",
     "assistantName": "Assistentenname",
     "assistantState": "Assistentenstatus",
     "readTranslateEngine": "Lese-/Übersetzungs-Engine",
@@ -137,6 +150,9 @@
     "timerNotificationModeVoice": "Sprachhinweis",
     "timerSignalTone": "Timer-Signalton",
     "timerSignalToneNote": "Wähle den integrierten Sound aus, der in Schleife laufen soll, wenn ein Timer abläuft und die Benachrichtigung auf Signalton steht. Entferne den abgelaufenen Timer, um den Alarm zu stoppen.",
+    "dictationStatusNotifications": "Diktier-Statuspulse",
+    "dictationStatusNotificationsNote": "Laesst den linken Actionbar-Griff beim Diktieren orange blinken und zeigt Abschluss oder Fehler gruen beziehungsweise rot an.",
+    "dictationStatusNotificationsToggle": "Statuspulse fuer Diktat-Hotkeys anzeigen",
     "timerSignalToneOptionSoftBell": "Sanfte Glocke",
     "timerSignalToneOptionDigitalPulse": "Digitaler Puls",
     "timerSignalToneOptionGlassRise": "Glas-Anstieg",

@@ -3,6 +3,7 @@ export const OVERLAY_STATE_EVENT = 'overlay-state';
 export const ACTION_BAR_WINDOW_LABEL = 'action-bar';
 export const VOICE_OVERLAY_WINDOW_LABEL = 'voice-overlay';
 export const OVERLAY_COMPOSER_WINDOW_LABEL = 'overlay-composer';
+export const DICTATION_NOTIFICATION_EVENT = 'dictation-notification';
 
 export type OverlayAction =
   | { type: 'request-state' }

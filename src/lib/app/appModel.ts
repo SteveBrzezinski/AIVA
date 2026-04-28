@@ -49,6 +49,8 @@ export const fallbackHotkeyStatus: HotkeyStatus = {
   cancelAccelerator: 'Ctrl+Shift+X',
   activateAccelerator: 'Ctrl+Shift+A',
   deactivateAccelerator: 'Ctrl+Shift+D',
+  dictationPasteAccelerator: 'Ctrl+Shift+Alt',
+  dictationClipboardAccelerator: 'Ctrl+Shift+Y',
   platform: 'unsupported',
   state: 'registering',
   message: i18n.t('hero.statusChecking'),
@@ -117,6 +119,7 @@ export const fallbackSettings: AppSettings = {
   voiceAgentOnboardingComplete: true,
   timerNotificationMode: 'signal',
   timerSignalTone: 'soft-bell',
+  dictationStatusNotifications: true,
   assistantWakeSamples: [],
   assistantNameSamples: [],
   assistantSampleLanguage: 'de',
@@ -332,6 +335,14 @@ export function createReadinessItems(options: {
     {
       label: i18n.t('readiness.assistantDeactivateHotkey'),
       value: `${hotkeyStatus.deactivateAccelerator} - ${hotkeyRegistrationState}`,
+    },
+    {
+      label: i18n.t('readiness.globalDictationPasteHotkey'),
+      value: `${hotkeyStatus.dictationPasteAccelerator} - ${hotkeyRegistrationState}`,
+    },
+    {
+      label: i18n.t('readiness.globalDictationClipboardHotkey'),
+      value: `${hotkeyStatus.dictationClipboardAccelerator} - ${hotkeyRegistrationState}`,
     },
     { label: i18n.t('readiness.assistantName'), value: settings.assistantName },
     {

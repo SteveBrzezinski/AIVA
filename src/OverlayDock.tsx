@@ -11,6 +11,7 @@ import {
   getChatWindowVisibility,
   getMainWindowVisibility,
   getSettings,
+  onDictationNotification,
   onAssistantStateChange,
   onChatWindowVisibility,
   onMainWindowVisibility,
@@ -18,7 +19,7 @@ import {
   toggleChatWindow,
   toggleMainWindow,
 } from './lib/voiceOverlay';
-import type { VoiceTimer } from './lib/voiceOverlay';
+import type { DictationNotificationPayload, VoiceTimer } from './lib/voiceOverlay';
 import {
   OVERLAY_ACTION_EVENT,
   OVERLAY_STATE_EVENT,
@@ -44,6 +45,7 @@ const TIMER_DIALOG_LAYOUT = { minWidth: 620, height: 760 };
 const DEFAULT_ACTION_BAR_ACTIVE_GLOW_COLOR = '#f06525';
 
 type ActionBarDisplayMode = keyof typeof EXPANDED_LAYOUTS;
+type DictationPulseState = 'listening' | 'transcribing' | 'success' | 'error' | null;
 
 const fallbackOverlayState: OverlayState = {
   assistantActive: false,
@@ -118,10 +120,29 @@ function withAlpha(hexColor: string, alpha: number): string {
   return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
 }
 
+function dictationPulseStateForPayload(
+  payload: DictationNotificationPayload,
+): DictationPulseState {
+  if (payload.kind === 'error') {
+    return 'error';
+  }
+
+  if (payload.kind === 'pasted' || payload.kind === 'clipboard') {
+    return 'success';
+  }
+
+  return payload.kind;
+}
+
+function isTerminalDictationPulse(payload: DictationNotificationPayload): boolean {
+  return payload.kind === 'error' || payload.kind === 'pasted' || payload.kind === 'clipboard';
+}
+
 export default function OverlayDock() {
   const overlayWindowRef = useRef(getCurrentWindow());
   const collapseTimerRef = useRef<number | null>(null);
   const pendingSpeakTimerRef = useRef<number | null>(null);
+  const dictationPulseTimerRef = useRef<number | null>(null);
   const timerFlyoutTimerRef = useRef<number | null>(null);
   const timerFlyoutHoldUntilRef = useRef(0);
   const hasShownWindowRef = useRef(false);
@@ -149,6 +170,8 @@ export default function OverlayDock() {
     DEFAULT_ACTION_BAR_ACTIVE_GLOW_COLOR,
   );
   const [pendingSpeakActive, setPendingSpeakActive] = useState<boolean | null>(null);
+  const [dictationPulseState, setDictationPulseState] =
+    useState<DictationPulseState>(null);
   const [statusNote, setStatusNote] = useState(() => i18n.t('overlayDock.status.default'));
   const voiceTimers = useVoiceTimers();
 
@@ -180,6 +203,9 @@ export default function OverlayDock() {
       if (pendingSpeakTimerRef.current !== null) {
         window.clearTimeout(pendingSpeakTimerRef.current);
       }
+      if (dictationPulseTimerRef.current !== null) {
+        window.clearTimeout(dictationPulseTimerRef.current);
+      }
       if (timerFlyoutTimerRef.current !== null) {
         window.clearTimeout(timerFlyoutTimerRef.current);
       }
@@ -193,6 +219,7 @@ export default function OverlayDock() {
     let unlistenAssistantState: (() => void | Promise<void>) | undefined;
     let unlistenChatWindowVisibility: (() => void | Promise<void>) | undefined;
     let unlistenMainWindowVisibility: (() => void | Promise<void>) | undefined;
+    let unlistenDictationNotification: (() => void | Promise<void>) | undefined;
     let unlistenSettings: (() => void | Promise<void>) | undefined;
     let unlistenScale: (() => void | Promise<void>) | undefined;
 
@@ -263,6 +290,25 @@ export default function OverlayDock() {
       unlistenMainWindowVisibility = cleanup;
     });
 
+    void onDictationNotification((payload) => {
+      if (dictationPulseTimerRef.current !== null) {
+        window.clearTimeout(dictationPulseTimerRef.current);
+        dictationPulseTimerRef.current = null;
+      }
+
+      setStatusNote(payload.detail ? `${payload.title}: ${payload.detail}` : payload.title);
+      setDictationPulseState(dictationPulseStateForPayload(payload));
+
+      if (isTerminalDictationPulse(payload)) {
+        dictationPulseTimerRef.current = window.setTimeout(() => {
+          dictationPulseTimerRef.current = null;
+          setDictationPulseState(null);
+        }, payload.kind === 'error' ? 2600 : 1900);
+      }
+    }).then((cleanup) => {
+      unlistenDictationNotification = cleanup;
+    });
+
     void onSettingsUpdated((settings) => {
       setActionBarDisplayMode(settings.actionBarDisplayMode ?? 'icons-and-text');
       setActionBarActiveGlowColor(
@@ -304,6 +350,9 @@ export default function OverlayDock() {
       if (pendingSpeakTimerRef.current !== null) {
         window.clearTimeout(pendingSpeakTimerRef.current);
       }
+      if (dictationPulseTimerRef.current !== null) {
+        window.clearTimeout(dictationPulseTimerRef.current);
+      }
       if (timerFlyoutTimerRef.current !== null) {
         window.clearTimeout(timerFlyoutTimerRef.current);
       }
@@ -311,6 +360,7 @@ export default function OverlayDock() {
       void unlistenAssistantState?.();
       void unlistenChatWindowVisibility?.();
       void unlistenMainWindowVisibility?.();
+      void unlistenDictationNotification?.();
       void unlistenSettings?.();
       void unlistenScale?.();
     };
@@ -636,7 +686,9 @@ export default function OverlayDock() {
             : overlayState.isLiveTranscribing
               ? 'ready'
               : 'idle'
-        } ${isExpanded ? 'edge-nav--open' : ''}`}
+        } ${dictationPulseState ? `edge-nav--dictation-${dictationPulseState}` : ''} ${
+          isExpanded ? 'edge-nav--open' : ''
+        }`}
         style={actionBarGlowStyle}
         onMouseEnter={() => {
           isPointerInsideRef.current = true;

@@ -2039,6 +2039,43 @@ body.overlay-body #root {
   animation: edge-glow 2.2s ease-in-out infinite;
 }
 
+.edge-nav--dictation-listening .edge-nav-trigger-indicator,
+.edge-nav--dictation-transcribing .edge-nav-trigger-indicator {
+  border-color: rgba(240, 101, 37, 0.78) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 173, 112, 0.72) 0%, rgba(240, 101, 37, 0.54) 48%, rgba(162, 63, 20, 0.6) 100%),
+    linear-gradient(180deg, var(--edge-trigger-base-top) 0%, var(--edge-trigger-base-bottom) 100%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 230, 210, 0.76),
+    0 0 14px rgba(240, 101, 37, 0.48),
+    0 0 30px rgba(240, 101, 37, 0.28) !important;
+  animation: edge-dictation-working 900ms ease-in-out infinite !important;
+}
+
+.edge-nav--dictation-success .edge-nav-trigger-indicator {
+  border-color: rgba(54, 211, 126, 0.82) !important;
+  background:
+    linear-gradient(180deg, rgba(167, 255, 208, 0.82) 0%, rgba(54, 211, 126, 0.58) 48%, rgba(18, 116, 67, 0.62) 100%),
+    linear-gradient(180deg, var(--edge-trigger-base-top) 0%, var(--edge-trigger-base-bottom) 100%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(226, 255, 240, 0.82),
+    0 0 16px rgba(54, 211, 126, 0.62),
+    0 0 34px rgba(54, 211, 126, 0.34) !important;
+  animation: edge-dictation-result 560ms ease-out 0s 3 !important;
+}
+
+.edge-nav--dictation-error .edge-nav-trigger-indicator {
+  border-color: rgba(255, 85, 105, 0.86) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 176, 186, 0.82) 0%, rgba(255, 85, 105, 0.6) 48%, rgba(132, 30, 45, 0.66) 100%),
+    linear-gradient(180deg, var(--edge-trigger-base-top) 0%, var(--edge-trigger-base-bottom) 100%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 229, 232, 0.82),
+    0 0 16px rgba(255, 85, 105, 0.64),
+    0 0 34px rgba(255, 85, 105, 0.36) !important;
+  animation: edge-dictation-result 500ms ease-out 0s 4 !important;
+}
+
 .edge-nav:hover .edge-nav-trigger-indicator,
 .edge-nav-trigger:focus-visible .edge-nav-trigger-indicator,
 .edge-nav--open .edge-nav-trigger-indicator {
@@ -2885,6 +2922,31 @@ body.overlay-body #root {
   50% {
     transform: scaleX(1.08);
     opacity: 1;
+  }
+}
+
+@keyframes edge-dictation-working {
+  0%,
+  100% {
+    transform: scaleX(1);
+    opacity: 0.94;
+  }
+
+  50% {
+    transform: scaleX(1.18);
+    opacity: 1;
+  }
+}
+
+@keyframes edge-dictation-result {
+  0%,
+  100% {
+    transform: scaleX(1);
+  }
+
+  35%,
+  70% {
+    transform: scaleX(1.26);
   }
 }
 

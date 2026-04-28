@@ -13,8 +13,11 @@ pub const DEFAULT_PAUSE_RESUME_HOTKEY: &str = "Ctrl+Shift+P";
 pub const DEFAULT_CANCEL_HOTKEY: &str = "Ctrl+Shift+X";
 pub const DEFAULT_ACTIVATE_ASSISTANT_HOTKEY: &str = "Ctrl+Shift+A";
 pub const DEFAULT_DEACTIVATE_ASSISTANT_HOTKEY: &str = "Ctrl+Shift+D";
+pub const DEFAULT_DICTATION_PASTE_HOTKEY: &str = "Ctrl+Shift+Alt";
+pub const DEFAULT_DICTATION_CLIPBOARD_HOTKEY: &str = "Ctrl+Shift+Y";
 pub const HOTKEY_STATUS_EVENT: &str = "hotkey-status";
 pub const LIVE_STT_CONTROL_EVENT: &str = "live-stt-control";
+pub const DICTATION_HOTKEY_EVENT: &str = "dictation-hotkey";
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -26,6 +29,8 @@ pub struct HotkeyStatusPayload {
     pub cancel_accelerator: &'static str,
     pub activate_accelerator: &'static str,
     pub deactivate_accelerator: &'static str,
+    pub dictation_paste_accelerator: &'static str,
+    pub dictation_clipboard_accelerator: &'static str,
     pub platform: &'static str,
     pub state: &'static str,
     pub message: String,
@@ -105,6 +110,15 @@ pub struct LiveSttControlPayload {
     pub source: &'static str,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DictationHotkeyPayload {
+    pub action: &'static str,
+    pub mode: &'static str,
+    pub source: &'static str,
+    pub accelerator: &'static str,
+}
+
 impl Default for HotkeyState {
     fn default() -> Self {
         Self {
@@ -112,7 +126,7 @@ impl Default for HotkeyState {
                 registered: false,
                 state: "idle",
                 message: format!(
-                    "Global hotkeys {DEFAULT_SPEAK_HOTKEY}, {DEFAULT_TRANSLATE_HOTKEY}, {DEFAULT_PAUSE_RESUME_HOTKEY}, {DEFAULT_CANCEL_HOTKEY}, {DEFAULT_ACTIVATE_ASSISTANT_HOTKEY}, and {DEFAULT_DEACTIVATE_ASSISTANT_HOTKEY} are not registered yet."
+                    "Global hotkeys {DEFAULT_SPEAK_HOTKEY}, {DEFAULT_TRANSLATE_HOTKEY}, {DEFAULT_PAUSE_RESUME_HOTKEY}, {DEFAULT_CANCEL_HOTKEY}, {DEFAULT_ACTIVATE_ASSISTANT_HOTKEY}, {DEFAULT_DEACTIVATE_ASSISTANT_HOTKEY}, {DEFAULT_DICTATION_PASTE_HOTKEY}, and {DEFAULT_DICTATION_CLIPBOARD_HOTKEY} are not registered yet."
                 ),
                 ..Default::default()
             }),
@@ -131,6 +145,8 @@ impl HotkeyState {
             cancel_accelerator: DEFAULT_CANCEL_HOTKEY,
             activate_accelerator: DEFAULT_ACTIVATE_ASSISTANT_HOTKEY,
             deactivate_accelerator: DEFAULT_DEACTIVATE_ASSISTANT_HOTKEY,
+            dictation_paste_accelerator: DEFAULT_DICTATION_PASTE_HOTKEY,
+            dictation_clipboard_accelerator: DEFAULT_DICTATION_CLIPBOARD_HOTKEY,
             platform: if cfg!(target_os = "windows") { "windows" } else { "unsupported" },
             state: snapshot.state,
             message: snapshot.message.clone(),
@@ -326,6 +342,18 @@ pub fn set_error(
     });
 }
 
+pub fn set_success(app: &AppHandle, action: &str, message: String, captured_text: Option<String>) {
+    let state = app.state::<HotkeyState>();
+    state.update(app, |snapshot| {
+        snapshot.state = "success";
+        snapshot.last_action = Some(action.to_string());
+        snapshot.message = message.clone();
+        if let Some(text) = captured_text.clone() {
+            snapshot.last_captured_text = Some(text);
+        }
+    });
+}
+
 #[cfg(not(target_os = "windows"))]
 pub fn init_hotkey(app: &AppHandle) {
     let state = app.state::<HotkeyState>();
@@ -354,6 +382,7 @@ mod windows_impl {
     };
     use std::{
         mem::MaybeUninit,
+        sync::atomic::{AtomicBool, Ordering},
         thread,
         time::{Duration, Instant},
     };
@@ -361,8 +390,9 @@ mod windows_impl {
         Foundation::HWND,
         UI::{
             Input::KeyboardAndMouse::{
-                RegisterHotKey, UnregisterHotKey, MOD_CONTROL, MOD_NOREPEAT, MOD_SHIFT, VK_A, VK_D,
-                VK_P, VK_SPACE, VK_T, VK_X,
+                GetAsyncKeyState, RegisterHotKey, UnregisterHotKey, MOD_CONTROL, MOD_NOREPEAT,
+                MOD_SHIFT, VIRTUAL_KEY, VK_A, VK_CONTROL, VK_D, VK_MENU, VK_P, VK_SHIFT,
+                VK_SPACE, VK_T, VK_X, VK_Y,
             },
             WindowsAndMessaging::{GetMessageW, MSG, WM_HOTKEY},
         },
@@ -374,6 +404,14 @@ mod windows_impl {
     const CANCEL_HOTKEY_ID: i32 = 0x564f58;
     const ACTIVATE_ASSISTANT_HOTKEY_ID: i32 = 0x564f61;
     const DEACTIVATE_ASSISTANT_HOTKEY_ID: i32 = 0x564f62;
+    const DICTATION_CLIPBOARD_HOTKEY_ID: i32 = 0x564f64;
+    static DICTATION_ACTIVE: AtomicBool = AtomicBool::new(false);
+
+    #[derive(Clone, Copy)]
+    enum DictationReleaseCombo {
+        CtrlShiftAlt,
+        CtrlShiftKey(VIRTUAL_KEY),
+    }
 
     pub fn init_hotkeys(app: &AppHandle) {
         let app_handle = app.clone();
@@ -410,12 +448,32 @@ mod windows_impl {
                 }
             }
 
+            let dictation_modifiers = MOD_CONTROL | MOD_SHIFT | MOD_NOREPEAT;
+            for (id, key, label) in [(
+                DICTATION_CLIPBOARD_HOTKEY_ID,
+                VK_Y.0 as u32,
+                DEFAULT_DICTATION_CLIPBOARD_HOTKEY,
+            )] {
+                if let Err(error) =
+                    RegisterHotKey(HWND(std::ptr::null_mut()), id, dictation_modifiers, key)
+                {
+                    let state = app_handle.state::<HotkeyState>();
+                    state.update(&app_handle, |snapshot| {
+                        snapshot.registered = false;
+                        snapshot.state = "error";
+                        snapshot.message = format!("Could not register hotkey {label}: {error}.");
+                    });
+                    return;
+                }
+            }
+            start_modifier_dictation_poll(&app_handle);
+
             let state = app_handle.state::<HotkeyState>();
             state.update(&app_handle, |snapshot| {
                 snapshot.registered = true;
                 snapshot.state = "idle";
                 snapshot.message = format!(
-                    "Global hotkeys ready: {DEFAULT_SPEAK_HOTKEY} speaks, {DEFAULT_TRANSLATE_HOTKEY} translates, {DEFAULT_PAUSE_RESUME_HOTKEY} pauses/resumes, {DEFAULT_CANCEL_HOTKEY} cancels the current run, {DEFAULT_ACTIVATE_ASSISTANT_HOTKEY} activates the live assistant, and {DEFAULT_DEACTIVATE_ASSISTANT_HOTKEY} deactivates it."
+                    "Global hotkeys ready: {DEFAULT_SPEAK_HOTKEY} speaks, {DEFAULT_TRANSLATE_HOTKEY} translates, {DEFAULT_PAUSE_RESUME_HOTKEY} pauses/resumes, {DEFAULT_CANCEL_HOTKEY} cancels the current run, {DEFAULT_ACTIVATE_ASSISTANT_HOTKEY} activates the live assistant, {DEFAULT_DEACTIVATE_ASSISTANT_HOTKEY} deactivates it, {DEFAULT_DICTATION_PASTE_HOTKEY} dictates and pastes, and {DEFAULT_DICTATION_CLIPBOARD_HOTKEY} dictates to the clipboard."
                 );
             });
 
@@ -438,6 +496,12 @@ mod windows_impl {
                         DEACTIVATE_ASSISTANT_HOTKEY_ID => {
                             trigger_live_stt_control(&app_handle, "deactivate")
                         }
+                        DICTATION_CLIPBOARD_HOTKEY_ID => trigger_dictation_hotkey(
+                            &app_handle,
+                            "clipboard",
+                            DEFAULT_DICTATION_CLIPBOARD_HOTKEY,
+                            DictationReleaseCombo::CtrlShiftKey(VK_Y),
+                        ),
                         _ => {}
                     }
                     thread::sleep(Duration::from_millis(50));
@@ -451,8 +515,29 @@ mod windows_impl {
                 CANCEL_HOTKEY_ID,
                 ACTIVATE_ASSISTANT_HOTKEY_ID,
                 DEACTIVATE_ASSISTANT_HOTKEY_ID,
+                DICTATION_CLIPBOARD_HOTKEY_ID,
             ] {
                 let _ = UnregisterHotKey(HWND(std::ptr::null_mut()), id);
+            }
+        });
+    }
+
+    fn start_modifier_dictation_poll(app: &AppHandle) {
+        let app_handle = app.clone();
+        thread::spawn(move || {
+            let mut was_down = false;
+            loop {
+                let is_down = is_dictation_combo_down(DictationReleaseCombo::CtrlShiftAlt);
+                if is_down && !was_down {
+                    trigger_dictation_hotkey(
+                        &app_handle,
+                        "paste",
+                        DEFAULT_DICTATION_PASTE_HOTKEY,
+                        DictationReleaseCombo::CtrlShiftAlt,
+                    );
+                }
+                was_down = is_down;
+                thread::sleep(Duration::from_millis(20));
             }
         });
     }
@@ -571,6 +656,75 @@ mod windows_impl {
             snapshot.last_action = Some(format!("live-stt-{action}"));
             snapshot.message = detail.to_string();
         });
+    }
+
+    fn trigger_dictation_hotkey(
+        app: &AppHandle,
+        mode: &'static str,
+        accelerator: &'static str,
+        release_combo: DictationReleaseCombo,
+    ) {
+        if DICTATION_ACTIVE.swap(true, Ordering::SeqCst) {
+            let state = app.state::<HotkeyState>();
+            state.update(app, |snapshot| {
+                snapshot.state = "working";
+                snapshot.message = "A dictation recording is already active.".to_string();
+            });
+            return;
+        }
+
+        let action = dictation_action(mode);
+        let _ = app.emit(
+            DICTATION_HOTKEY_EVENT,
+            DictationHotkeyPayload { action: "start", mode, source: "hotkey", accelerator },
+        );
+
+        let state = app.state::<HotkeyState>();
+        state.update(app, |snapshot| {
+            snapshot.state = "working";
+            snapshot.last_action = Some(action.to_string());
+            snapshot.message = format!("Dictation hotkey {accelerator} held. Recording...");
+            reset_tts_metrics(snapshot);
+            snapshot.hotkey_started_at_ms = Some(system_time_ms());
+            snapshot.capture_started_at_ms = Some(system_time_ms());
+            recompute_timing_metrics(snapshot);
+        });
+
+        let app_handle = app.clone();
+        thread::spawn(move || {
+            while is_dictation_combo_down(release_combo) {
+                thread::sleep(Duration::from_millis(20));
+            }
+
+            DICTATION_ACTIVE.store(false, Ordering::SeqCst);
+            let _ = app_handle.emit(
+                DICTATION_HOTKEY_EVENT,
+                DictationHotkeyPayload { action: "stop", mode, source: "hotkey", accelerator },
+            );
+        });
+    }
+
+    fn dictation_action(mode: &str) -> &'static str {
+        if mode == "clipboard" {
+            "dictation-clipboard"
+        } else {
+            "dictation-paste"
+        }
+    }
+
+    fn is_dictation_combo_down(release_combo: DictationReleaseCombo) -> bool {
+        match release_combo {
+            DictationReleaseCombo::CtrlShiftAlt => {
+                is_key_down(VK_CONTROL) && is_key_down(VK_SHIFT) && is_key_down(VK_MENU)
+            }
+            DictationReleaseCombo::CtrlShiftKey(key) => {
+                is_key_down(VK_CONTROL) && is_key_down(VK_SHIFT) && is_key_down(key)
+            }
+        }
+    }
+
+    fn is_key_down(key: VIRTUAL_KEY) -> bool {
+        unsafe { GetAsyncKeyState(key.0 as i32) < 0 }
     }
 
     fn trigger_capture_and_speak(app: &AppHandle) {

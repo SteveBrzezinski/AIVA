@@ -77,12 +77,25 @@
       "chatFailed": "Could not toggle the chat window: {{detail}}"
     }
   },
+  "dictationNotifications": {
+    "listeningTitle": "Dictation active",
+    "listeningDetail": "Speak now. Release the hotkey to finish.",
+    "transcribingTitle": "Transcribing",
+    "transcribingDetail": "Processing the recorded audio.",
+    "pastedTitle": "Text pasted",
+    "pastedDetail": "The transcription was pasted and is also in the clipboard.",
+    "clipboardTitle": "Saved to clipboard",
+    "clipboardDetail": "The transcription is ready in the clipboard.",
+    "errorTitle": "Dictation failed"
+  },
   "readiness": {
     "ariaLabel": "Project status",
     "globalSpeakHotkey": "Global speak hotkey",
     "globalTranslateHotkey": "Global translate hotkey",
     "assistantActivateHotkey": "Assistant activate hotkey",
     "assistantDeactivateHotkey": "Assistant deactivate hotkey",
+    "globalDictationPasteHotkey": "Dictate and paste hotkey",
+    "globalDictationClipboardHotkey": "Dictate to clipboard hotkey",
     "assistantName": "Assistant name",
     "assistantState": "Assistant state",
     "readTranslateEngine": "Read / translate engine",
@@ -137,6 +150,9 @@
     "timerNotificationModeVoice": "Voice reminder",
     "timerSignalTone": "Timer signal tone",
     "timerSignalToneNote": "Pick the built-in sound that should loop when a timer finishes and the notification mode is set to signal tone. Dismiss the completed timer to stop the alert.",
+    "dictationStatusNotifications": "Dictation status pulse",
+    "dictationStatusNotificationsNote": "Pulses the left action-bar handle in orange while dictating, then green or red when it finishes.",
+    "dictationStatusNotificationsToggle": "Show status pulses for dictation hotkeys",
     "timerSignalToneOptionSoftBell": "Soft bell",
     "timerSignalToneOptionDigitalPulse": "Digital pulse",
     "timerSignalToneOptionGlassRise": "Glass rise",
