@@ -1,5 +1,5 @@
 use crate::{
-    settings::SettingsState,
+    settings::{resolve_openai_api_key, SettingsState},
     voice_memory::{recall_voice_memory, RecallVoiceMemoryRequest},
     voice_profile::{build_assistant_instructions, build_voice_agent_state},
     voice_timers::{
@@ -17,8 +17,11 @@ use std::{
     path::{Path, PathBuf},
     process::Command,
     thread,
+    time::Duration,
 };
 use tauri::{AppHandle, Manager};
+
+const DEFAULT_WEB_SEARCH_MODEL: &str = "gpt-5.5";
 
 struct SearchPathItem {
     path: String,
@@ -45,6 +48,21 @@ pub fn realtime_tools() -> Vec<Value> {
             "name": "get_current_time",
             "description": "Returns the current local date and time from this PC. Use this for questions about the current time, date, weekday, timezone offset, or 'right now'.",
             "parameters": { "type": "object", "properties": {}, "additionalProperties": false }
+        }),
+        json!({
+            "type": "function",
+            "name": "web_search",
+            "description": "Searches the public web through OpenAI's hosted web search tool and returns a concise answer with source URLs. Use this for current events, recent facts, prices, release status, public websites, or anything that may have changed recently. Do not use this for local PC files or local app state.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": { "type": "string", "description": "The web search question or query." },
+                    "context": { "type": "string", "description": "Optional user context that should shape the answer without replacing the query." },
+                    "responseLanguage": { "type": "string", "description": "Optional desired answer language, for example de or en." }
+                },
+                "required": ["query"],
+                "additionalProperties": false
+            }
         }),
         json!({
             "type": "function",
@@ -403,6 +421,7 @@ pub fn run_voice_agent_tool(
     match tool_name {
         "discover_environment" | "get_pc_context" => discover_environment_tool(),
         "get_current_time" | "get_local_time" | "get_time" => get_current_time_tool(),
+        "web_search" => web_search_tool(&args, settings),
         "create_timer" => create_timer_tool(&args, app),
         "list_timers" => list_timers_tool(app),
         "get_timer_status" => get_timer_status_tool(&args, app),
@@ -477,6 +496,242 @@ fn get_current_time_tool() -> Result<Value, String> {
             format_offset_label(offset_seconds)
         ),
     }))
+}
+
+fn web_search_tool(args: &Value, settings: &SettingsState) -> Result<Value, String> {
+    let query = value_to_string(args.get("query")).trim().to_string();
+    if query.is_empty() {
+        return Err("Missing web search query.".to_string());
+    }
+
+    let context = value_to_string(args.get("context")).trim().to_string();
+    let response_language = value_to_string(args.get("responseLanguage")).trim().to_string();
+    let app_settings = settings.get();
+    let api_key = resolve_openai_api_key(&app_settings)?;
+    let model = configured_web_search_model();
+    let input = build_web_search_input(&query, &context, &response_language);
+
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(60))
+        .build()
+        .map_err(|error| format!("Failed to create OpenAI web search client: {error}"))?;
+
+    let response = client
+        .post("https://api.openai.com/v1/responses")
+        .bearer_auth(api_key)
+        .header("Content-Type", "application/json")
+        .json(&json!({
+            "model": model,
+            "reasoning": { "effort": "low" },
+            "tools": [{ "type": "web_search" }],
+            "tool_choice": "auto",
+            "include": ["web_search_call.action.sources"],
+            "input": input,
+        }))
+        .send()
+        .map_err(|error| format!("OpenAI web search request failed: {error}"))?;
+
+    let status = response.status();
+    let payload: Value = response
+        .json()
+        .map_err(|error| format!("Failed to decode OpenAI web search response: {error}"))?;
+
+    if !status.is_success() {
+        return Err(format!("OpenAI web search failed ({status}): {payload}"));
+    }
+
+    let answer = extract_response_text(&payload)
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| "OpenAI web search response did not contain an answer.".to_string())?;
+    let sources = extract_web_search_sources(&payload);
+    let source_count = sources.len();
+
+    Ok(json!({
+        "ok": true,
+        "toolName": "web_search",
+        "query": query,
+        "answer": answer,
+        "sources": sources,
+        "model": model,
+        "searchedAt": Utc::now().to_rfc3339(),
+        "message": format!("Web search completed with {source_count} source(s)."),
+    }))
+}
+
+fn configured_web_search_model() -> String {
+    env::var("OPENAI_WEB_SEARCH_MODEL")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| DEFAULT_WEB_SEARCH_MODEL.to_string())
+}
+
+fn build_web_search_input(query: &str, context: &str, response_language: &str) -> String {
+    let mut parts = vec![
+        "Search the public web before answering. Return a concise, factual answer and preserve useful source references from the search result.".to_string(),
+        format!("Question: {query}"),
+    ];
+
+    if !context.is_empty() {
+        parts.push(format!("Additional context: {context}"));
+    }
+
+    if !response_language.is_empty() {
+        parts.push(format!("Answer language: {response_language}"));
+    }
+
+    parts.join("\n")
+}
+
+fn extract_response_text(payload: &Value) -> Option<String> {
+    if let Some(text) = payload
+        .get("output_text")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        return Some(text.to_string());
+    }
+
+    let mut parts = Vec::new();
+    if let Some(output) = payload.get("output").and_then(Value::as_array) {
+        for item in output {
+            if item.get("type").and_then(Value::as_str) == Some("message") {
+                collect_content_texts(item.get("content"), &mut parts);
+            }
+        }
+    }
+
+    if parts.is_empty() {
+        collect_content_texts(payload.get("content"), &mut parts);
+    }
+
+    if parts.is_empty() {
+        if let Some(choices) = payload.get("choices").and_then(Value::as_array) {
+            for choice in choices {
+                if let Some(message) = choice.get("message") {
+                    if let Some(text) = message.get("content").and_then(Value::as_str) {
+                        push_trimmed_text(text, &mut parts);
+                    }
+                }
+            }
+        }
+    }
+
+    if parts.is_empty() {
+        None
+    } else {
+        Some(parts.join("\n\n"))
+    }
+}
+
+fn collect_content_texts(content: Option<&Value>, parts: &mut Vec<String>) {
+    match content {
+        Some(Value::Array(items)) => {
+            for item in items {
+                if let Some(text) = item.get("text").and_then(Value::as_str) {
+                    push_trimmed_text(text, parts);
+                }
+            }
+        }
+        Some(Value::String(text)) => push_trimmed_text(text, parts),
+        _ => {}
+    }
+}
+
+fn push_trimmed_text(text: &str, parts: &mut Vec<String>) {
+    let trimmed = text.trim();
+    if !trimmed.is_empty() {
+        parts.push(trimmed.to_string());
+    }
+}
+
+fn extract_web_search_sources(payload: &Value) -> Vec<Value> {
+    let mut sources = Vec::new();
+    let mut seen_urls = HashSet::new();
+
+    if let Some(output) = payload.get("output").and_then(Value::as_array) {
+        for item in output {
+            if item.get("type").and_then(Value::as_str) == Some("message") {
+                collect_sources_from_content(item.get("content"), &mut sources, &mut seen_urls);
+            }
+
+            if item.get("type").and_then(Value::as_str) == Some("web_search_call") {
+                if let Some(action_sources) = item
+                    .get("action")
+                    .and_then(|value| value.get("sources"))
+                    .and_then(Value::as_array)
+                {
+                    for source in action_sources {
+                        push_web_source(source, &mut sources, &mut seen_urls);
+                    }
+                }
+            }
+        }
+    }
+
+    if let Some(choices) = payload.get("choices").and_then(Value::as_array) {
+        for choice in choices {
+            if let Some(annotations) = choice
+                .get("message")
+                .and_then(|message| message.get("annotations"))
+                .and_then(Value::as_array)
+            {
+                for annotation in annotations {
+                    push_web_source(annotation, &mut sources, &mut seen_urls);
+                }
+            }
+        }
+    }
+
+    sources
+}
+
+fn collect_sources_from_content(
+    content: Option<&Value>,
+    sources: &mut Vec<Value>,
+    seen_urls: &mut HashSet<String>,
+) {
+    if let Some(items) = content.and_then(Value::as_array) {
+        for item in items {
+            if let Some(annotations) = item.get("annotations").and_then(Value::as_array) {
+                for annotation in annotations {
+                    push_web_source(annotation, sources, seen_urls);
+                }
+            }
+        }
+    }
+}
+
+fn push_web_source(raw_source: &Value, sources: &mut Vec<Value>, seen_urls: &mut HashSet<String>) {
+    let source = raw_source.get("url_citation").unwrap_or(raw_source);
+    let url = source.get("url").and_then(Value::as_str).map(str::trim).unwrap_or_default();
+    if url.is_empty() || !seen_urls.insert(url.to_string()) {
+        return;
+    }
+
+    let mut item = json!({ "url": url });
+    if let Some(object) = item.as_object_mut() {
+        if let Some(title) = source
+            .get("title")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            object.insert("title".to_string(), Value::String(title.to_string()));
+        }
+
+        if let Some(source_type) = source
+            .get("type")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty() && *value != "url_citation")
+        {
+            object.insert("type".to_string(), Value::String(source_type.to_string()));
+        }
+    }
+
+    sources.push(item);
 }
 
 fn create_timer_tool(args: &Value, app: &AppHandle) -> Result<Value, String> {
@@ -2751,7 +3006,10 @@ fn extract_json_value(raw_text: &str) -> Result<Value, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{create_word_document, extract_json_value, format_offset_label, get_current_time_tool};
+    use super::{
+        create_word_document, extract_json_value, extract_response_text,
+        extract_web_search_sources, format_offset_label, get_current_time_tool,
+    };
     use serde_json::json;
     use std::{
         env, fs,
@@ -2800,6 +3058,74 @@ mod tests {
         assert!(document_xml.contains("Wie man einen Kuchen backt."));
 
         let _ = fs::remove_file(target);
+    }
+
+    #[test]
+    fn extract_response_text_reads_responses_output_messages() {
+        let payload = json!({
+            "output": [
+                {
+                    "type": "web_search_call",
+                    "status": "completed"
+                },
+                {
+                    "type": "message",
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": "A concise answer with citations."
+                        }
+                    ]
+                }
+            ]
+        });
+
+        assert_eq!(
+            extract_response_text(&payload).as_deref(),
+            Some("A concise answer with citations.")
+        );
+    }
+
+    #[test]
+    fn extract_web_search_sources_reads_annotations_and_action_sources() {
+        let payload = json!({
+            "output": [
+                {
+                    "type": "web_search_call",
+                    "action": {
+                        "sources": [
+                            { "url": "https://example.com/extra", "title": "Extra source" }
+                        ]
+                    }
+                },
+                {
+                    "type": "message",
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": "Answer",
+                            "annotations": [
+                                {
+                                    "type": "url_citation",
+                                    "url": "https://example.com/main",
+                                    "title": "Main source"
+                                },
+                                {
+                                    "type": "url_citation",
+                                    "url": "https://example.com/main",
+                                    "title": "Duplicate source"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        });
+
+        let sources = extract_web_search_sources(&payload);
+        assert_eq!(sources.len(), 2);
+        assert_eq!(sources[0].get("url").and_then(serde_json::Value::as_str), Some("https://example.com/extra"));
+        assert_eq!(sources[1].get("url").and_then(serde_json::Value::as_str), Some("https://example.com/main"));
     }
 
     #[test]

@@ -255,8 +255,7 @@ pub fn sanitize_settings(mut settings: AppSettings) -> AppSettings {
     settings.playback_speed = sanitize_playback_speed(settings.playback_speed);
     settings.openai_api_key = settings.openai_api_key.trim().to_string();
     settings.ai_provider_mode = sanitize_provider_mode(settings.ai_provider_mode);
-    settings.hosted_api_base_url =
-        configured_hosted_api_base_url(&settings.hosted_api_base_url);
+    settings.hosted_api_base_url = configured_hosted_api_base_url(&settings.hosted_api_base_url);
     settings.hosted_account_email = settings.hosted_account_email.trim().to_lowercase();
     settings.hosted_access_token = settings.hosted_access_token.trim().to_string();
     settings.hosted_workspace_slug = settings.hosted_workspace_slug.trim().to_lowercase();
@@ -290,10 +289,8 @@ pub fn sanitize_settings(mut settings: AppSettings) -> AppSettings {
     settings.voice_agent_preferred_language =
         default_voice_agent_preferred_language(&settings.stt_language);
     settings.voice_agent_gender = sanitize_voice_agent_gender(settings.voice_agent_gender);
-    settings.voice_agent_voice = sanitize_realtime_voice_for_model(
-        &settings.voice_agent_voice,
-        &settings.voice_agent_model,
-    );
+    settings.voice_agent_voice =
+        sanitize_realtime_voice_for_model(&settings.voice_agent_voice, &settings.voice_agent_model);
     settings.voice_agent_tone_notes =
         sanitize_multiline(settings.voice_agent_tone_notes, String::new());
     settings.timer_notification_mode =
@@ -400,9 +397,8 @@ fn normalize_api_base_url(value: &str) -> String {
 pub fn configured_hosted_api_base_url(current: &str) -> String {
     load_env_file_if_present();
 
-    let from_env = env::var("BACKEND_URL")
-        .map(|value| normalize_api_base_url(&value))
-        .unwrap_or_default();
+    let from_env =
+        env::var("BACKEND_URL").map(|value| normalize_api_base_url(&value)).unwrap_or_default();
     if !from_env.is_empty() {
         return from_env;
     }
@@ -425,9 +421,7 @@ pub fn sanitize_voice_agent_gender(value: String) -> String {
 
 pub fn sanitize_voice_agent_model(value: String) -> String {
     match value.trim().to_lowercase().as_str() {
-        "gpt-realtime-mini" | "realtime-mini" | "realtime_mini" => {
-            "gpt-realtime-mini".to_string()
-        }
+        "gpt-realtime-mini" | "realtime-mini" | "realtime_mini" => "gpt-realtime-mini".to_string(),
         "gpt-realtime" | "gpt-realtime-1.5" | "realtime" => "gpt-realtime".to_string(),
         _ => AppSettings::default().voice_agent_model,
     }
@@ -518,14 +512,8 @@ mod tests {
             sanitize_voice_agent_model("gpt-realtime-mini".to_string()),
             "gpt-realtime-mini"
         );
-        assert_eq!(
-            sanitize_voice_agent_model("gpt-realtime-1.5".to_string()),
-            "gpt-realtime"
-        );
-        assert_eq!(
-            sanitize_voice_agent_model("realtime-mini".to_string()),
-            "gpt-realtime-mini"
-        );
+        assert_eq!(sanitize_voice_agent_model("gpt-realtime-1.5".to_string()), "gpt-realtime");
+        assert_eq!(sanitize_voice_agent_model("realtime-mini".to_string()), "gpt-realtime-mini");
     }
 
     #[test]

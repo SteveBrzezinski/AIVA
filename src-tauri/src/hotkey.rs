@@ -391,8 +391,8 @@ mod windows_impl {
         UI::{
             Input::KeyboardAndMouse::{
                 GetAsyncKeyState, RegisterHotKey, UnregisterHotKey, MOD_CONTROL, MOD_NOREPEAT,
-                MOD_SHIFT, VIRTUAL_KEY, VK_A, VK_CONTROL, VK_D, VK_MENU, VK_P, VK_SHIFT,
-                VK_SPACE, VK_T, VK_X, VK_Y,
+                MOD_SHIFT, VIRTUAL_KEY, VK_A, VK_CONTROL, VK_D, VK_MENU, VK_P, VK_SHIFT, VK_SPACE,
+                VK_T, VK_X, VK_Y,
             },
             WindowsAndMessaging::{GetMessageW, MSG, WM_HOTKEY},
         },
@@ -449,11 +449,9 @@ mod windows_impl {
             }
 
             let dictation_modifiers = MOD_CONTROL | MOD_SHIFT | MOD_NOREPEAT;
-            for (id, key, label) in [(
-                DICTATION_CLIPBOARD_HOTKEY_ID,
-                VK_Y.0 as u32,
-                DEFAULT_DICTATION_CLIPBOARD_HOTKEY,
-            )] {
+            for (id, key, label) in
+                [(DICTATION_CLIPBOARD_HOTKEY_ID, VK_Y.0 as u32, DEFAULT_DICTATION_CLIPBOARD_HOTKEY)]
+            {
                 if let Err(error) =
                     RegisterHotKey(HWND(std::ptr::null_mut()), id, dictation_modifiers, key)
                 {
